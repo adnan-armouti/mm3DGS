@@ -1,0 +1,9 @@
+{
+  "frame": 277,
+  "winner": "lidar_4dof",
+  "cc_lidar_4dof": 0.22538873672134074,
+  "cc_renderer_2dof": 0.19977957567517288,
+  "config_suffix": "_aligned_gpu",
+  "winner_cc": 0.22538873672134074,
+  "aligned_config_path": "alignment_data/seq_1_frame_277/cascade/cascaded_frame_277_aligned_gpu.json"
+}

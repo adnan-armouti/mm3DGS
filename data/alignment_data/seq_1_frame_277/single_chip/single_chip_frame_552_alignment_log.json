@@ -1,0 +1,21 @@
+{
+  "scene": "seq_1_frame_277",
+  "sc_frame": 552,
+  "warm_start_cc": 0.2545814145958181,
+  "cc_2dof": 0.3104420128958013,
+  "cc_4dof": 0.37209587458548066,
+  "winner": "4dof",
+  "winner_cc": 0.37209587458548066,
+  "improvement_over_warm": 0.11751445998966253,
+  "params_2dof": [
+    -0.25083007812499997,
+    -8.30078125e-06
+  ],
+  "params_4dof": [
+    1.05,
+    2.5,
+    5.0,
+    2.5
+  ],
+  "refined_config_path": "alignment_data/seq_1_frame_277/single_chip/single_chip_frame_552_refined.json"
+}

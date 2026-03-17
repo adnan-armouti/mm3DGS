@@ -1,0 +1,21 @@
+<scene version="2.1.0">
+
+<!-- Materials -->
+
+    <bsdf type="radio-material" id="mesh-material">
+        <float name="relative_permittivity" value="4.2"/>
+        <float name="conductivity" value="0.05"/>
+        <float name="thickness" value="0.1"/>
+        <float name="scattering_coefficient" value="0.0"/>
+        <float name="xpd_coefficient" value="0.0"/>
+    </bsdf>
+
+<!-- Shapes -->
+
+	<shape type="ply" id="mesh-object">
+		<string name="filename" value="mesh_trimmed_8.ply"/>
+		<boolean name="face_normals" value="true"/>
+		<ref id="mesh-material" name="bsdf"/>
+	</shape>
+</scene>
+

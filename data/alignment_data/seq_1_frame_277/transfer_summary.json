@@ -1,0 +1,236 @@
+{
+  "scene_name": "seq_1_frame_277",
+  "seq_idx": 1,
+  "n_cascade_frames_aligned": 9,
+  "n_sc_frames_transferred": 9,
+  "cascade_mean_cc": 0.21317589499826156,
+  "cascade_frames": {
+    "273": {
+      "frame": 273,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.1830052341310811
+    },
+    "274": {
+      "frame": 274,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.24161588016093669
+    },
+    "275": {
+      "frame": 275,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.24692254366837554
+    },
+    "276": {
+      "frame": 276,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.13102738588671436
+    },
+    "277": {
+      "frame": 277,
+      "winner": "lidar_4dof",
+      "winner_cc": 0.22538873672134074
+    },
+    "278": {
+      "frame": 278,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.21509334247486994
+    },
+    "279": {
+      "frame": 279,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.1555998245886238
+    },
+    "280": {
+      "frame": 280,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.26566699344540107
+    },
+    "281": {
+      "frame": 281,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.25426311390701084
+    }
+  },
+  "sc_transfers": [
+    {
+      "sc_frame": 544,
+      "timestamp": 1614647393.29694,
+      "config_path": "alignment_data/seq_1_frame_277/single_chip/single_chip_frame_544_aligned.json",
+      "interpolation_alpha": 0.0,
+      "bracketing_cascade_frames": [
+        273,
+        273
+      ],
+      "sc_center_m": [
+        -0.9764682461263795,
+        24.419517044529798,
+        1.134598369462605
+      ],
+      "sc_boresight": [
+        0.9921217828507338,
+        -0.11703222033627698,
+        0.044697040128431176
+      ]
+    },
+    {
+      "sc_frame": 546,
+      "timestamp": 1614647393.496874,
+      "config_path": "alignment_data/seq_1_frame_277/single_chip/single_chip_frame_546_aligned.json",
+      "interpolation_alpha": 0.7568725731346978,
+      "bracketing_cascade_frames": [
+        273,
+        274
+      ],
+      "sc_center_m": [
+        -2.382303144707755,
+        25.526933599810487,
+        1.0854012612089907
+      ],
+      "sc_boresight": [
+        0.9899434660453179,
+        -0.14143999605875668,
+        -0.002580610214877194
+      ]
+    },
+    {
+      "sc_frame": 548,
+      "timestamp": 1614647393.696602,
+      "config_path": "alignment_data/seq_1_frame_277/single_chip/single_chip_frame_548_aligned.json",
+      "interpolation_alpha": 0.7565115612459392,
+      "bracketing_cascade_frames": [
+        274,
+        275
+      ],
+      "sc_center_m": [
+        -2.827576080163618,
+        25.87059686706871,
+        1.0218786693076978
+      ],
+      "sc_boresight": [
+        0.9891055529045596,
+        -0.14712490261115288,
+        0.0049463365255738405
+      ]
+    },
+    {
+      "sc_frame": 550,
+      "timestamp": 1614647393.89661,
+      "config_path": "alignment_data/seq_1_frame_277/single_chip/single_chip_frame_550_aligned.json",
+      "interpolation_alpha": 0.7541742130484611,
+      "bracketing_cascade_frames": [
+        275,
+        276
+      ],
+      "sc_center_m": [
+        -1.2720409407812658,
+        24.335237101355833,
+        1.037959157751556
+      ],
+      "sc_boresight": [
+        0.9928144022957416,
+        -0.1163260801301633,
+        0.028067840595602852
+      ]
+    },
+    {
+      "sc_frame": 552,
+      "timestamp": 1614647394.096926,
+      "config_path": "alignment_data/seq_1_frame_277/single_chip/single_chip_frame_552_aligned.json",
+      "interpolation_alpha": 0.7536426631372727,
+      "bracketing_cascade_frames": [
+        276,
+        277
+      ],
+      "sc_center_m": [
+        -1.7775420901023469,
+        25.3157884176306,
+        1.1107849936340086
+      ],
+      "sc_boresight": [
+        0.9724113628251191,
+        -0.19238377699131318,
+        -0.13192657730401153
+      ]
+    },
+    {
+      "sc_frame": 554,
+      "timestamp": 1614647394.296754,
+      "config_path": "alignment_data/seq_1_frame_277/single_chip/single_chip_frame_554_aligned.json",
+      "interpolation_alpha": 0.756144722654846,
+      "bracketing_cascade_frames": [
+        277,
+        278
+      ],
+      "sc_center_m": [
+        -2.814732145764748,
+        24.465699398673898,
+        1.0109175230181853
+      ],
+      "sc_boresight": [
+        0.9905166159482974,
+        -0.13101880738498772,
+        -0.04136307099030098
+      ]
+    },
+    {
+      "sc_frame": 556,
+      "timestamp": 1614647394.497004,
+      "config_path": "alignment_data/seq_1_frame_277/single_chip/single_chip_frame_556_aligned.json",
+      "interpolation_alpha": 0.7551130835133019,
+      "bracketing_cascade_frames": [
+        278,
+        279
+      ],
+      "sc_center_m": [
+        -2.6828390256312913,
+        25.055299914127072,
+        0.9936068433939994
+      ],
+      "sc_boresight": [
+        0.9923979110320058,
+        -0.1230293760820349,
+        -0.003186973513569313
+      ]
+    },
+    {
+      "sc_frame": 558,
+      "timestamp": 1614647394.696986,
+      "config_path": "alignment_data/seq_1_frame_277/single_chip/single_chip_frame_558_aligned.json",
+      "interpolation_alpha": 0.7557297336700051,
+      "bracketing_cascade_frames": [
+        279,
+        280
+      ],
+      "sc_center_m": [
+        -1.7872166630732926,
+        25.53579972676492,
+        1.0003346417471075
+      ],
+      "sc_boresight": [
+        0.9878447031318099,
+        -0.15509992239925063,
+        -0.01033704823305595
+      ]
+    },
+    {
+      "sc_frame": 560,
+      "timestamp": 1614647394.896912,
+      "config_path": "alignment_data/seq_1_frame_277/single_chip/single_chip_frame_560_aligned.json",
+      "interpolation_alpha": 0.7545785235681962,
+      "bracketing_cascade_frames": [
+        280,
+        281
+      ],
+      "sc_center_m": [
+        -1.8052803995251603,
+        25.163733464616357,
+        0.9621773437336453
+      ],
+      "sc_boresight": [
+        0.9892790179749683,
+        -0.14562180438261,
+        0.011014203685932257
+      ]
+    }
+  ]
+}

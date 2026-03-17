@@ -1,0 +1,236 @@
+{
+  "scene_name": "seq_0_frame_451",
+  "seq_idx": 0,
+  "n_cascade_frames_aligned": 9,
+  "n_sc_frames_transferred": 9,
+  "cascade_mean_cc": 0.35317488901839944,
+  "cascade_frames": {
+    "447": {
+      "frame": 447,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.41595598494219643
+    },
+    "448": {
+      "frame": 448,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.351812821130331
+    },
+    "449": {
+      "frame": 449,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.3719661315816176
+    },
+    "450": {
+      "frame": 450,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.398349702977137
+    },
+    "451": {
+      "frame": 451,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.3198053679185199
+    },
+    "452": {
+      "frame": 452,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.33656549252657153
+    },
+    "453": {
+      "frame": 453,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.3612488721424127
+    },
+    "454": {
+      "frame": 454,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.29894210313466896
+    },
+    "455": {
+      "frame": 455,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.32392752481214
+    }
+  },
+  "sc_transfers": [
+    {
+      "sc_frame": 892,
+      "timestamp": 1614647291.69541,
+      "config_path": "alignment_data/seq_0_frame_451/single_chip/single_chip_frame_892_aligned.json",
+      "interpolation_alpha": 0.0,
+      "bracketing_cascade_frames": [
+        447,
+        447
+      ],
+      "sc_center_m": [
+        1.0431326192047572,
+        -6.438986783262009,
+        0.6576582573004492
+      ],
+      "sc_boresight": [
+        0.9597580189536743,
+        0.2806410996940458,
+        0.010252619988822622
+      ]
+    },
+    {
+      "sc_frame": 894,
+      "timestamp": 1614647291.895297,
+      "config_path": "alignment_data/seq_0_frame_451/single_chip/single_chip_frame_894_aligned.json",
+      "interpolation_alpha": 0.7518678421238331,
+      "bracketing_cascade_frames": [
+        447,
+        448
+      ],
+      "sc_center_m": [
+        1.1572922719163348,
+        -6.429412868203063,
+        0.6228371624858463
+      ],
+      "sc_boresight": [
+        0.9581971597247524,
+        0.28387099206533184,
+        0.035713596280152325
+      ]
+    },
+    {
+      "sc_frame": 896,
+      "timestamp": 1614647292.095638,
+      "config_path": "alignment_data/seq_0_frame_451/single_chip/single_chip_frame_896_aligned.json",
+      "interpolation_alpha": 0.7534075468999547,
+      "bracketing_cascade_frames": [
+        448,
+        449
+      ],
+      "sc_center_m": [
+        2.013856662619903,
+        -6.160982262071062,
+        0.6224155518994083
+      ],
+      "sc_boresight": [
+        0.9621179140931604,
+        0.2606985834963738,
+        0.07978324350394896
+      ]
+    },
+    {
+      "sc_frame": 898,
+      "timestamp": 1614647292.295557,
+      "config_path": "alignment_data/seq_0_frame_451/single_chip/single_chip_frame_898_aligned.json",
+      "interpolation_alpha": 0.753177266298917,
+      "bracketing_cascade_frames": [
+        449,
+        450
+      ],
+      "sc_center_m": [
+        2.4633412841292324,
+        -6.034906589181277,
+        0.6797020568048544
+      ],
+      "sc_boresight": [
+        0.966907053393401,
+        0.2508994371566238,
+        0.04626251757719656
+      ]
+    },
+    {
+      "sc_frame": 900,
+      "timestamp": 1614647292.49577,
+      "config_path": "alignment_data/seq_0_frame_451/single_chip/single_chip_frame_900_aligned.json",
+      "interpolation_alpha": 0.7544547844593749,
+      "bracketing_cascade_frames": [
+        450,
+        451
+      ],
+      "sc_center_m": [
+        2.7042475568320645,
+        -6.114241921529323,
+        0.6670937531362398
+      ],
+      "sc_boresight": [
+        0.9619860414227694,
+        0.26750829133325643,
+        0.05497425011504432
+      ]
+    },
+    {
+      "sc_frame": 902,
+      "timestamp": 1614647292.69534,
+      "config_path": "alignment_data/seq_0_frame_451/single_chip/single_chip_frame_902_aligned.json",
+      "interpolation_alpha": 0.7524889532207949,
+      "bracketing_cascade_frames": [
+        451,
+        452
+      ],
+      "sc_center_m": [
+        3.0225753035749423,
+        -6.095842644169866,
+        0.6369824718581406
+      ],
+      "sc_boresight": [
+        0.9450889433414963,
+        0.31261575944961517,
+        0.09527997752620651
+      ]
+    },
+    {
+      "sc_frame": 905,
+      "timestamp": 1614647292.994653,
+      "config_path": "alignment_data/seq_0_frame_451/single_chip/single_chip_frame_905_aligned.json",
+      "interpolation_alpha": 0.24893158438363852,
+      "bracketing_cascade_frames": [
+        453,
+        454
+      ],
+      "sc_center_m": [
+        3.908832579939971,
+        -6.253391645482546,
+        0.6919850804803164
+      ],
+      "sc_boresight": [
+        0.8980813019573579,
+        0.4337441276767167,
+        0.07291093731766825
+      ]
+    },
+    {
+      "sc_frame": 906,
+      "timestamp": 1614647293.095088,
+      "config_path": "alignment_data/seq_0_frame_451/single_chip/single_chip_frame_906_aligned.json",
+      "interpolation_alpha": 0.7519496569964953,
+      "bracketing_cascade_frames": [
+        453,
+        454
+      ],
+      "sc_center_m": [
+        3.478805463419464,
+        -6.983922682638144,
+        0.6102296984756737
+      ],
+      "sc_boresight": [
+        0.8797758679572697,
+        0.46855195903871694,
+        0.08033356609172218
+      ]
+    },
+    {
+      "sc_frame": 909,
+      "timestamp": 1614647293.394892,
+      "config_path": "alignment_data/seq_0_frame_451/single_chip/single_chip_frame_909_aligned.json",
+      "interpolation_alpha": 1.0,
+      "bracketing_cascade_frames": [
+        455,
+        455
+      ],
+      "sc_center_m": [
+        3.8166899365791553,
+        -4.796755417350613,
+        0.6748924027363187
+      ],
+      "sc_boresight": [
+        0.8390258896167094,
+        0.5274686197590376,
+        0.13346313993903028
+      ]
+    }
+  ]
+}

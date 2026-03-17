@@ -1,0 +1,236 @@
+{
+  "scene_name": "seq_0_frame_135",
+  "seq_idx": 0,
+  "n_cascade_frames_aligned": 9,
+  "n_sc_frames_transferred": 9,
+  "cascade_mean_cc": 0.4274656183865606,
+  "cascade_frames": {
+    "131": {
+      "frame": 131,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.6222994203263117
+    },
+    "132": {
+      "frame": 132,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.44955510134005905
+    },
+    "133": {
+      "frame": 133,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.45445510286168794
+    },
+    "134": {
+      "frame": 134,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.4479136507274009
+    },
+    "135": {
+      "frame": 135,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.4754005366721836
+    },
+    "136": {
+      "frame": 136,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.28801372626091176
+    },
+    "137": {
+      "frame": 137,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.3885335260828866
+    },
+    "138": {
+      "frame": 138,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.40400234083846354
+    },
+    "139": {
+      "frame": 139,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.3170171603691401
+    }
+  },
+  "sc_transfers": [
+    {
+      "sc_frame": 261,
+      "timestamp": 1614647228.495468,
+      "config_path": "alignment_data/seq_0_frame_135/single_chip/single_chip_frame_261_aligned.json",
+      "interpolation_alpha": 0.0,
+      "bracketing_cascade_frames": [
+        131,
+        131
+      ],
+      "sc_center_m": [
+        16.534410073917687,
+        -1.424674414363799,
+        0.49532706379872726
+      ],
+      "sc_boresight": [
+        0.36903984882746516,
+        0.9292209870476252,
+        0.018919439939888056
+      ]
+    },
+    {
+      "sc_frame": 263,
+      "timestamp": 1614647228.695026,
+      "config_path": "alignment_data/seq_0_frame_135/single_chip/single_chip_frame_263_aligned.json",
+      "interpolation_alpha": 0.7514744833213012,
+      "bracketing_cascade_frames": [
+        131,
+        132
+      ],
+      "sc_center_m": [
+        16.593612273085704,
+        -1.6562033580173765,
+        0.5165452572822476
+      ],
+      "sc_boresight": [
+        0.3619321728171907,
+        0.9315996343909895,
+        0.0335741192349365
+      ]
+    },
+    {
+      "sc_frame": 265,
+      "timestamp": 1614647228.895266,
+      "config_path": "alignment_data/seq_0_frame_135/single_chip/single_chip_frame_265_aligned.json",
+      "interpolation_alpha": 0.7537582958489394,
+      "bracketing_cascade_frames": [
+        132,
+        133
+      ],
+      "sc_center_m": [
+        16.637209314151065,
+        -2.5081278230915793,
+        0.5352399574200266
+      ],
+      "sc_boresight": [
+        0.3230446707943596,
+        0.9453125388088522,
+        0.04501491577384187
+      ]
+    },
+    {
+      "sc_frame": 267,
+      "timestamp": 1614647229.095135,
+      "config_path": "alignment_data/seq_0_frame_135/single_chip/single_chip_frame_267_aligned.json",
+      "interpolation_alpha": 0.7540067600285285,
+      "bracketing_cascade_frames": [
+        133,
+        134
+      ],
+      "sc_center_m": [
+        17.176596930018835,
+        -3.0072945627079157,
+        0.5498174646314917
+      ],
+      "sc_boresight": [
+        0.27988145931431774,
+        0.9593314499498283,
+        0.03673602957925327
+      ]
+    },
+    {
+      "sc_frame": 269,
+      "timestamp": 1614647229.295145,
+      "config_path": "alignment_data/seq_0_frame_135/single_chip/single_chip_frame_269_aligned.json",
+      "interpolation_alpha": 0.7544925033511904,
+      "bracketing_cascade_frames": [
+        134,
+        135
+      ],
+      "sc_center_m": [
+        17.029656244438048,
+        -1.9786511070497614,
+        0.7385114264408849
+      ],
+      "sc_boresight": [
+        0.3770494753467607,
+        0.850740000660449,
+        -0.3661627266899129
+      ]
+    },
+    {
+      "sc_frame": 271,
+      "timestamp": 1614647229.495044,
+      "config_path": "alignment_data/seq_0_frame_135/single_chip/single_chip_frame_271_aligned.json",
+      "interpolation_alpha": 0.7536420606176134,
+      "bracketing_cascade_frames": [
+        135,
+        136
+      ],
+      "sc_center_m": [
+        16.92441124451957,
+        -1.2588270212888764,
+        0.6841608169077507
+      ],
+      "sc_boresight": [
+        0.328636244737899,
+        0.9376152158162347,
+        -0.11347212747828184
+      ]
+    },
+    {
+      "sc_frame": 273,
+      "timestamp": 1614647229.695193,
+      "config_path": "alignment_data/seq_0_frame_135/single_chip/single_chip_frame_273_aligned.json",
+      "interpolation_alpha": 0.7548785900409473,
+      "bracketing_cascade_frames": [
+        136,
+        137
+      ],
+      "sc_center_m": [
+        16.996737447860713,
+        -1.3899152184488093,
+        0.6494272078011618
+      ],
+      "sc_boresight": [
+        0.2984425269462192,
+        0.9543944485709756,
+        0.007955667593514905
+      ]
+    },
+    {
+      "sc_frame": 275,
+      "timestamp": 1614647229.895163,
+      "config_path": "alignment_data/seq_0_frame_135/single_chip/single_chip_frame_275_aligned.json",
+      "interpolation_alpha": 0.7545505779296524,
+      "bracketing_cascade_frames": [
+        137,
+        138
+      ],
+      "sc_center_m": [
+        17.04446460812251,
+        -1.4509074854272115,
+        0.689226916715768
+      ],
+      "sc_boresight": [
+        0.30138642297249557,
+        0.9533471573919995,
+        -0.01718777299240041
+      ]
+    },
+    {
+      "sc_frame": 277,
+      "timestamp": 1614647230.095521,
+      "config_path": "alignment_data/seq_0_frame_135/single_chip/single_chip_frame_277_aligned.json",
+      "interpolation_alpha": 0.7562489345189629,
+      "bracketing_cascade_frames": [
+        138,
+        139
+      ],
+      "sc_center_m": [
+        17.415173450353436,
+        -1.7379313789271897,
+        0.7768187815623946
+      ],
+      "sc_boresight": [
+        0.29716785136760215,
+        0.9539078816430302,
+        -0.04184518434502838
+      ]
+    }
+  ]
+}

@@ -1,0 +1,236 @@
+{
+  "scene_name": "seq_0_frame_390",
+  "seq_idx": 0,
+  "n_cascade_frames_aligned": 9,
+  "n_sc_frames_transferred": 9,
+  "cascade_mean_cc": 0.26440869661113875,
+  "cascade_frames": {
+    "386": {
+      "frame": 386,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.3035002644353045
+    },
+    "387": {
+      "frame": 387,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.24869652841543416
+    },
+    "388": {
+      "frame": 388,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.2344007115096929
+    },
+    "389": {
+      "frame": 389,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.21292773852849245
+    },
+    "390": {
+      "frame": 390,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.3632482284460625
+    },
+    "391": {
+      "frame": 391,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.1938370028819061
+    },
+    "392": {
+      "frame": 392,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.19538586396453037
+    },
+    "393": {
+      "frame": 393,
+      "winner": "lidar_4dof",
+      "winner_cc": 0.33425094781382675
+    },
+    "394": {
+      "frame": 394,
+      "winner": "lidar_4dof",
+      "winner_cc": 0.29343098350499924
+    }
+  },
+  "sc_transfers": [
+    {
+      "sc_frame": 770,
+      "timestamp": 1614647279.496475,
+      "config_path": "alignment_data/seq_0_frame_390/single_chip/single_chip_frame_770_aligned.json",
+      "interpolation_alpha": 0.0,
+      "bracketing_cascade_frames": [
+        386,
+        386
+      ],
+      "sc_center_m": [
+        -13.109658255966552,
+        -5.648700789012653,
+        0.5139484186043676
+      ],
+      "sc_boresight": [
+        0.9295879995811863,
+        -0.365843529835174,
+        0.04499622997972754
+      ]
+    },
+    {
+      "sc_frame": 772,
+      "timestamp": 1614647279.696228,
+      "config_path": "alignment_data/seq_0_frame_390/single_chip/single_chip_frame_772_aligned.json",
+      "interpolation_alpha": 0.7547612773684769,
+      "bracketing_cascade_frames": [
+        386,
+        387
+      ],
+      "sc_center_m": [
+        -13.016183038938774,
+        -5.748602847999,
+        0.4792610374760977
+      ],
+      "sc_boresight": [
+        0.9497594344367601,
+        -0.306457105699124,
+        0.06356930914271004
+      ]
+    },
+    {
+      "sc_frame": 774,
+      "timestamp": 1614647279.896182,
+      "config_path": "alignment_data/seq_0_frame_390/single_chip/single_chip_frame_774_aligned.json",
+      "interpolation_alpha": 0.7545461372584781,
+      "bracketing_cascade_frames": [
+        387,
+        388
+      ],
+      "sc_center_m": [
+        -10.571304467477795,
+        -6.384766432074483,
+        0.6494324726863377
+      ],
+      "sc_boresight": [
+        0.9703476138311635,
+        -0.22929109233602493,
+        0.07649249183756246
+      ]
+    },
+    {
+      "sc_frame": 776,
+      "timestamp": 1614647280.096014,
+      "config_path": "alignment_data/seq_0_frame_390/single_chip/single_chip_frame_776_aligned.json",
+      "interpolation_alpha": 0.7545401058094976,
+      "bracketing_cascade_frames": [
+        388,
+        389
+      ],
+      "sc_center_m": [
+        -9.600862264173337,
+        -6.99494411590452,
+        0.6363442025284494
+      ],
+      "sc_boresight": [
+        0.9895274721275751,
+        -0.13908948276787444,
+        0.03859398512950318
+      ]
+    },
+    {
+      "sc_frame": 778,
+      "timestamp": 1614647280.296038,
+      "config_path": "alignment_data/seq_0_frame_390/single_chip/single_chip_frame_778_aligned.json",
+      "interpolation_alpha": 0.754523315358422,
+      "bracketing_cascade_frames": [
+        389,
+        390
+      ],
+      "sc_center_m": [
+        -11.115809793629815,
+        -5.950154032872089,
+        0.38981002806535847
+      ],
+      "sc_boresight": [
+        0.83270297033668,
+        -0.46645293167969226,
+        0.2983746365224273
+      ]
+    },
+    {
+      "sc_frame": 780,
+      "timestamp": 1614647280.49616,
+      "config_path": "alignment_data/seq_0_frame_390/single_chip/single_chip_frame_780_aligned.json",
+      "interpolation_alpha": 0.7549585353322835,
+      "bracketing_cascade_frames": [
+        390,
+        391
+      ],
+      "sc_center_m": [
+        -10.932621734038483,
+        -7.129882909748362,
+        0.5170408150716762
+      ],
+      "sc_boresight": [
+        0.9747152719831432,
+        -0.17340205759639207,
+        0.14093212190329235
+      ]
+    },
+    {
+      "sc_frame": 782,
+      "timestamp": 1614647280.695985,
+      "config_path": "alignment_data/seq_0_frame_390/single_chip/single_chip_frame_782_aligned.json",
+      "interpolation_alpha": 0.7538822744228729,
+      "bracketing_cascade_frames": [
+        391,
+        392
+      ],
+      "sc_center_m": [
+        -9.366486404161751,
+        -5.323217566685564,
+        0.592219376895645
+      ],
+      "sc_boresight": [
+        0.9994893500056415,
+        -0.016512212651057703,
+        0.0273566090491239
+      ]
+    },
+    {
+      "sc_frame": 784,
+      "timestamp": 1614647280.896149,
+      "config_path": "alignment_data/seq_0_frame_390/single_chip/single_chip_frame_784_aligned.json",
+      "interpolation_alpha": 0.7554062600684956,
+      "bracketing_cascade_frames": [
+        392,
+        393
+      ],
+      "sc_center_m": [
+        -8.750025562633464,
+        -6.6414646827836314,
+        0.40466308017749664
+      ],
+      "sc_boresight": [
+        0.9937714207437288,
+        0.07239486941563741,
+        -0.0847192079476857
+      ]
+    },
+    {
+      "sc_frame": 786,
+      "timestamp": 1614647281.096506,
+      "config_path": "alignment_data/seq_0_frame_390/single_chip/single_chip_frame_786_aligned.json",
+      "interpolation_alpha": 0.7571531222778454,
+      "bracketing_cascade_frames": [
+        393,
+        394
+      ],
+      "sc_center_m": [
+        -8.46876685202302,
+        -7.1689489042812236,
+        0.3452349312263769
+      ],
+      "sc_boresight": [
+        0.9844869608690393,
+        0.12695574477158086,
+        -0.12111011827397408
+      ]
+    }
+  ]
+}

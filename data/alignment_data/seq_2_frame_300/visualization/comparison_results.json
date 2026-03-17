@@ -1,0 +1,19 @@
+{
+  "scene": "seq_2_frame_300",
+  "sc_frame": 599,
+  "useful_range_bins": [
+    15,
+    110
+  ],
+  "new_config": "/home/adnan/Desktop/mmIR/alignment_data/seq_2_frame_300/single_chip/single_chip_frame_599_aligned.json",
+  "gt_useful_energy_frac": 0.009222491925649863,
+  "old_config": "/home/adnan/Desktop/mmIR/output/sc_alignment_default/seq_2_frame_300/single_chip_frame_599_aligned.json",
+  "old_trained_cart_corr": -0.007049700048958234,
+  "old_default_cart_corr": -0.018374510876720852,
+  "old_material_benefit": 0.011324810827762618,
+  "old_trained_useful_energy_frac": 1.8262210347071416e-07,
+  "new_trained_cart_corr": 0.55729678628016,
+  "new_default_cart_corr": 0.46234048039813463,
+  "new_material_benefit": 0.09495630588202536,
+  "new_trained_useful_energy_frac": 0.4906504957866463
+}

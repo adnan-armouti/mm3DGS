@@ -1,0 +1,236 @@
+{
+  "scene_name": "seq_1_frame_438",
+  "seq_idx": 1,
+  "n_cascade_frames_aligned": 9,
+  "n_sc_frames_transferred": 9,
+  "cascade_mean_cc": 0.5659185801990361,
+  "cascade_frames": {
+    "434": {
+      "frame": 434,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.4726713429049042
+    },
+    "435": {
+      "frame": 435,
+      "winner": "lidar_4dof",
+      "winner_cc": 0.3804882742606878
+    },
+    "436": {
+      "frame": 436,
+      "winner": "lidar_4dof",
+      "winner_cc": 0.3739773345559919
+    },
+    "437": {
+      "frame": 437,
+      "winner": "lidar_4dof",
+      "winner_cc": 0.5219505955578584
+    },
+    "438": {
+      "frame": 438,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.6132181394358904
+    },
+    "439": {
+      "frame": 439,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.7060362453906934
+    },
+    "440": {
+      "frame": 440,
+      "winner": "lidar_4dof",
+      "winner_cc": 0.6698954135186076
+    },
+    "441": {
+      "frame": 441,
+      "winner": "lidar_4dof",
+      "winner_cc": 0.6611070529405868
+    },
+    "442": {
+      "frame": 442,
+      "winner": "renderer_2dof",
+      "winner_cc": 0.6939228232261041
+    }
+  },
+  "sc_transfers": [
+    {
+      "sc_frame": 866,
+      "timestamp": 1614647425.496882,
+      "config_path": "alignment_data/seq_1_frame_438/single_chip/single_chip_frame_866_aligned.json",
+      "interpolation_alpha": 0.0,
+      "bracketing_cascade_frames": [
+        434,
+        434
+      ],
+      "sc_center_m": [
+        20.705249620930328,
+        5.772103820460865,
+        0.5653187641558496
+      ],
+      "sc_boresight": [
+        0.10624072940905731,
+        -0.9942605644696255,
+        -0.012602989929898402
+      ]
+    },
+    {
+      "sc_frame": 868,
+      "timestamp": 1614647425.696822,
+      "config_path": "alignment_data/seq_1_frame_438/single_chip/single_chip_frame_868_aligned.json",
+      "interpolation_alpha": 0.7578197658148788,
+      "bracketing_cascade_frames": [
+        434,
+        435
+      ],
+      "sc_center_m": [
+        20.908367379792097,
+        5.0810670267799,
+        0.5828705513077357
+      ],
+      "sc_boresight": [
+        0.11900938327212494,
+        -0.9921272336236137,
+        0.038991242549371294
+      ]
+    },
+    {
+      "sc_frame": 870,
+      "timestamp": 1614647425.897245,
+      "config_path": "alignment_data/seq_1_frame_438/single_chip/single_chip_frame_870_aligned.json",
+      "interpolation_alpha": 0.7605072904807254,
+      "bracketing_cascade_frames": [
+        435,
+        436
+      ],
+      "sc_center_m": [
+        20.157665704932196,
+        5.170961662754679,
+        0.5753442359388765
+      ],
+      "sc_boresight": [
+        0.10171185428597088,
+        -0.9948134564196615,
+        -0.000940012806098192
+      ]
+    },
+    {
+      "sc_frame": 872,
+      "timestamp": 1614647426.096907,
+      "config_path": "alignment_data/seq_1_frame_438/single_chip/single_chip_frame_872_aligned.json",
+      "interpolation_alpha": 0.758124007343574,
+      "bracketing_cascade_frames": [
+        436,
+        437
+      ],
+      "sc_center_m": [
+        19.86911477430037,
+        5.065448086451566,
+        0.5485798708246011
+      ],
+      "sc_boresight": [
+        0.10131388788062475,
+        -0.9946404502331789,
+        0.020636590863109226
+      ]
+    },
+    {
+      "sc_frame": 874,
+      "timestamp": 1614647426.296787,
+      "config_path": "alignment_data/seq_1_frame_438/single_chip/single_chip_frame_874_aligned.json",
+      "interpolation_alpha": 0.7568262486342737,
+      "bracketing_cascade_frames": [
+        437,
+        438
+      ],
+      "sc_center_m": [
+        19.47835856106668,
+        4.80762304343807,
+        0.6094934465187747
+      ],
+      "sc_boresight": [
+        0.03304578589411657,
+        -0.9987327634037764,
+        -0.037958415911320806
+      ]
+    },
+    {
+      "sc_frame": 876,
+      "timestamp": 1614647426.496638,
+      "config_path": "alignment_data/seq_1_frame_438/single_chip/single_chip_frame_876_aligned.json",
+      "interpolation_alpha": 0.7558115420371385,
+      "bracketing_cascade_frames": [
+        438,
+        439
+      ],
+      "sc_center_m": [
+        19.22269576497747,
+        4.556541552434788,
+        0.6087059588363863
+      ],
+      "sc_boresight": [
+        -0.017615963905690347,
+        -0.9997685957366772,
+        -0.0123462866638428
+      ]
+    },
+    {
+      "sc_frame": 878,
+      "timestamp": 1614647426.696685,
+      "config_path": "alignment_data/seq_1_frame_438/single_chip/single_chip_frame_878_aligned.json",
+      "interpolation_alpha": 0.7571852598298844,
+      "bracketing_cascade_frames": [
+        439,
+        440
+      ],
+      "sc_center_m": [
+        19.65212915246862,
+        4.305270938086699,
+        0.6040329830636886
+      ],
+      "sc_boresight": [
+        0.041231409906179135,
+        -0.9985983394058415,
+        0.03318622263898917
+      ]
+    },
+    {
+      "sc_frame": 880,
+      "timestamp": 1614647426.896619,
+      "config_path": "alignment_data/seq_1_frame_438/single_chip/single_chip_frame_880_aligned.json",
+      "interpolation_alpha": 0.7574247213680064,
+      "bracketing_cascade_frames": [
+        440,
+        441
+      ],
+      "sc_center_m": [
+        19.821287038853775,
+        4.063100153665277,
+        0.6340282761423734
+      ],
+      "sc_boresight": [
+        0.00454146060014532,
+        -0.999950695728982,
+        0.008830585866298913
+      ]
+    },
+    {
+      "sc_frame": 882,
+      "timestamp": 1614647427.096847,
+      "config_path": "alignment_data/seq_1_frame_438/single_chip/single_chip_frame_882_aligned.json",
+      "interpolation_alpha": 0.7587318165397505,
+      "bracketing_cascade_frames": [
+        441,
+        442
+      ],
+      "sc_center_m": [
+        19.99754439399471,
+        3.7613878310126205,
+        0.6061552413841252
+      ],
+      "sc_boresight": [
+        -0.12850507962143026,
+        -0.991201880071285,
+        0.031706079143276424
+      ]
+    }
+  ]
+}

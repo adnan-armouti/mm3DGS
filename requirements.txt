@@ -1,0 +1,37 @@
+# Core rendering / autodiff
+drjit==1.2.0
+mitsuba==3.7.1
+
+# Deep learning
+torch>=2.1.0
+torchvision>=0.16.0
+
+# Scientific computing
+numpy>=1.24.0
+scipy>=1.10.0
+matplotlib>=3.7.0
+scikit-image>=0.20.0
+scikit-learn>=1.2.0
+
+# 3D geometry
+open3d>=0.17.0
+trimesh>=4.0.0
+
+# Radar / signal processing
+# (sionna-rt is installed separately; see README)
+
+# Diffraction (optional, for GPU FSD aperture)
+slangtorch>=1.3.0
+
+# Utilities
+tqdm>=4.60.0
+PyYAML>=6.0
+Pillow>=9.0.0
+seaborn>=0.12.0
+pandas>=1.5.0
+
+# Visualization (optional, for interactive 3D)
+plotly>=5.0.0
+
+# Testing
+pytest>=7.0.0

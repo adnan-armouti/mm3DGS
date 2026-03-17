@@ -1,0 +1,14 @@
+{
+  "scene": "seq_0_frame_451",
+  "sc_frame": 900,
+  "useful_range_bins": [
+    15,
+    110
+  ],
+  "new_config": "/home/adnan/Desktop/mmIR/alignment_data/seq_0_frame_451/single_chip/single_chip_frame_900_aligned.json",
+  "gt_useful_energy_frac": 0.004458387741120944,
+  "new_trained_cart_corr": 0.13097523236975528,
+  "new_default_cart_corr": 0.13097523236975528,
+  "new_material_benefit": 0.0,
+  "new_trained_useful_energy_frac": 0.49335299568741897
+}

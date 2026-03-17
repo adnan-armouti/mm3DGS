@@ -1,0 +1,58 @@
+# ============================================================
+# mm3DGS .gitignore
+# ============================================================
+# Keep: source code, configs (JSON), small assets, docs
+# Exclude: large binary data, training outputs, caches
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+*.so
+
+# ── Large binary data (use Git LFS or download separately) ──
+# Radar ADC measurements (~12 MB each)
+data/*/radar/*.npy
+# LiDAR point clouds (~1-7 MB each)
+data/*/lidar/*.npy
+# Scene meshes (~2-80 MB each)
+data/*/scene/*.ply
+data/*/scene/*.npy
+# Alignment visualization PNGs
+data/alignment_data/*/visualization/*.png
+
+# ── Training outputs ──
+# Trained weights, rendered arrays, checkpoints
+output/training/*/best_*.npz
+output/training/*/*.npy
+output/training/*/checkpoints/
+output/evaluation/
+output/postprocess*/
+
+# ── IDE / OS ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Conda / venv ──
+.conda/
+venv/
+*.conda
+*.tar.gz
+
+# ── Jupyter ──
+.ipynb_checkpoints/
+notebooks/
+
+# ── Misc ──
+*.log
+*.tmp
+wandb/

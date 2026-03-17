@@ -1,0 +1,9 @@
+{
+  "frame": 135,
+  "winner": "renderer_2dof",
+  "cc_lidar_4dof": 0.4754005210734987,
+  "cc_renderer_2dof": 0.4754005366721836,
+  "config_suffix": "_aligned_2dof",
+  "winner_cc": 0.4754005366721836,
+  "aligned_config_path": "alignment_data/seq_0_frame_135/cascade/cascaded_frame_135_aligned_2dof.json"
+}

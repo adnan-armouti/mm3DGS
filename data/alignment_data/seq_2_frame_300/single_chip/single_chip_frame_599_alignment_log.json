@@ -1,0 +1,21 @@
+{
+  "scene": "seq_2_frame_300",
+  "sc_frame": 599,
+  "warm_start_cc": 0.39901564042469323,
+  "cc_2dof": 0.4721785866382668,
+  "cc_4dof": 0.5795678300296306,
+  "winner": "4dof",
+  "winner_cc": 0.5795678300296306,
+  "improvement_over_warm": 0.1805521896049374,
+  "params_2dof": [
+    0.9998779296874998,
+    2.0268798828125005
+  ],
+  "params_4dof": [
+    1.0153658866911428,
+    0.0001501705409464193,
+    0.00010237810252874629,
+    -2.406751072194311
+  ],
+  "refined_config_path": "alignment_data/seq_2_frame_300/single_chip/single_chip_frame_599_refined.json"
+}
