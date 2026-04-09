@@ -1,0 +1,178 @@
+\section{Implementation Details}
+\label{sec:supp_implementation}
+
+\subsection{Input Data Format and Pre-Processing}
+\label{sec:supp_preprocessing}
+
+Our method operates on synchronized radar and LiDAR data from the ColoRadar dataset~\cite{kramer2022coloradar}. We extract cascaded FMCW radar ADC data for the target frame, applying both phase and frequency calibration to the raw ADC samples before transposing to the format $(N_C, N_{Rx}, N_{Tx}, N_{ADC})$, where $N_C$ is the number of chirps, $N_{Rx}$ and $N_{Tx}$ are the receiver and transmitter counts, and $N_{ADC}$ is the ADC sample count. To construct the 3D scene geometry, we aggregate approximately 50 LiDAR frames centered temporally around the radar observation, transforming each frame to world coordinates using ground truth vehicle poses and cropping to the radar field-of-view. We remove exact duplicates and points coinciding with sensor positions, yielding a fused point cloud typically containing 100,000--500,000 points. Surface normals are estimated using GPU-accelerated radius search (FAISS) with a 0.1m neighborhood radius: for each point, we compute the covariance matrix of its neighbors and extract the eigenvector corresponding to the
+smallest eigenvalue, then orient normals toward the nearest LiDAR sensor position to ensure consistent outward-facing orientation.
+
+Finally, we reconstruct a triangle mesh from the oriented point cloud using screened Poisson surface reconstruction~\cite{kazhdan2006poisson}. We set the octree depth to 8, point weight to 1.0, and apply aggressive surface trimming with threshold 8.0 to remove spurious geometry far from the input points. This produces a clean mesh (typically 200,000--800,000 triangles) suitable for our differentiable ray tracing renderer. All processed data (calibrated ADC samples, individual LiDAR frames, aggregated point clouds with normals, and reconstructed meshes) are saved in standardized formats (NumPy arrays for radar/LiDAR data, PLY for meshes) for reproducibility. For each scene, JSON files specify the radar array geometry, waveform parameters, and calibrated extrinsics for rendering.
+
+\subsection{LiDAR-Radar Coarse-to-Fine Alignment}
+\label{sec:supp_alignment}
+
+Due to residual calibration errors between the LiDAR and radar coordinate frames, we perform an automated coarse-to-fine extrinsic alignment procedure before training. This aligns the LiDAR-derived mesh with the radar observations by optimizing over a 4-DoF transformation: range translation $\Delta r$, azimuth translation $\Delta\theta$, and rotations around the elevation and azimuth axes ($\phi_\text{el}$, $\phi_\text{az}$).
+
+\paragraph{Coarse grid search (GPU-accelerated).}
+We first perform a coarse grid search over the 4D parameter space. For each candidate transformation, we project the LiDAR point cloud into radar range-azimuth (RA) coordinates using the transformed sensor pose, apply antenna pattern weighting, and accumulate intensity-weighted histograms into the RA grid. The resulting synthetic LiDAR-derived RA map is compared against the ground truth radar RA map using Pearson correlation as the objective:
+\begin{equation}
+    \rho = \frac{\sum_{i,j} (L_{ij} - \bar{L})(R_{ij} - \bar{R})}{\sqrt{\sum_{i,j}(L_{ij} - \bar{L})^2}\sqrt{\sum_{i,j}(R_{ij} - \bar{R})^2}},
+\end{equation}
+where $L$ and $R$ are the min-max normalized LiDAR and radar RA maps. The grid search uses 5--7 steps per dimension with typical search ranges: $\Delta r \in [-3, 3]$~m, $\Delta\theta \in [-15^\circ, 15^\circ]$, $\phi_\text{el}, \phi_\text{az} \in [-10^\circ, 10^\circ]$. GPU acceleration via CuPy enables evaluation of $\sim$2500 grid points in under 2 seconds.
+
+\paragraph{Fine optimization.}
+Starting from the best coarse grid point, we refine the alignment using Nelder-Mead optimization (unconstrained, 200 iterations). The fine stage converges to sub-degree angular and sub-centimeter translational precision. Final metrics typically achieve correlation $\rho > 0.7$ between aligned LiDAR and radar RA maps, with the optimized extrinsics saved to a JSON configuration file for subsequent training.
+
+% \subsection{Inverse Renderer}
+
+\subsection{Amplitude-Only Optimization and Gradient Stabilization}
+\label{sec:phase_sensitivity_loss_landscape}
+
+Each ADC sample is a coherent sum of multi-bounce phasors $w_i \cdot e^{j\phi_i}$, where $w_i$ is the real-valued amplitude (BSDF, antenna gains, geometric factors) and $\phi_i \propto d_i / \lambda$ encodes the round-trip path length. At mmWave frequencies ($\lambda \approx 4$\,mm), a sub-millimeter change in path length induces an $\mathcal{O}(1)$ change in phase, making phase gradients with respect to geometry or pose extremely noisy: micrometer-scale parameter perturbations flip phasors between constructive and destructive interference, producing spiky, oscillatory gradients that dominate and destabilize optimization~\cite{chen2025invertwin}.
+
+\paragraph{Amplitude-only gradient propagation.}
+To avoid this instability, we \emph{detach} the phase trigonometric terms from the automatic differentiation graph. Each path's contribution to the ADC is written as:
+\begin{equation}
+    s_\text{real} = w \cdot \overline{\cos(\phi)}, \qquad
+    s_\text{imag} = w \cdot \overline{\sin(\phi)},
+\end{equation}
+where $\overline{(\cdot)}$ denotes a stop-gradient operation. Gradients therefore flow from the loss through the amplitude~$w$ to material parameters, normals, and antenna patterns, but the gradient path through phase $\to$ delay $\to$ geometry is blocked. This design choice means our optimizer cannot directly exploit path-length information---a limitation we discuss further in Sec.~\ref{sec:limitations} (Sec.~\ref{sec:lim_amplitude_only})---but yields smooth, well-behaved gradients that converge reliably. In our experiments, amplitude-only gradients produce more stable convergence and slightly higher training correlation than full phase+amplitude gradients.
+
+\paragraph{Amplitude-gradient challenges.}
+Even with phase detached, amplitude gradients present challenges due to (i) Monte Carlo variance from stochastic path sampling, which introduces per-iteration gradient noise, and (ii) large dynamic range across parameter groups: material parameters (437,604 degrees of freedom) produce dense gradients with moderate magnitude, while antenna patterns and vertex normals have fewer parameters but can exhibit sporadic large gradients from individual high-energy paths. These effects motivate per-parameter-group gradient clipping to prevent any single group from dominating the Adam update.
+
+\paragraph{Per-parameter group gradient clipping.}
+For each parameter group $\theta_k$, we compute the RMS gradient norm:
+\begin{equation}
+    \|\nabla_{\theta_k} \mathcal{L}\|_{\text{RMS}} = \sqrt{\frac{1}{|\theta_k|} \sum_{i \in \theta_k} (\nabla_{\theta_k^i} \mathcal{L})^2},
+\end{equation}
+where $|\theta_k|$ is the total number of scalar parameters in group $k$. If this norm exceeds a predefined threshold $\tau_k$, we rescale all gradients in the group by
+\begin{equation}
+    \nabla_{\theta_k} \mathcal{L} \leftarrow \frac{\tau_k}{\|\nabla_{\theta_k} \mathcal{L}\|_{\text{RMS}}} \, \nabla_{\theta_k} \mathcal{L}.
+\end{equation}
+This operation \emph{only clips down} large gradients; when $\|\nabla_{\theta_k} \mathcal{L}\|_{\text{RMS}} \leq \tau_k$, no scaling is applied.
+
+We set parameter-specific thresholds informed by empirical analysis of gradient magnitudes during training:
+\begin{itemize}
+    \item $\tau_{\text{materials}} = 1.0$ for per-vertex material parameters,
+    \item $\tau_{\text{pose\_rotation}} = \tau_{\text{pose\_translation}} = 0.5$ for radar pose parameters,
+    \item $\tau_{\text{normals}} = 0.5$ for per-vertex normals,
+    \item $\tau_{\text{patterns}} = 1.0$ for antenna beam patterns,
+    \item $\tau_{\text{vertex\_positions}} = 0.1$ for vertex positions.
+\end{itemize}
+Combined with learning-rate warmup and per-parameter learning rates, gradient clipping improves convergence stability across all parameter groups.
+
+\subsection{Training Details}
+\label{sec:supp_training}
+
+We optimize scene parameters via end-to-end automatic differentiation using our differentiable FMCW radar renderer. The training procedure optimizes per-vertex ITU physics material parameters ($\varepsilon_r'$, $\varepsilon_r''$, $\sigma_h$, $l_c$, $\tau$, slab thickness $d$), vertex normals, and antenna beam patterns while keeping vertex positions and radar pose fixed (Sec.~\ref{sec:optimization}). We train for 500 iterations using 1,500 reservoir hit samples per RX antenna element, with Specular Manifold Sampling (SMS) for specular paths and free-space diffraction (FSD) BSDF~\cite{steinberg2024fsd} for edge diffraction.
+
+The primary loss is min--max normalized range--azimuth L2 (Eq.~\ref{eq:ra_loss}), with Laplacian regularization ($\lambda_\text{geom} = 0.3$) for geometric smoothness when normals are optimized (vertex positions are kept fixed). All $\sqrt{\cdot}$ operations in the AD pipeline use epsilon guards ($10^{-20}$) to prevent infinite gradients at zero-crossings.
+
+\begin{table}[ht!]
+\centering
+\caption{Training hyperparameters used for all seven scenes. Renderer and optimizer settings are shared across scenes; only input data paths differ.}
+\label{tab:training_hyperparams}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lc}
+\toprule
+\textbf{Hyperparameter} & \textbf{Value} \\
+\midrule
+\multicolumn{2}{l}{\emph{Renderer}} \\
+\quad Polarization & Vertical \\
+\quad Max bounces & 3 \\
+\quad Reservoir hits per RX & 1{,}500 \\
+\quad Hemisphere sampling & Cosine \\
+\quad SMS (specular manifold) & Enabled (20 iter, tol $10^{-5}$) \\
+\quad Edge diffraction (FSD) & Enabled \\
+\quad Russian roulette & Start bounce 3, $p=0.5$ \\
+\midrule
+\multicolumn{2}{l}{\emph{Optimizer}} \\
+\quad Iterations & 500 \\
+\quad Optimizer & Adam ($\beta_1\!=\!0.9$, $\beta_2\!=\!0.999$) \\
+\quad LR warmup & $0.3{\times} \to 1{\times}$ over 5 iterations \\
+\quad Material parameterization & Per-vertex, 6 ITU params \\
+\quad Initial material & Concrete (ITU-R P.2040) \\
+\quad Error-map initialization & Enabled \\
+\quad Pattern mode & Shared (1 TX + 1 RX pattern) \\
+\midrule
+\multicolumn{2}{l}{\emph{Optimized parameters}} \\
+\quad Materials & \checkmark \\
+\quad Vertex normals & \checkmark \\
+\quad Antenna patterns & \checkmark \\
+\quad Pose (rotation / translation) & Frozen \\
+\quad Vertex positions & Frozen \\
+\midrule
+\multicolumn{2}{l}{\emph{Loss}} \\
+\quad Primary loss & Log-compressed RA L2 \\
+\quad Log epsilon & $10^{-6}$ \\
+\quad Laplacian regularization & $\lambda_\text{geom} = 0.3$ \\
+\quad Phase gradient & Detached (amplitude only) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Per-group learning rates and gradient clipping.}
+Learning rates are set per parameter group: materials $= 0.5$, pose rotation $= 5 \times 10^{-3}$, pose translation $= 5 \times 10^{-4}$, vertex normals $= 0.01$, antenna patterns $= 0.05$, vertex positions $= 5 \times 10^{-4}$. We apply per-group RMS gradient clipping (materials$=1.0$, pose rotation$=0.5$, pose translation$=0.5$, normals$=0.5$, patterns$=1.0$, vertex positions$=0.1$) to stabilize training against MC variance and inter-group dynamic range differences (Sec.~\ref{sec:phase_sensitivity_loss_landscape}). A linear learning rate warmup (0.3$\times$ to 1$\times$ over 5 iterations) prevents initial divergence. Post-step constraints clamp pose translation to $\pm\lambda/2$ and rotation to $\pm 2^{\circ}$ per iteration.
+
+Within the material parameter group, per-column learning rate scales further modulate the Adam update for each of the six material parameters ($\varepsilon_r'$: 0.3, $\varepsilon_r''$: 0.5, $\sigma_h$: 0.3, $l_c$: 0.3, $\tau$: 0.5, $d$: 0.1). These scales reflect the relative sensitivity of the loss to each parameter; in particular, slab thickness~$d$ receives the smallest scale (0.1) because its effect on slab Fresnel resonance is highly nonlinear.
+
+\paragraph{Material parameterization.}
+Each vertex stores 6 ITU physics parameters reparameterized for unconstrained optimization. Table~\ref{tab:material_reparam} summarizes the transforms and bounds.
+
+\begin{table}[ht!]
+\centering
+\caption{Material parameter reparameterization. The optimizer operates in unconstrained space $x$; each parameter is mapped to a bounded physical value via the listed transform. Clamp bounds are applied before the exponential to prevent overflow.}
+\label{tab:material_reparam}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Parameter} & \textbf{Transform} & \textbf{Physical range} & \textbf{Clamp} \\
+\midrule
+$\varepsilon_r'$ & $1.5 + 8.5\,\sigma(x)$ & $[1.5, 10]$ & -- \\
+$\varepsilon_r''$ & $e^{\text{clamp}(x)}$ & $[10^{-3}, 9{\times}10^{6}]$ & $[-7, 16]$ \\
+$\sigma_h$ (m) & $e^{\text{clamp}(x)}$ & $[10^{-7}, 10^{-3}]$ & $[-16, -7]$ \\
+$l_c$ (m) & $e^{\text{clamp}(x)}$ & $[5{\times}10^{-4}, 0.1]$ & $[-7.6, -2.3]$ \\
+$\tau$ & $0.05 + 0.9\,\sigma(x)$ & $[0.05, 0.95]$ & -- \\
+$d$ (m) & $e^{\text{clamp}(x)}$ & $[10^{-3}, 0.3]$ & $[-7, -1.2]$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Initialization uses ITU-R P.2040 reference values for common materials: concrete ($\varepsilon_r' = 5.31$, $\varepsilon_r'' = 0.29$), glass ($\varepsilon_r' = 6.27$, $\varepsilon_r'' = 0.15$), and metal ($\varepsilon_r' = 1.0$, $\varepsilon_r'' = 10^7$) at 77~GHz. For a typical scene with 72,934 vertices, this yields 437,604 material degrees of freedom.
+
+\paragraph{Error-map-driven material initialization.}
+Before gradient-based training begins, we optionally run a single non-differentiable forward pass with the default material initialization and compare the rendered RA map against the ground truth. Triangles whose rendered intensity significantly exceeds the ground truth (over-reflecting phantom triangles) are identified via a per-triangle error map, and their initial material parameters are pre-adjusted (increasing imaginary permittivity $\varepsilon_r''$ and roughness $\sigma_h$) to reduce their reflected energy before optimization. This prevents the optimizer from wasting early iterations correcting large phantom contributions inherited from imperfect mesh reconstruction.
+
+\paragraph{Antenna pattern mode.}
+All TX and RX elements share a single learnable beam pattern (``shared'' mode). The pattern is initialized from reference MMWCAS element patterns and jointly optimized with material and normal parameters during training. This reduces the pattern degrees of freedom from $N_\text{TX} + N_\text{RX}$ independent patterns to a single shared pattern, which is appropriate given the uniform element design of the TI MMWCAS board.
+
+Training each scene requires approximately 10--15 minutes on a single NVIDIA RTX~4090 GPU (24\,GB). Checkpoints are saved every 50 iterations, and the iteration with the lowest training loss is saved separately.
+
+\paragraph{Amplitude-only gradient propagation.}
+As detailed in Sec.~\ref{sec:phase_sensitivity_loss_landscape}, we detach the phase trigonometric terms from the AD graph and propagate gradients only through the real-valued amplitude~$w$ of each phasor. This blocks the noisy phase$\to$delay$\to$geometry gradient path while preserving smooth, stable amplitude gradients to material parameters, normals, and antenna patterns.
+
+\subsection{Inference Details}
+\label{sec:supp_inference}
+
+\paragraph{Dense Array Configuration}
+To generate dense radar data while maintaining consistency with the MMWCAS sensor board frame, we first create dense antenna array configurations using a uniform virtual antenna array generator. Starting from the original MMWCAS config (12 TX × 16 RX), we generate a dense array with 100 TX $\times$ 100 RX elements arranged in a two-column TX and two-row RX pattern as shown in Figure~\ref{fig:antenna_layouts} (right). The dense antennas are mapped to the same board plane as the original MMWCAS array using PCA-based board frame extraction to recover the exact horizontal, vertical, and boresight axes from the antenna positions. All dense antennas are positioned with half-wavelength ($\lambda /2 = 1.97 $mm at 76 GHz) spacing and collectively translated so the dense array's geometric center exactly matches the original MMWCAS board center, preserving both position and orientation. 
+\paragraph{Dense Array ADC Generation}
+For ADC generation, we employ batched rendering with 100 TX-RX pairs per batch to manage GPU memory when processing the 10,000-element MIMO array. We trace 200 reservoir hit samples per RX element with reflection enabled. Since the goal at test time is 3D scene reconstruction, we follow~\cite{kung2025radarsplat} and use single-bounce propagation (max path depth = 1, i.e., one surface interaction per path) at test time with this dense radar array. The forward model uses antenna pattern-weighted importance sampling and loads all trained scene parameters (materials, normals, and learned antenna beam patterns) from optimization checkpoints. The renderer accumulates all path contributions (diffuse reflection, specular reflection via SMS, and edge diffraction via FSD) into a single coherent complex ADC tensor of shape (100 TX, 100 RX, 256 ADC samples, 2). Rendering a single ADC frame for the dense radar array takes approximately 6\,seconds on an RTX~4090.
+
+
+\subsection{Post-Processing Details}
+\label{sec:supp_postprocess}
+
+% \paragraph{Dense Array ADC to 3D Radar Point Cloud.}
+Once the dense radar array ADC data is generated, we apply full FMCW processing: range FFT produces a 3D complex cube, virtual array mapping creates a $100 \times 100 \times 256$ tensor, followed by azimuth and elevation FFTs yielding a $127 \times 127 \times 256$ Range-Azimuth-Elevation (RAE) cube. We extract the board frame (azimuth, range, elevation axes) from antenna positions, which is then used to align the local RAE cube to the global 3D Cartesian coordinate frame. In summary, for the radar point cloud extraction, we: (1) compute magnitude RAE, (2) threshold at the 99.9th percentile, (3) convert to metric 3D coordinates, and (4) apply rigid transformation (translation + rotation) to align with scene ground truth.
+
+% \paragraph{Evaluation Metrics Against LiDAR Ground Truth.}
+% Following the precedent set by prior work~\cite{kung2025radarsplat}, we evaluate a percentile-thresholded radar point cloud against the original LiDAR ground truth with radar-guided filtering. For LiDAR preprocessing, we: (1) filter by antenna beam pattern using the dense radar array antenna beam pattern TX/RX 0dB beam limits in azimuth and elevation, (2) project remaining LiDAR points onto the radar polar voxel grid, and (3) retain only points where radar has normalized intensity $\geq 0.1$, effectively restricting evaluation to regions with radar returns. For distance-based occupancy metrics, we build KD-trees for both point clouds, compute nearest neighbor distances, and classify points as matched if within $\tau = 0.5$~m threshold to calculate precision, recall, specificity, and accuracy. For geometric fidelity, we report RMSE and Chamfer Distance (CD), normalized by scene extent to produce Relative Chamfer Distance (R-CD). The results for each of the four scenes is provided in Table~\ref{tab:3d_occupancy}.
+
+% \paragraph{Performance across scenes varies significantly with scene geometry.}
+% Scene 1 achieves strong reconstruction metrics (Precision=0.988, R-CD=0.108) due to multiple surfaces within the radar FOV and especially along the boresight providing multiple significant returns. In contrast, Scenes 3 and 4 show degraded performance (Precision=0.361/0.563, R-CD=0.201/0.192) because these scenes contain primarily open space with only ground planes visible. Given the radar boresight is nearly parallel to the ground plane and surface normals cause specular reflection away from the radar, few returns reach the receivers. This fundamental limitation, combined with our primitive intensity thresholding, results in sparse radar reconstructions for these scenes.
+
+
+% % \subsection{Benchmark Details}

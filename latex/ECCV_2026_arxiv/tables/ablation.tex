@@ -1,0 +1,21 @@
+\begin{table}[ht!]
+\caption{Component ablation averaged over seven training scenes (500
+iterations each). Each row disables one component from the full mmIR
+model. Best per-column in \textbf{bold}.}
+\centering
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Configuration} & \textbf{Corr $\uparrow$} & \textbf{PSNR $\uparrow$} & \textbf{SSIM $\uparrow$} & \textbf{RMSE $\downarrow$} \\
+\midrule
+Full model              & 0.919 & 37.6 & 0.902 & 0.014 \\
+\midrule
+w/o diffraction         & 0.910 & 37.4 & 0.896 & 0.014 \\
+w/o SMS                 & 0.915 & 37.8 & 0.898 & 0.014 \\
+w/o multi-bounce        & \textbf{0.936} & \textbf{38.7} & \textbf{0.920} & \textbf{0.012} \\
+w/o normal optim.       & 0.919 & 37.4 & 0.909 & 0.014 \\
+w/o pattern optim.      & 0.885 & 36.6 & 0.882 & 0.015 \\
+w/o error-map init      & 0.909 & 37.4 & 0.895 & 0.014 \\
+\bottomrule
+\end{tabular}
+\label{tab:ablation}
+\end{table}

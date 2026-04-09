@@ -1,0 +1,126 @@
+This is BibTeX, Version 0.99d (TeX Live 2022/dev/Debian)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: main.aux
+The style file: splncs04.bst
+Database file #1: main.bib
+Database file #2: supplement.bib
+Repeated entry---line 62 of file supplement.bib
+ : @inproceedings{270463
+ :                      ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 74 of file supplement.bib
+ : @article{alizadeh2019remote
+ :                            ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 81 of file supplement.bib
+ : @article{9658500
+ :                 ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 92 of file supplement.bib
+ : @inproceedings{li2023azimuth
+ :                             ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 100 of file supplement.bib
+ : @misc{sionna
+ :             ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 107 of file supplement.bib
+ : @article{kramer2022coloradar
+ :                             ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 118 of file supplement.bib
+ : @inproceedings{kazhdan2006poisson
+ :                                  ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 127 of file supplement.bib
+ : @article{hofmann2025inverse
+ :                            ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 135 of file supplement.bib
+ : @inproceedings{kung2025radarsplat
+ :                                  ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 143 of file supplement.bib
+ : @article{chen2025invertwin
+ :                           ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 152 of file supplement.bib
+ : @inproceedings{talbot2005importance
+ :                                    ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 160 of file supplement.bib
+ : @article{bitterli2020spatiotemporal
+ :                                    ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 171 of file supplement.bib
+ : @article{lin2022generalized
+ :                            ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 184 of file supplement.bib
+ : @inproceedings{walter2007microfacet
+ :                                    ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 205 of file supplement.bib
+ : @article{zhang2023projective
+ :                             ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 218 of file supplement.bib
+ : @misc{rs_qar
+ :             ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 228 of file supplement.bib
+ : @techreport{itu_p2040
+ :                      ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 239 of file supplement.bib
+ : @article{steinberg2024fsd
+ :                          ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 253 of file supplement.bib
+ : @article{wei2024csvbsdf
+ :                        ,
+I'm skipping whatever remains of this entry
+Warning--empty journal in alizadeh2019remote
+Warning--can't use both volume and number fields in kazhdan2006poisson
+You've used 61 entries,
+            2850 wiz_defined-function locations,
+            994 strings with 18130 characters,
+and the built_in function-call counts, 38698 in all, are:
+= -- 3131
+> -- 1492
+< -- 61
++ -- 615
+- -- 548
+* -- 2529
+:= -- 4963
+add.period$ -- 94
+call.type$ -- 61
+change.case$ -- 499
+chr.to.int$ -- 0
+cite$ -- 63
+duplicate$ -- 3324
+empty$ -- 3278
+format.name$ -- 604
+if$ -- 8370
+int.to.chr$ -- 0
+int.to.str$ -- 61
+missing$ -- 707
+newline$ -- 189
+num.names$ -- 122
+pop$ -- 1373
+preamble$ -- 1
+purify$ -- 396
+quote$ -- 0
+skip$ -- 1013
+stack$ -- 0
+substring$ -- 2024
+swap$ -- 1905
+text.length$ -- 61
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 234
+warning$ -- 2
+while$ -- 291
+width$ -- 63
+write$ -- 624
+(There were 19 error messages)

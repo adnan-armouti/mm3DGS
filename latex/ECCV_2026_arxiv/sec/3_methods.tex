@@ -1,0 +1,123 @@
+\section{Methods}
+\label{sec:methods}
+
+We model radar sensing as a forward rendering problem (Fig.~\ref{fig:system}): trace multi-bounce rays through a scene, evaluate surface interactions via a physically-based mmWave BSDF, and accumulate phase-coherent paths into raw FMCW ADC samples that can be directly compared against real captures. Sec.~\ref{sec:forward_model} derives the forward model from the bistatic radar equation through multi-bounce Monte Carlo estimation to ADC synthesis; Sec.~\ref{sec:bsdf} defines the mmWave BSDF governing surface interactions; Sec.~\ref{sec:sampling} describes ray generation strategies; and Sec.~\ref{sec:optimization} formulates the differentiable inverse rendering pipeline.
+
+Our inputs are synchronized radar--LiDAR data from ColoRadar~\cite{kramer2022coloradar}. LiDAR frames are aggregated into a triangle mesh via screened Poisson reconstruction~\cite{kazhdan2006poisson}, and a GPU-accelerated coarse-to-fine alignment corrects residual sensor misregistration (Sec.~\ref{sec:supp_preprocessing}--\ref{sec:supp_alignment} in the supplement). FMCW signal and TDM-MIMO imaging derivations are in the supplement (Sec.~\ref{sec:rationale}--\ref{sec:tdm_mimo_imaging}).
+
+\subsection{Forward Model}
+\label{sec:forward_model}
+
+Our forward model is grounded in the bistatic radar equation. For a single TX--RX pair observing a point target at surface point $\mathbf{x}$ with normal $\mathbf{n}$, at distances $d_t$, $d_r$ from transmitter and receiver, the received power $P_r$ is:
+\begin{equation}
+    P_r
+    =
+    \frac{P_t\, G_t\, G_r\, \lambda^2\, \sigma}{(4\pi)^3\, d_t^2\, d_r^2},
+    \label{eq:radar_bistatic}
+\end{equation}
+where $P_t$ is transmit power, $G_t$, $G_r$ are directional antenna gains, $\lambda$ is wavelength, and $\sigma$ is the bistatic radar cross-section. Replacing the point-target RCS with a spatially varying BSDF $f(\boldsymbol{\omega}_t, \mathbf{x}, \boldsymbol{\omega}_r)$, where $\boldsymbol{\omega}_t$ and $\boldsymbol{\omega}_r$ are unit directions toward the transmitter and receiver, and converting from surface area element $dA_x$ to receiver solid angle via $d\omega_r = (c_r / d_r^2)\,dA_x$ with $c_r = \max(0, \mathbf{n} \cdot \boldsymbol{\omega}_r)$ (derivation in the supplement, Sec.~\ref{sec:supp_mc_derivation}), the total received power integrated over the receiver hemisphere $\Omega_{rx}$ becomes:
+\begin{equation}
+    P_r
+    =
+    \frac{P_t\,\lambda^2}{(4\pi)^2}
+    \int_{\Omega_{rx}}
+    \frac{
+    G_t(\boldsymbol{\omega}_t)\,G_r(\boldsymbol{\omega}_r)\,
+    f(\boldsymbol{\omega}_t, \mathbf{x}, \boldsymbol{\omega}_r)\,
+    c_t\, V
+    }{
+    d_t^2
+    }
+    \, d\omega_r,
+    \label{eq:radar_solid_angle}
+\end{equation}
+where $c_t = \max(0, \mathbf{n} \cdot \boldsymbol{\omega}_t)$ is the cosine factor and $V \in \{0,1\}$ is visibility. This solid-angle formulation directly motivates RX-centric sampling: trace rays from the receiver, intersect the scene, and evaluate the integrand with a deterministic connection to the transmitter.
+
+For multi-bounce propagation with path depth $D$ and interaction points $\mathbf{x}_1, \ldots, \mathbf{x}_D$, each stochastically sampled segment contributes a BSDF-over-PDF ratio and geometric coupling. Given $N$ Monte Carlo samples, the unbiased estimator is (derivation in the supplement, Sec.~\ref{sec:supp_mc_derivation}):
+\begin{equation}
+    \hat{P}_r^{(D)}
+    =
+    \frac{P_t\,\lambda^2}{(4\pi)^2}\,
+    \frac{1}{N}\sum_{k=1}^{N}
+    \frac{G_{r,k}}{\rho_{rx,k}}
+    \prod_{\ell=1}^{D{-}1}
+    \frac{f_\ell\, \mathcal{G}_\ell}{\rho_\ell}
+    \;\cdot\;
+    \frac{G_{t,k}\, c_{D{\to}tx}\, f_D}{d_{D,tx}^2}
+    \, V_k,
+    \label{eq:mc_multibounce}
+\end{equation}
+where $\mathcal{G}_\ell = c_{\ell{\to}\ell{+}1}\, c_{\ell{+}1{\to}\ell}\,/\,d_{\ell,\ell{+}1}^2$ is the geometric coupling between consecutive bounces, with $c_{\ell{\to}\ell{+}1} = \max(0, \mathbf{n}_\ell \cdot \boldsymbol{\omega}_{\ell{\to}\ell{+}1})$ the cosine factor at bounce $\ell$ toward bounce $\ell{+}1$ and $d_{\ell,\ell{+}1}$ the distance between them. The BSDF at each bounce is $f_\ell = f(\boldsymbol{\omega}_{\ell-1}, \mathbf{x}_\ell, \boldsymbol{\omega}_{\ell+1})$ (Sec.~\ref{sec:bsdf}), which decomposes each surface interaction into slab transmission, coherent specular reflection, incoherent diffuse scattering, and edge diffraction. The final term connects deterministically to the transmitter: $c_{D{\to}tx}$ is the cosine factor at $\mathbf{x}_D$ toward the TX and $d_{D,tx}$ is their distance. The sampling PDFs $\rho_\ell$ are determined by the ray generation strategies in Sec.~\ref{sec:sampling}. The single-bounce case ($D{=}1$) reduces to $G_t\,G_r\,c_t\,f\,V\,/\,(d_t^2\,\rho_{rx})$, and we use Russian roulette~\cite{veach1998robust} for unbiased path termination.
+
+The MC estimator provides a complex amplitude for each traced path. To synthesize raw FMCW ADC, each path $p$ for TX $i$ and RX $j$ contributes a phase-delayed chirp sample using the complex baseband form (Sec.~\ref{sec:supp_fmcw}--\ref{sec:supp_iq} in the supplement):
+\begin{equation}
+    s_{ij}^{(p)}[k]
+    =
+    a_{ij}^{(p)}
+    \exp\!\Big(j\, 2\pi (f_c + S t_k)\,\tau_{ij}^{(p)} \Big),
+    \label{eq:path_adc}
+\end{equation}
+where $k$ indexes fast-time ADC samples at times $t_k$, $j$ is the imaginary unit, $\tau_{ij}^{(p)} = R_{ij}^{(p)}/c$ is the round-trip delay for total path length $R_{ij}^{(p)}$ at speed of light $c$, $f_c$ is the carrier frequency, $S$ is the chirp slope, and $a_{ij}^{(p)} \in \mathbb{C}$ aggregates the MC throughput from Eq.~\eqref{eq:mc_multibounce}: antenna gains, BSDF evaluations, geometric coupling, and spreading losses. The rendered ADC sums coherently over all paths: $s_{ij}[k] = \sum_p s_{ij}^{(p)}[k]$.
+
+Equations~\eqref{eq:radar_bistatic}--\eqref{eq:path_adc} describe a single TX--RX pair. In a MIMO array, each pair is evaluated independently through the same forward model; however, coherent MIMO imaging via FFT~\cite{9658500} requires exact relative phase across all pairs, so independent MC samples per receiver would corrupt this. Following the MIMO ray reuse strategy of Sch{\"u}{\ss}ler et al.~\cite{9533181}, we share path topology across all TX--RX pairs: a single set of interaction points is found from shared seeds, then evaluated for all pairs by vectorizing only the TX$\rightarrow\mathbf{x}_1$ and $\mathbf{x}_D\rightarrow$RX legs. Each pair produces unique amplitudes and phases but shares bounce topology, preserving MIMO coherence while reducing cost from $\mathcal{O}(N_\mathrm{TX} \cdot N)$ to $\mathcal{O}(N)$.
+
+\subsection{Physically-Based mmWave BSDF}
+\label{sec:bsdf}
+
+The BSDF $f$ appearing in the MC estimator (Eq.~\eqref{eq:mc_multibounce}) governs how electromagnetic energy is redistributed at each surface interaction. We model it using ITU-R P.2040 recommendations for mmWave propagation~\cite{itu_p2040}, inspired by the coherent spatially varying BSDF (CSVBSDF) formulation of Wei et al.~\cite{wei2024csvbsdf}. Each mesh vertex stores six physically interpretable material parameters: real and imaginary relative permittivity $(\varepsilon_r', \varepsilon_r'')$, RMS surface roughness $\sigma_h$, correlation length $l_c$, a KA/SPM blend factor $\tau$, and slab thickness $d$. At each ray--triangle intersection, parameters are barycentric-interpolated from the three triangle vertices ($\mathbf{m}_i \in \mathbb{R}^6$), ensuring $C^0$-continuous material fields with gradients flowing to all three vertices.
+
+The BSDF decomposes into coherent and incoherent components via the Rayleigh roughness factor~\cite{beckmann1963scattering} $\eta = \exp(-(2k\sigma_h\cos\theta_t)^2)$, $k=2\pi/\lambda$, where $\theta_t$ is the incidence angle between $\boldsymbol{\omega}_t$ and the surface normal:
+\begin{equation}
+    f = A(\boldsymbol{\omega}_t)\;\Big[\eta\,f_\mathrm{coh} + (1-\eta)\,f_\mathrm{inc}\Big],
+    \label{eq:bsdf_full}
+\end{equation}
+where $A(\boldsymbol{\omega}_t) \in [0,1]$ is the slab Fresnel energy gate. The lobe decompositions are:
+\begin{align}
+    f_\mathrm{coh} &= \tau\, f_\mathrm{KA} + (1{-}\tau)\, f_\mathrm{SPM}, \label{eq:bsdf_coh} \\
+    f_\mathrm{inc} &= \gamma\, f_\mathrm{dir} + (1{-}\gamma)\, f_\mathrm{broad}, \label{eq:bsdf_inc}
+\end{align}
+where $\tau$ is a learnable KA/SPM blend and $\gamma$ is a roughness-dependent sigmoid. The coherent lobes are: $f_\mathrm{KA}$, a GGX microfacet specular lobe~\cite{walter2007microfacet} with roughness $\alpha = \sqrt{4\pi\sigma_h/\lambda}$; and $f_\mathrm{SPM}$, a von Mises--Fisher (vMF) distribution centered on the specular direction with concentration $\kappa = \sqrt{l_c/\lambda}\,/\,(1 + 3\sigma_h/l_c)$~\cite{ulaby2019microwave}. The incoherent lobes are: $f_\mathrm{dir}$, a broader vMF lobe; and $f_\mathrm{broad}$, Lambertian. The energy gate $A(\boldsymbol{\omega}_t)$ uses an ITU-R P.2040 slab model with thickness $d$ and complex permittivity $\varepsilon_r = \varepsilon_r' - j\varepsilon_r''$, capturing multiple internal reflections rather than single-interface Fresnel.
+
+The Fresnel coefficients in the energy gate also determine polarization state, which we maintain throughout path tracing using a local $s/p$ basis. At each interaction, the complex Fresnel coefficients derived from learnable permittivity update both amplitude and phase of the $s$ and $p$ field components~\cite{born2013principles}. Between bounces, the polarization basis is transported deterministically to preserve phase consistency. The polarization-dependent energy gate is $A = f_s |r_s|^2 + f_p |r_p|^2$, where $r_s$, $r_p$ are the complex Fresnel reflection coefficients for the $s$ and $p$ polarizations and $f_s$, $f_p$ are the antenna-dependent power fractions in each polarization.
+
+\subsection{Ray Generation}
+\label{sec:sampling}
+
+The MC estimator (Eq.~\eqref{eq:mc_multibounce}) requires sampling ray directions at each interaction. Because the mmWave BSDF (Sec.~\ref{sec:bsdf}) combines smooth diffuse, near-delta specular, and edge-diffraction components that no single sampling PDF can efficiently cover, we provide the PDFs $\rho_\ell$ via three complementary strategies combined with multiple importance sampling (MIS)~\cite{veach1995optimally} and balance heuristic weights.
+
+\paragraph{RX-centric reservoir sampling.}
+\label{sec:surface_sampling}
+Because mmWave antennas are highly directional, we employ RX-centric reservoir sampling inspired by Resampled Importance Sampling (RIS)~\cite{talbot2005importance} and spatiotemporal reservoir resampling (ReSTIR)~\cite{bitterli2020spatiotemporal, lin2022generalized}. For each RX element, we sample $M$ candidate directions from a cosine-weighted hemisphere proposal centered on the RX boresight, $\rho_{rx}(\boldsymbol{\omega}) = \cos\theta / \pi$, which naturally concentrates samples within the antenna main lobe, then retain $K$ directions that successfully intersect scene geometry.
+
+\paragraph{Specular manifold sampling.}
+\label{sec:sms}
+LiDAR-derived meshes contain triangles much smaller than the mmWave wavelength ($\lambda \approx 3.9$~mm). The image method (mirroring TX across the hit triangle's plane) frequently fails because the exact specular point falls outside the original triangle. We instead use Specular Manifold Sampling (SMS)~\cite{zeltner2020specular}, which solves for exact reflection points via Newton iteration on the half-vector constraint $\mathbf{C}(\mathbf{x}) = [\mathbf{s}{\cdot}\mathbf{h},\; \mathbf{t}{\cdot}\mathbf{h}]^\top = \mathbf{0}$, where $\mathbf{s},\mathbf{t}$ are surface tangents and $\mathbf{h}$ is the half-vector. After each Newton step, re-projection onto the mesh via ray tracing allows the solver to cross triangle boundaries, producing exact specular paths with deterministic Fresnel weights.
+
+We extend SMS for radar inverse rendering with: GPU-vectorized Newton iteration via DrJit~\cite{jakob2022dr}, Implicit Function Theorem (IFT) gradient support that stores the Jacobian inverse at convergence for backpropagation through vertex positions, and multi-bounce specular chain solving via a block-tridiagonal algorithm.
+
+\paragraph{Free-space diffraction BSDF.}
+\label{sec:fsd}
+Unlike the Uniform Theory of Diffraction (UTD), which requires explicit edge detection and separate ray classes, the free-space diffraction (FSD) BSDF~\cite{steinberg2024fsd} formulates edge diffraction as a standard scattering distribution compatible with path tracing. At each intersection, the FSD BSDF projects nearby triangles onto a virtual screen, identifies boundary edges, and evaluates closed-form Fraunhofer diffraction integrals. A fraction $\beta$ of reflected energy is redirected into importance-sampleable diffracted lobes.
+
+We extend FSD for mmWave radar with: (i) material-dependent edge opacity via Fresnel reflectance from learnable permittivity; (ii) Jones polarization tracking through diffracted paths for MIMO phase coherence; and (iii) edge suppression filters that reject artifacts from noisy LiDAR tessellation.
+
+\subsection{Differentiable Optimization}
+\label{sec:optimization}
+
+We optimize per-vertex ITU physics materials ($6 \times N_v$ parameters with sigmoid/exponential reparameterizations for physical bounds), per-vertex normals $\mathbf{N} \in \mathbb{R}^{N_v \times 3}$, and antenna beam patterns. The pipeline additionally supports differentiable vertex positions and 6-DoF radar pose, but we keep these fixed in our experiments: our coarse-to-fine LiDAR-radar alignment (Sec.~\ref{sec:supp_alignment} in the supplement) already provides sub-centimeter translational and sub-degree rotational accuracy, so the remaining sim-to-real gap is dominated by material and scattering properties rather than geometric misregistration. Initialization uses ITU-R P.2040 reference values for common materials (concrete, glass, metal). Details on bounds, learning rates, and schedules are in the supplement (Sec.~\ref{sec:supp_training}).
+
+The entire forward model (Secs.~\ref{sec:forward_model}--\ref{sec:sampling}) executes inside a single DrJit~\cite{jakob2022dr} computation graph with automatic differentiation. Gradients flow from $\mathcal{L}$ through the ADC, per-path phasors, BSDF evaluations, and ray--triangle intersections back to all learnable parameters in a single backward pass. At silhouette edges where visibility changes discontinuously, projective boundary gradient sampling~\cite{zhang2023projective} corrects gradient bias for vertex positions and pose when these are enabled.
+
+\paragraph{Loss function.}
+We minimize a range--azimuth reconstruction loss on min--max normalized magnitudes:
+\begin{equation}
+    \mathcal{L}_\mathrm{RA}
+    =
+    \frac{1}{|\Gamma|}
+    \sum_{(r,a)\in\Gamma}
+    \big\lVert \widetilde{\mathrm{RA}}_\mathrm{render}(r,a) - \widetilde{\mathrm{RA}}_\mathrm{gt}(r,a) \big\rVert_2^2,
+    \label{eq:ra_loss}
+\end{equation}
+where $\Gamma$ is the set of range--azimuth bins, $\widetilde{\mathrm{RA}} = (\mathrm{RA} - \min\mathrm{RA}) / (\max\mathrm{RA} - \min\mathrm{RA})$ denotes min--max normalization, and RA maps are obtained via the TDM-MIMO FFT pipeline~\cite{9658500}. Operating directly on linear magnitudes gives uniform gradient weighting across the dynamic range, avoiding the gradient imbalance that log-compression introduces near the noise floor. The total objective is $\mathcal{L} = \mathcal{L}_\mathrm{RA} + \lambda_\mathrm{geom}\mathcal{L}_\mathrm{geom}$, where $\lambda_\mathrm{geom}$ is a regularization weight and $\mathcal{L}_\mathrm{geom}$ enforces geometric smoothness via Laplacian regularization on vertex normals and positions. After convergence, we freeze optimized parameters and re-render from dense virtual apertures to synthesize 3D radar data (Sec.~\ref{sec:3d_occupancy}).
+%% Phase sensitivity and inference -- commented out for now:
+%At 77~GHz ($\lambda \approx 3.9$~mm), phase varies as $\phi \propto R/\lambda$, so micrometer-scale path-length changes induce large phase swings, creating a highly oscillatory loss landscape~\cite{chen2025invertwin}. We address this with per-parameter-group RMS gradient clipping and linear learning rate warmup (Sec.~\ref{sec:phase_sensitivity_loss_landscape}). At inference, we freeze optimized parameters and re-render from dense virtual apertures to synthesize 3D radar data (Sec.~\ref{sec:3d_occupancy}).

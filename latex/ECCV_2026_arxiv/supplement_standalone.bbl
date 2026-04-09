@@ -1,0 +1,65 @@
+\begin{thebibliography}{10}
+\providecommand{\url}[1]{\texttt{#1}}
+\providecommand{\urlprefix}{URL }
+\providecommand{\doi}[1]{https://doi.org/#1}
+
+\bibitem{alizadeh2019remote}
+Alizadeh, M.: Remote vital signs monitoring using a mm-wave fmcw radar  (2019)
+
+\bibitem{270463}
+Budge, M., Burt, M.: Range correlation effects in radars. In: The Record of the
+  1993 IEEE National Radar Conference. pp. 212--216 (1993).
+  \doi{10.1109/NRC.1993.270463}
+
+\bibitem{chen2025invertwin}
+Chen, X., Ding, J., Zheng, K., Fang, X., Zhang, X., Lu, C.X., Li, Z.:
+  Invertwin: Solving inverse problems via differentiable radio frequency
+  digital twin. arXiv preprint arXiv:2508.14204  (2025)
+
+\bibitem{dudek2010millimeter}
+Dudek, M., Wahl, R., Kissinger, D., Weigel, R., Fischer, G.: Millimeter wave
+  fmcw radar system simulations including a 3d ray tracing channel simulator.
+  In: 2010 Asia-Pacific microwave conference. pp. 1665--1668. IEEE (2010)
+
+\bibitem{kazhdan2006poisson}
+Kazhdan, M., Bolitho, M., Hoppe, H.: Poisson surface reconstruction. In:
+  Proceedings of the fourth Eurographics symposium on Geometry processing.
+  vol.~7 (2006)
+
+\bibitem{kramer2022coloradar}
+Kramer, A., Harlow, K., Williams, C., Heckman, C.: Coloradar: The direct 3d
+  millimeter wave radar dataset. The International Journal of Robotics Research
+   \textbf{41}(4),  351--360 (2022)
+
+\bibitem{kung2025radarsplat}
+Kung, P.C., Harisha, S., Vasudevan, R., Eid, A., Skinner, K.A.: Radarsplat:
+  Radar gaussian splatting for high-fidelity data synthesis and 3d
+  reconstruction of autonomous driving scenes. In: Proceedings of the IEEE/CVF
+  International Conference on Computer Vision. pp. 27596--27606 (2025)
+
+\bibitem{9658500}
+Li, X., Wang, X., Yang, Q., Fu, S.: Signal processing for tdm mimo fmcw
+  millimeter-wave radar sensors. IEEE Access  \textbf{9},  167959--167971
+  (2021). \doi{10.1109/ACCESS.2021.3137387}
+
+\bibitem{li2023azimuth}
+Li, Y.J., Hunt, S., Park, J., O'Toole, M., Kitani, K.: Azimuth super-resolution
+  for fmcw radar in autonomous driving. In: Proceedings of the IEEE/CVF
+  Conference on Computer Vision and Pattern Recognition. pp. 17504--17513
+  (2023)
+
+\bibitem{rs_qar}
+{Rohde \& Schwarz}: {R\&S QAR50 Quality automotive radome tester}.
+  \url{https://www.rohde-schwarz.com/products/test-and-measurement/radome-tester/rs-qar50-quality-automotive-radome-tester_63493-1138625.html}
+  (2023), accessed: 2025-12-05
+
+\bibitem{skolnik2001introduction}
+Skolnik, M.I.: Introduction to Radar Systems. McGraw-Hill, New York, 3rd edn.
+  (2001)
+
+\bibitem{steinberg2024fsd}
+Steinberg, S., Ramamoorthi, R., Bitterli, B., Mollazainali, A., d'Eon, E.,
+  Pharr, M.: A free-space diffraction {BSDF}. ACM Transactions on Graphics
+  (TOG)  \textbf{43}(4),  113:1--113:11 (2024). \doi{10.1145/3658166}
+
+\end{thebibliography}

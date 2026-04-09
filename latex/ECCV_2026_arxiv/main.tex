@@ -1,0 +1,80 @@
+\documentclass[runningheads]{llncs}
+
+% Must pass table option to xcolor before eccv.sty loads it
+\PassOptionsToPackage{table,dvipsnames}{xcolor}
+
+% ---------------------------------------------------------------
+% ECCV package
+% TODO REVIEW: Insert your submission number below by replacing '*****'
+% TODO FINAL: Comment out the following line for the camera-ready version
+\usepackage[review,year=2026,ID=11932]{eccv}
+% TODO FINAL: Un-comment the following line for the camera-ready version
+%\usepackage{eccv}
+
+% ---------------------------------------------------------------
+% Other packages
+
+\usepackage{eccvabbrv}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage[accsupp]{axessibility}
+
+% Additional packages from our paper
+\input{preamble}
+
+% ---------------------------------------------------------------
+% Hyperref
+% TODO FINAL: Comment out the following line for the camera-ready version
+\usepackage[pagebackref,breaklinks,colorlinks,citecolor=eccvblue]{hyperref}
+% TODO FINAL: Un-comment the following line for the camera-ready version
+%\usepackage{hyperref}
+
+\usepackage{orcidlink}
+
+\begin{document}
+
+% ---------------------------------------------------------------
+\title{mmIR: Frequency-Space Inverse Rendering for 3D Millimeter-Wave Radar ADC Synthesis}
+
+\titlerunning{mmIR: Inverse Rendering for mmWave Radar ADC Synthesis}
+
+% TODO FINAL: Replace with your author list with ORCID
+\author{First Author\inst{1} \and
+Second Author\inst{1} \and
+Third Author\inst{1}}
+
+\authorrunning{F.~Author et al.}
+
+% TODO FINAL: Replace with your institution
+\institute{University, City, Country\\
+\email{\{first,second,third\}@university.edu}}
+
+\maketitle
+
+% ---------------------------------------------------------------
+% Main paper
+\input{sec/0_abstract}
+\input{sec/1_intro}
+\input{sec/2_relatedworks}
+\input{sec/3_methods}
+\input{sec/4_experiments}
+\input{sec/5_conclusion}
+
+% ---------------------------------------------------------------
+% Supplementary (appended after references for review)
+\clearpage
+\appendix
+\section*{Supplementary Material}
+\setcounter{section}{0}
+\renewcommand{\thesection}{\Alph{section}}
+\input{sec/6_FMCW}
+\input{sec/7_Implementation_Details}
+\input{sec/8_Qualitative_Ablation}
+\input{sec/9_Limitations}
+
+% ---------------------------------------------------------------
+% Bibliography
+\bibliographystyle{splncs04}
+\bibliography{main,supplement}
+
+\end{document}

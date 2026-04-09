@@ -1,0 +1,25 @@
+% Table: Radar Transfer — Without log loss (linear magnitude)
+\begin{table}[h!]
+\centering
+\caption{Cross-sensor transfer evaluation without log loss. Same protocol as Table~\ref{tab:radar_transfer}: parameters optimized on the cascaded radar are frozen and used to render ADC for the single-chip radar. Best in \textbf{bold}.}
+\label{tab:radar_transfer_nolog}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{l cc cc cc cc cc cc}
+\toprule
+& \multicolumn{2}{c}{RA Correlation $\uparrow$} & \multicolumn{2}{c}{RA PSNR $\uparrow$} & \multicolumn{2}{c}{RA SSIM $\uparrow$} & \multicolumn{2}{c}{RA RMSE $\downarrow$} & \multicolumn{2}{c}{ADC Log-Mag MSE $\downarrow$} & \multicolumn{2}{c}{ADC MM-Mag MSE $\downarrow$} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-9} \cmidrule(lr){10-11} \cmidrule(lr){12-13}
+Scene & No-Log & Log & No-Log & Log & No-Log & Log & No-Log & Log & No-Log & Log & No-Log & Log \\
+\midrule
+  S0F135 & \textbf{0.533} & 0.690 & 25.6 & \textbf{27.2} & 0.505 & \textbf{0.612} & 0.0524 & \textbf{0.0437} & \textbf{10.9639} & 11.3586 & 0.2194 & \textbf{0.0935} \\
+  S0F390 & 0.464 & \textbf{0.575} & 21.2 & \textbf{25.3} & 0.529 & \textbf{0.599} & 0.0873 & \textbf{0.0544} & \textbf{12.9644} & 17.2224 & 0.0630 & \textbf{0.0711} \\
+  S1F185 & \textbf{0.567} & 0.566 & 22.4 & \textbf{22.4} & 0.422 & \textbf{0.434} & 0.0759 & \textbf{0.0758} & \textbf{0.5754} & 1.0651 & 0.1993 & \textbf{0.2383} \\
+  S1F438 & \textbf{0.684} & 0.646 & \textbf{23.2} & 22.7 & \textbf{0.674} & 0.677 & 0.0694 & \textbf{0.0732} & 21.8672 & \textbf{20.0274} & 0.1507 & \textbf{0.0797} \\
+  S2F105 & \textbf{0.608} & 0.588 & \textbf{24.7} & 24.2 & \textbf{0.609} & 0.410 & \textbf{0.0583} & 0.0616 & 3.4458 & \textbf{0.7866} & 0.1959 & \textbf{0.2298} \\
+  S2F160 & \textbf{0.276} & 0.234 & 19.3 & \textbf{19.6} & 0.493 & \textbf{0.500} & 0.1085 & \textbf{0.1053} & 20.1530 & \textbf{19.7407} & \textbf{0.0893} & 0.0951 \\
+  S2F300 & 0.745 & \textbf{0.759} & 27.2 & \textbf{27.5} & 0.468 & \textbf{0.481} & 0.0434 & \textbf{0.0419} & 7.7226 & \textbf{3.1229} & 0.1074 & \textbf{0.0923} \\
+\midrule
+  Mean & 0.554$\pm$0.143 & \textbf{0.580$\pm$0.155} & 23.4$\pm$2.5 & \textbf{24.1$\pm$2.6} & 0.529$\pm$0.080 & \textbf{0.530$\pm$0.093} & 0.071$\pm$0.021 & \textbf{0.065$\pm$0.020} & \textbf{11.1$\pm$7.4} & 10.5$\pm$8.1 & 0.146$\pm$0.056 & \textbf{0.129$\pm$0.067} \\
+\bottomrule
+\end{tabular}
+}
+\end{table}

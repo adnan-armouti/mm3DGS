@@ -1,0 +1,101 @@
+\documentclass[runningheads]{llncs}
+
+% Must pass table option to xcolor before eccv.sty loads it
+\PassOptionsToPackage{table,dvipsnames}{xcolor}
+
+% ---------------------------------------------------------------
+% ECCV package
+% TODO REVIEW: Insert your submission number below by replacing '*****'
+% TODO FINAL: Comment out the following line for the camera-ready version
+\usepackage[review,year=2026,ID=11932]{eccv}
+% TODO FINAL: Un-comment the following line for the camera-ready version
+%\usepackage{eccv}
+
+% ---------------------------------------------------------------
+% Other packages
+
+\usepackage{eccvabbrv}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage[accsupp]{axessibility}
+
+% Additional packages from our paper
+\input{preamble}
+
+% ---------------------------------------------------------------
+% Hyperref
+% TODO FINAL: Comment out the following line for the camera-ready version
+\usepackage[pagebackref,breaklinks,colorlinks,citecolor=eccvblue]{hyperref}
+% TODO FINAL: Un-comment the following line for the camera-ready version
+%\usepackage{hyperref}
+
+\usepackage{orcidlink}
+
+% ---------------------------------------------------------------
+% Hardcoded supplement section labels (so \ref{} resolves without supplement)
+% These must match the section numbers in the full build (main.tex).
+% Update if supplement structure changes.
+\makeatletter
+\newcommand{\fakesupplabel}[2]{%
+  \@namedef{r@#1}{{#2}{#2}{}{}{}}%
+}
+\makeatother
+
+\fakesupplabel{sec:rationale}{A}
+\fakesupplabel{sec:supp_fmcw}{A.1}
+\fakesupplabel{sec:supp_iq}{A.2}
+\fakesupplabel{sec:tdm_mimo_imaging}{A.3}
+\fakesupplabel{sec:supp_mc_derivation}{A.4}
+\fakesupplabel{sec:supp_range_angle_resolution}{A.5}
+\fakesupplabel{sec:supp_polar_to_cartesian}{A.6}
+\fakesupplabel{sec:supp_implementation}{B}
+\fakesupplabel{sec:supp_preprocessing}{B.1}
+\fakesupplabel{sec:supp_alignment}{B.2}
+\fakesupplabel{sec:phase_sensitivity_loss_landscape}{B.3}
+\fakesupplabel{sec:supp_training}{B.4}
+\fakesupplabel{sec:supp_inference}{B.5}
+\fakesupplabel{sec:supp_postprocess}{B.6}
+\fakesupplabel{sec:supp_qualitative}{C}
+\fakesupplabel{sec:qual_materials}{C.1}
+\fakesupplabel{sec:qual_normals}{C.2}
+\fakesupplabel{sec:qual_beam}{C.3}
+\fakesupplabel{sec:ablation}{C.4}
+\fakesupplabel{sec:runtime}{C.5}
+\fakesupplabel{sec:limitations}{D}
+\fakesupplabel{sec:supp_failures}{D.7}
+
+\begin{document}
+
+% ---------------------------------------------------------------
+\title{mmIR: Frequency-Space Inverse Rendering for 3D Millimeter-Wave Radar ADC Synthesis}
+
+\titlerunning{mmIR: Inverse Rendering for mmWave Radar ADC Synthesis}
+
+% TODO FINAL: Replace with your author list with ORCID
+\author{First Author\inst{1} \and
+Second Author\inst{1} \and
+Third Author\inst{1}}
+
+\authorrunning{F.~Author et al.}
+
+% TODO FINAL: Replace with your institution
+\institute{University, City, Country\\
+\email{\{first,second,third\}@university.edu}}
+
+\maketitle
+
+% ---------------------------------------------------------------
+% Main paper
+\input{sec/0_abstract}
+\input{sec/1_intro}
+\input{sec/2_relatedworks}
+\input{sec/3_methods}
+\input{sec/4_experiments}
+\input{sec/5_conclusion}
+
+% ---------------------------------------------------------------
+% Bibliography
+\bibliographystyle{splncs04}
+\bibliography{main,supplement}
+
+\end{document}

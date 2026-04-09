@@ -1,0 +1,109 @@
+This is BibTeX, Version 0.99d (TeX Live 2022/dev/Debian)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: main_paper.aux
+The style file: splncs04.bst
+Database file #1: main.bib
+Database file #2: supplement.bib
+Repeated entry---line 81 of file supplement.bib
+ : @article{9658500
+ :                 ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 100 of file supplement.bib
+ : @misc{sionna
+ :             ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 107 of file supplement.bib
+ : @article{kramer2022coloradar
+ :                             ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 118 of file supplement.bib
+ : @inproceedings{kazhdan2006poisson
+ :                                  ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 127 of file supplement.bib
+ : @article{hofmann2025inverse
+ :                            ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 135 of file supplement.bib
+ : @inproceedings{kung2025radarsplat
+ :                                  ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 143 of file supplement.bib
+ : @article{chen2025invertwin
+ :                           ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 152 of file supplement.bib
+ : @inproceedings{talbot2005importance
+ :                                    ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 160 of file supplement.bib
+ : @article{bitterli2020spatiotemporal
+ :                                    ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 171 of file supplement.bib
+ : @article{lin2022generalized
+ :                            ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 184 of file supplement.bib
+ : @inproceedings{walter2007microfacet
+ :                                    ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 205 of file supplement.bib
+ : @article{zhang2023projective
+ :                             ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 228 of file supplement.bib
+ : @techreport{itu_p2040
+ :                      ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 239 of file supplement.bib
+ : @article{steinberg2024fsd
+ :                          ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 253 of file supplement.bib
+ : @article{wei2024csvbsdf
+ :                        ,
+I'm skipping whatever remains of this entry
+Warning--can't use both volume and number fields in kazhdan2006poisson
+You've used 56 entries,
+            2850 wiz_defined-function locations,
+            968 strings with 17382 characters,
+and the built_in function-call counts, 36246 in all, are:
+= -- 2926
+> -- 1432
+< -- 59
++ -- 590
+- -- 528
+* -- 2391
+:= -- 4652
+add.period$ -- 87
+call.type$ -- 56
+change.case$ -- 469
+chr.to.int$ -- 0
+cite$ -- 57
+duplicate$ -- 3102
+empty$ -- 3032
+format.name$ -- 582
+if$ -- 7818
+int.to.chr$ -- 0
+int.to.str$ -- 56
+missing$ -- 664
+newline$ -- 174
+num.names$ -- 112
+pop$ -- 1279
+preamble$ -- 1
+purify$ -- 376
+quote$ -- 0
+skip$ -- 941
+stack$ -- 0
+substring$ -- 1881
+swap$ -- 1801
+text.length$ -- 59
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 216
+warning$ -- 1
+while$ -- 271
+width$ -- 58
+write$ -- 575
+(There were 15 error messages)

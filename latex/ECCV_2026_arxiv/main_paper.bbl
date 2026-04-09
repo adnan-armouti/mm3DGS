@@ -1,0 +1,296 @@
+\begin{thebibliography}{10}
+\providecommand{\url}[1]{\texttt{#1}}
+\providecommand{\urlprefix}{URL }
+\providecommand{\doi}[1]{https://doi.org/#1}
+
+\bibitem{10.1145/3550469.3555397}
+Bangaru, S.P., Gharbi, M., Luan, F., Li, T.M., Sunkavalli, K., Hasan, M., Bi,
+  S., Xu, Z., Bernstein, G., Durand, F.: Differentiable rendering of neural
+  sdfs through reparameterization. In: SIGGRAPH Asia 2022 Conference Papers. SA
+  '22, Association for Computing Machinery, New York, NY, USA (2022).
+  \doi{10.1145/3550469.3555397}, \url{https://doi.org/10.1145/3550469.3555397}
+
+\bibitem{bangaru2020unbiased}
+Bangaru, S.P., Li, T.M., Durand, F.: Unbiased warped-area sampling for
+  differentiable rendering. ACM Transactions on Graphics (TOG)  \textbf{39}(6),
+   1--18 (2020)
+
+\bibitem{bangaru2023slang}
+Bangaru, S.P., Wu, L., Li, T.M., Munkberg, J., Bernstein, G., Ragan-Kelley, J.,
+  Durand, F., Lefohn, A., He, Y.: Slang. d: Fast, modular and differentiable
+  shader programming. ACM Transactions on Graphics (TOG)  \textbf{42}(6),
+  1--28 (2023)
+
+\bibitem{barnes2020oxford}
+Barnes, D., Gadd, M., Murcutt, P., Newman, P., Posner, I.: The oxford radar
+  robotcar dataset: A radar extension to the oxford robotcar dataset. In: 2020
+  IEEE international conference on robotics and automation (ICRA). pp.
+  6433--6438. IEEE (2020)
+
+\bibitem{beckmann1963scattering}
+Beckmann, P., Spizzichino, A.: The Scattering of Electromagnetic Waves from
+  Rough Surfaces. Pergamon Press, Oxford (1963)
+
+\bibitem{bitterli2020spatiotemporal}
+Bitterli, B., Wyman, C., Pharr, M., Shirley, P., Lefohn, A., Jarosz, W.:
+  Spatiotemporal reservoir resampling for real-time ray tracing with dynamic
+  direct lighting. ACM Transactions on Graphics (TOG)  \textbf{39}(4),  148--1
+  (2020)
+
+\bibitem{born2013principles}
+Born, M., Wolf, E.: Principles of optics: electromagnetic theory of
+  propagation, interference and diffraction of light. Elsevier (2013)
+
+\bibitem{10.1145/3641519.3657510}
+Borts, D., Liang, E., Broedermann, T., Ramazzina, A., Walz, S., Palladin, E.,
+  Sun, J., Brueggemann, D., Sakaridis, C., Van~Gool, L., Bijelic, M., Heide,
+  F.: Radar fields: Frequency-space neural scene representations for fmcw
+  radar. In: ACM SIGGRAPH 2024 Conference Papers. SIGGRAPH '24, Association for
+  Computing Machinery, New York, NY, USA (2024). \doi{10.1145/3641519.3657510},
+  \url{https://doi.org/10.1145/3641519.3657510}
+
+\bibitem{caesar2020nuscenes}
+Caesar, H., Bankiti, V., Lang, A.H., Vora, S., Liong, V.E., Xu, Q., Krishnan,
+  A., Pan, Y., Baldan, G., Beijbom, O.: nuscenes: A multimodal dataset for
+  autonomous driving. In: Proceedings of the IEEE/CVF conference on computer
+  vision and pattern recognition. pp. 11621--11631 (2020)
+
+\bibitem{chen2025invertwin}
+Chen, X., Ding, J., Zheng, K., Fang, X., Zhang, X., Lu, C.X., Li, Z.:
+  Invertwin: Solving inverse problems via differentiable radio frequency
+  digital twin. arXiv preprint arXiv:2508.14204  (2025)
+
+\bibitem{deng2024isar}
+Deng, J., Xie, P., Zhang, L., Cong, Y.: Isar-nerf: Neural radiance fields for
+  3-d imaging of space target from multiview isar images. IEEE Sensors Journal
+  \textbf{24}(7),  11705--11722 (2024)
+
+\bibitem{dodds2025mito}
+Dodds, L., Boroushaki, T., Ham, C., Adib, F.: Mito: A millimeter-wave dataset
+  and simulator for non-line-of-sight perception. arXiv preprint
+  arXiv:2502.10259  (2025)
+
+\bibitem{dudek2010millimeter}
+Dudek, M., Wahl, R., Kissinger, D., Weigel, R., Fischer, G.: Millimeter wave
+  fmcw radar system simulations including a 3d ray tracing channel simulator.
+  In: 2010 Asia-Pacific microwave conference. pp. 1665--1668. IEEE (2010)
+
+\bibitem{gao2019experiments}
+Gao, X., Xing, G., Roy, S., Liu, H.: Experiments with mmwave automotive radar
+  test-bed. In: 2019 53rd Asilomar conference on signals, systems, and
+  computers. pp.~1--6. IEEE (2019)
+
+\bibitem{gargallo2007minimizing}
+Gargallo, P., Prados, E., Sturm, P.: Minimizing the reprojection error in
+  surface reconstruction from images. In: 2007 IEEE 11th International
+  Conference on Computer Vision. pp.~1--8. IEEE (2007)
+
+\bibitem{guan2020through}
+Guan, J., Madani, S., Jog, S., Gupta, S., Hassanieh, H.: Through fog
+  high-resolution imaging using millimeter wave radar. In: Proceedings of the
+  IEEE/CVF Conference on Computer Vision and Pattern Recognition. pp.
+  11464--11473 (2020)
+
+\bibitem{hofmann2025inverse}
+Hofmann, N., Wirth, V., Br{\"a}unig, J., Ullmann, I., Vossiek, M., Weyrich, T.,
+  Stamminger, M.: Inverse rendering of near-field mmwave mimo radar for
+  material reconstruction. IEEE Journal of Microwaves  (2025)
+
+\bibitem{sionna}
+Hoydis, J., Cammerer, S., {Ait Aoudia}, F., Nimier-David, M., Maggi, L.,
+  Marcus, G., Vem, A., Keller, A.: Sionna: An open-source library for
+  next-generation physical layer research.
+  \url{https://nvlabs.github.io/sionna/} (2022)
+
+\bibitem{huang2024dart}
+Huang, T., Miller, J., Prabhakara, A., Jin, T., Laroia, T., Kolter, Z., Rowe,
+  A.: Dart: Implicit doppler tomography for radar novel view synthesis. In:
+  Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern
+  Recognition. pp. 24118--24129 (2024)
+
+\bibitem{itu_p2040}
+{ITU-R}: Effects of building materials and structures on radiowave propagation
+  above about 100 {MHz}. Recommendation P.2040-3, International
+  Telecommunication Union (2023)
+
+\bibitem{jakob2022dr}
+Jakob, W., Speierer, S., Roussel, N., Vicini, D.: Dr. jit: A just-in-time
+  compiler for differentiable rendering. ACM Transactions on Graphics (TOG)
+  \textbf{41}(4),  1--19 (2022)
+
+\bibitem{jin2024diffsound}
+Jin, X., Xu, C., Gao, R., Wu, J., Wang, G., Li, S.: Diffsound: Differentiable
+  modal sound rendering and inverse rendering for diverse inference tasks. In:
+  ACM SIGGRAPH 2024 Conference Papers. pp. 1--12 (2024)
+
+\bibitem{kato2020differentiable}
+Kato, H., Beker, D., Morariu, M., Ando, T., Matsuoka, T., Kehl, W., Gaidon, A.:
+  Differentiable rendering: A survey. arXiv preprint arXiv:2006.12057  (2020)
+
+\bibitem{kazhdan2006poisson}
+Kazhdan, M., Bolitho, M., Hoppe, H.: Poisson surface reconstruction. In:
+  Proceedings of the fourth Eurographics symposium on Geometry processing.
+  vol.~7 (2006)
+
+\bibitem{3dgs}
+Kerbl, B., Kopanas, G., Leimk{\"u}hler, T., Drettakis, G.: 3d gaussian
+  splatting for real-time radiance field rendering. ACM Trans. Graph.
+  \textbf{42}(4),  139--1 (2023)
+
+\bibitem{kramer2022coloradar}
+Kramer, A., Harlow, K., Williams, C., Heckman, C.: Coloradar: The direct 3d
+  millimeter wave radar dataset. The International Journal of Robotics Research
+   \textbf{41}(4),  351--360 (2022)
+
+\bibitem{kung2025radarsplat}
+Kung, P.C., Harisha, S., Vasudevan, R., Eid, A., Skinner, K.A.: Radarsplat:
+  Radar gaussian splatting for high-fidelity data synthesis and 3d
+  reconstruction of autonomous driving scenes. In: Proceedings of the IEEE/CVF
+  International Conference on Computer Vision. pp. 27596--27606 (2025)
+
+\bibitem{lei2024sar}
+Lei, Z., Xu, F., Wei, J., Cai, F., Wang, F., Jin, Y.Q.: Sar-nerf: Neural
+  radiance fields for synthetic aperture radar multi-view representation. IEEE
+  Transactions on Geoscience and Remote Sensing  (2024)
+
+\bibitem{li2018differentiable}
+Li, T.M., Aittala, M., Durand, F., Lehtinen, J.: Differentiable monte carlo ray
+  tracing through edge sampling. ACM Transactions on Graphics (TOG)
+  \textbf{37}(6),  1--11 (2018)
+
+\bibitem{9658500}
+Li, X., Wang, X., Yang, Q., Fu, S.: Signal processing for tdm mimo fmcw
+  millimeter-wave radar sensors. IEEE Access  \textbf{9},  167959--167971
+  (2021). \doi{10.1109/ACCESS.2021.3137387}
+
+\bibitem{lin2023millimeter}
+Lin, B., Li, C., Ji, Y., Liu, X., Fang, G.: A millimeter-wave 3d imaging
+  algorithm for mimo synthetic aperture radar. Sensors  \textbf{23}(13), ~5979
+  (2023)
+
+\bibitem{lin2022generalized}
+Lin, D., Kettunen, M., Bitterli, B., Pantaleoni, J., Wyman, C., Jarosz, W.:
+  Generalized resampled importance sampling: foundations of restir. ACM
+  Transactions on Graphics (TOG)  \textbf{41}(4),  75--1 (2022)
+
+\bibitem{loubet2019reparameterizing}
+Loubet, G., Holzschuch, N., Jakob, W.: Reparameterizing discontinuous
+  integrands for differentiable rendering. ACM Transactions on Graphics (TOG)
+  \textbf{38}(6),  1--14 (2019)
+
+\bibitem{lu2024newrf}
+Lu, H., Vattheuer, C., Mirzasoleiman, B., Abari, O.: {NeWRF}: A deep learning
+  framework for wireless radiation field reconstruction and channel prediction.
+  In: Proceedings of the 41st International Conference on Machine Learning
+  (2024)
+
+\bibitem{mildenhall2021nerf}
+Mildenhall, B., Srinivasan, P.P., Tancik, M., Barron, J.T., Ramamoorthi, R.,
+  Ng, R.: Nerf: Representing scenes as neural radiance fields for view
+  synthesis. Communications of the ACM  \textbf{65}(1),  99--106 (2021)
+
+\bibitem{mostajabi2020high}
+Mostajabi, M., Wang, C.M., Ranjan, D., Hsyu, G.: High-resolution radar dataset
+  for semi-supervised learning of dynamic objects. In: Proceedings of the
+  IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops. pp.
+  100--101 (2020)
+
+\bibitem{10.1145/3355089.3356498}
+Nimier-David, M., Vicini, D., Zeltner, T., Jakob, W.: Mitsuba 2: a retargetable
+  forward and inverse renderer. ACM Trans. Graph.  \textbf{38}(6) (Nov 2019).
+  \doi{10.1145/3355089.3356498}, \url{https://doi.org/10.1145/3355089.3356498}
+
+\bibitem{rafidashti2025neuradar}
+Rafidashti, M., Lan, J., Fatemi, M., Fu, J., Hammarstrand, L., Svensson, L.:
+  Neuradar: Neural radiance fields for automotive radar point clouds. In:
+  Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern
+  Recognition Workshops. pp. 2488--2498 (2025)
+
+\bibitem{ramamoorthi2007first}
+Ramamoorthi, R., Mahajan, D., Belhumeur, P.: A first-order analysis of
+  lighting, shading, and shadows. ACM Transactions on Graphics (TOG)
+  \textbf{26}(1),  2--es (2007)
+
+\bibitem{9533181}
+Schüßler, C., Hoffmann, M., Bräunig, J., Ullmann, I., Ebelt, R., Vossiek,
+  M.: A realistic radar ray tracing simulator for large mimo-arrays in
+  automotive environments. IEEE Journal of Microwaves  \textbf{1}(4),  962--974
+  (2021). \doi{10.1109/JMW.2021.3104722}
+
+\bibitem{steinberg2024fsd}
+Steinberg, S., Ramamoorthi, R., Bitterli, B., Mollazainali, A., d'Eon, E.,
+  Pharr, M.: A free-space diffraction {BSDF}. ACM Transactions on Graphics
+  (TOG)  \textbf{43}(4),  113:1--113:11 (2024). \doi{10.1145/3658166}
+
+\bibitem{sun2020mimo}
+Sun, S., Petropulu, A.P., Poor, H.V.: Mimo radar for advanced driver-assistance
+  systems and autonomous driving: Advantages and challenges. IEEE Signal
+  Processing Magazine  \textbf{37}(4),  98--117 (2020)
+
+\bibitem{takawale2025spinr}
+Takawale, H., Roy, N.: Spinr: Neural volumetric reconstruction for fmcw radars.
+  arXiv preprint arXiv:2503.23313  (2025)
+
+\bibitem{talbot2005importance}
+Talbot, J.F., Cline, D., Egbert, P.: Importance resampling for global
+  illumination. In: Eurographics Symposium on Rendering. pp. 139--146 (2005)
+
+\bibitem{ulaby2019microwave}
+Ulaby, F.T., Ravaioli, U.: Fundamentals of Applied Electromagnetics. Pearson,
+  8th edn. (2019)
+
+\bibitem{veach1998robust}
+Veach, E.: Robust Monte Carlo methods for light transport simulation. Stanford
+  University (1998)
+
+\bibitem{veach1995optimally}
+Veach, E., Guibas, L.J.: Optimally combining sampling techniques for monte
+  carlo rendering. In: Proceedings of the 22nd annual conference on Computer
+  graphics and interactive techniques. pp. 419--428 (1995)
+
+\bibitem{walter2007microfacet}
+Walter, B., Marschner, S.R., Li, H., Torrance, K.E.: Microfacet models for
+  refraction through rough surfaces. In: Proceedings of the 18th Eurographics
+  conference on Rendering Techniques. pp. 195--206 (2007)
+
+\bibitem{watts20162d}
+Watts, C.M., Lancaster, P., Pedross-Engel, A., Smith, J.R., Reynolds, M.S.: 2d
+  and 3d millimeter-wave synthetic aperture radar imaging on a pr2 platform.
+  In: 2016 IEEE/RSJ International Conference on Intelligent Robots and Systems
+  (IROS). pp. 4304--4310. IEEE (2016)
+
+\bibitem{wei2024csvbsdf}
+Wei, J., Luomei, Y., Zhang, X., Xu, F.: Learning surface scattering parameters
+  from {SAR} images using differentiable ray tracing. arXiv preprint
+  arXiv:2401.01175  (2024)
+
+\bibitem{wirth2024maroon}
+Wirth, V., Br{\"a}unig, J., Hofmann, N., Vossiek, M., Weyrich, T., Stamminger,
+  M.: Maroon: A dataset for the joint characterization of near-field
+  high-resolution radio-frequency and optical depth imaging techniques. arXiv
+  preprint arXiv:2411.00527  (2024)
+
+\bibitem{zeltner2020specular}
+Zeltner, T., Georgiev, I., Jakob, W.: Specular manifold sampling. ACM TOG
+  \textbf{39}(4),  Article 149 (2020). \doi{10.1145/3386569.3392408}
+
+\bibitem{zhang2023projective}
+Zhang, C., Miller, B., Yan, K., Gkioulekas, I., Zhao, S.: Projective sampling
+  for differentiable rendering of geometry. ACM Transactions on Graphics (TOG)
+  \textbf{42}(6),  1--14 (2023)
+
+\bibitem{zhang2025rf4d}
+Zhang, J., Li, Z., Wang, C., Wen, B.: Rf4d: Neural radar fields for novel view
+  synthesis in outdoor dynamic scenes. arXiv preprint arXiv:2505.20967  (2025)
+
+\bibitem{zhang2022iron}
+Zhang, K., Luan, F., Li, Z., Snavely, N.: Iron: Inverse rendering by optimizing
+  neural sdfs and materials from photometric images. In: Proceedings of the
+  IEEE/CVF conference on computer vision and pattern recognition. pp.
+  5565--5574 (2022)
+
+\bibitem{zhang20173d}
+Zhang, R., Cao, S.: 3d imaging millimeter wave circular synthetic aperture
+  radar. Sensors  \textbf{17}(6), ~1419 (2017)
+
+\end{thebibliography}

@@ -1,0 +1,25 @@
+% Table: Training RA — Without log loss (linear magnitude)
+\begin{table}[h!]
+\centering
+\caption{Training RA evaluation without log loss (linear magnitude). Same seven scenes and metrics as Table~\ref{tab:training_ra}. Removing the log transform improves mean correlation from 0.632 to \textbf{0.919}. Best per-column in \textbf{bold}.}
+\label{tab:training_ra_nolog}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{l cc cc cc cc cc cc}
+\toprule
+& \multicolumn{2}{c}{RA Correlation $\uparrow$} & \multicolumn{2}{c}{RA PSNR $\uparrow$} & \multicolumn{2}{c}{RA SSIM $\uparrow$} & \multicolumn{2}{c}{RA RMSE $\downarrow$} & \multicolumn{2}{c}{ADC Log-Mag MSE $\downarrow$} & \multicolumn{2}{c}{ADC MM-Mag MSE $\downarrow$} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-9} \cmidrule(lr){10-11} \cmidrule(lr){12-13}
+Scene & No-Log & Log & No-Log & Log & No-Log & Log & No-Log & Log & No-Log & Log & No-Log & Log \\
+\midrule
+  S0F135 & \textbf{0.921} & 0.701 & \textbf{37.4} & 32.8 & \textbf{0.938} & 0.888 & \textbf{0.0135} & 0.0228 & 48.3271 & \textbf{48.3866} & \textbf{0.0421} & 0.0432 \\
+  S0F390 & \textbf{0.936} & 0.498 & \textbf{41.0} & 32.9 & \textbf{0.937} & 0.901 & \textbf{0.0089} & 0.0226 & \textbf{5.0250} & 9.0816 & \textbf{0.0289} & 0.0586 \\
+  S1F185 & \textbf{0.954} & 0.504 & \textbf{39.8} & 25.9 & \textbf{0.926} & 0.733 & \textbf{0.0102} & 0.0508 & 32.3385 & \textbf{26.6006} & 0.0398 & \textbf{0.0286} \\
+  S1F438 & \textbf{0.942} & 0.801 & \textbf{37.7} & 32.7 & \textbf{0.926} & 0.877 & \textbf{0.0130} & 0.0231 & 32.5274 & \textbf{26.3979} & \textbf{0.0369} & 0.0525 \\
+  S2F105 & \textbf{0.887} & 0.661 & \textbf{34.6} & 30.8 & \textbf{0.894} & 0.801 & \textbf{0.0185} & 0.0288 & \textbf{23.5161} & 32.4456 & 0.0498 & \textbf{0.0478} \\
+  S2F160 & \textbf{0.864} & 0.634 & \textbf{34.0} & 26.7 & \textbf{0.789} & 0.687 & \textbf{0.0200} & 0.0462 & \textbf{27.6683} & 37.8625 & \textbf{0.0444} & 0.0483 \\
+  S2F300 & \textbf{0.930} & 0.623 & \textbf{38.7} & 31.6 & \textbf{0.906} & 0.820 & \textbf{0.0117} & 0.0262 & 30.0014 & \textbf{21.9412} & \textbf{0.0370} & 0.0481 \\
+\midrule
+  Mean & \textbf{0.919$\pm$0.030} & 0.632$\pm$0.099 & \textbf{37.6$\pm$2.4} & 30.5$\pm$2.8 & \textbf{0.902$\pm$0.049} & 0.815$\pm$0.076 & \textbf{0.0137$\pm$0.004} & 0.0315$\pm$0.011 & 28.5$\pm$12.0 & \textbf{29.0$\pm$11.5} & \textbf{0.040$\pm$0.006} & 0.047$\pm$0.009 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}

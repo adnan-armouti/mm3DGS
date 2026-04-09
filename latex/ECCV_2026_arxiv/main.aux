@@ -1,0 +1,497 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyperFirstAtBeginDocument{\AtBeginDocument}
+\HyperFirstAtBeginDocument{\ifx\hyper@anchor\@undefined
+\global\let\oldcontentsline\contentsline
+\gdef\contentsline#1#2#3#4{\oldcontentsline{#1}{#2}{#3}}
+\global\let\oldnewlabel\newlabel
+\gdef\newlabel#1#2{\newlabelxx{#1}#2}
+\gdef\newlabelxx#1#2#3#4#5#6{\oldnewlabel{#1}{{#2}{#3}}}
+\AtEndDocument{\ifx\hyper@anchor\@undefined
+\let\contentsline\oldcontentsline
+\let\newlabel\oldnewlabel
+\fi}
+\fi}
+\global\let\hyper@last\relax 
+\gdef\HyperFirstAtBeginDocument#1{#1}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{guan2020through}
+\citation{gao2019experiments}
+\citation{barnes2020oxford,caesar2020nuscenes}
+\citation{sun2020mimo}
+\citation{watts20162d,lin2023millimeter,zhang20173d}
+\citation{mostajabi2020high,10.1145/3641519.3657510,huang2024dart,takawale2025spinr,kung2025radarsplat}
+\@writefile{toc}{\contentsline {title}{mmIR: Frequency-Space Inverse Rendering for 3D Millimeter-Wave Radar ADC Synthesis}{1}{chapter.1}\protected@file@percent }
+\@writefile{toc}{\authcount {1}}
+\@writefile{toc}{\contentsline {author}{Anonymous ECCV 2026{} Submission}{1}{chapter.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1.1}\protected@file@percent }
+\@writefile{brf}{\backcite{guan2020through}{{1}{1}{figure.caption.2}}}
+\@writefile{brf}{\backcite{gao2019experiments}{{1}{1}{figure.caption.2}}}
+\@writefile{brf}{\backcite{barnes2020oxford,caesar2020nuscenes}{{1}{1}{figure.caption.2}}}
+\citation{dudek2010millimeter,sionna}
+\citation{li2018differentiable,zhang2022iron}
+\citation{kato2020differentiable}
+\citation{jin2024diffsound}
+\citation{sionna}
+\citation{hofmann2025inverse}
+\citation{chen2025invertwin}
+\citation{kazhdan2006poisson}
+\citation{zeltner2020specular}
+\citation{steinberg2024fsd}
+\citation{zhang2023projective}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces \textbf  {Left:} LiDAR mesh and real 2D range--azimuth (RA) map from a commodity cascaded radar. \textbf  {Center:} mmIR optimizes per-vertex materials, normals, and antenna beam patterns by fitting rendered ADC to real measurements. \textbf  {Right:} The optimized scene is re-rendered from a dense 100$\times $100 virtual array for single-frame 3D occupancy detection.\relax }}{2}{figure.caption.2}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:teaser}{{1}{2}{\textbf {Left:} LiDAR mesh and real 2D range--azimuth (RA) map from a commodity cascaded radar. \textbf {Center:} mmIR optimizes per-vertex materials, normals, and antenna beam patterns by fitting rendered ADC to real measurements. \textbf {Right:} The optimized scene is re-rendered from a dense 100$\times $100 virtual array for single-frame 3D occupancy detection.\relax }{figure.caption.2}{}}
+\newlabel{fig:teaser@cref}{{[figure][1][]1}{[1][1][]2}}
+\@writefile{brf}{\backcite{sun2020mimo}{{2}{1}{figure.caption.2}}}
+\@writefile{brf}{\backcite{watts20162d,lin2023millimeter,zhang20173d}{{2}{1}{figure.caption.2}}}
+\@writefile{brf}{\backcite{mostajabi2020high,10.1145/3641519.3657510,huang2024dart,takawale2025spinr,kung2025radarsplat}{{2}{1}{figure.caption.2}}}
+\@writefile{brf}{\backcite{dudek2010millimeter,sionna}{{2}{1}{figure.caption.2}}}
+\@writefile{brf}{\backcite{li2018differentiable, zhang2022iron}{{2}{1}{figure.caption.2}}}
+\@writefile{brf}{\backcite{kato2020differentiable}{{2}{1}{figure.caption.2}}}
+\@writefile{brf}{\backcite{jin2024diffsound}{{2}{1}{figure.caption.2}}}
+\@writefile{brf}{\backcite{sionna}{{2}{1}{figure.caption.2}}}
+\@writefile{brf}{\backcite{hofmann2025inverse}{{2}{1}{figure.caption.2}}}
+\@writefile{brf}{\backcite{chen2025invertwin}{{2}{1}{figure.caption.2}}}
+\@writefile{brf}{\backcite{kazhdan2006poisson}{{2}{1}{figure.caption.2}}}
+\@writefile{brf}{\backcite{zeltner2020specular}{{2}{1}{figure.caption.2}}}
+\citation{kramer2022coloradar}
+\citation{sionna}
+\citation{hofmann2025inverse}
+\citation{chen2025invertwin}
+\@writefile{brf}{\backcite{steinberg2024fsd}{{3}{1}{figure.caption.2}}}
+\@writefile{brf}{\backcite{zhang2023projective}{{3}{1}{figure.caption.2}}}
+\@writefile{brf}{\backcite{kramer2022coloradar}{{3}{1}{figure.caption.2}}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.1}Scope}{3}{subsection.1.1.1}\protected@file@percent }
+\newlabel{sec:scope}{{1.1}{3}{Scope}{subsection.1.1.1}{}}
+\newlabel{sec:scope@cref}{{[subsection][1][1]1.1}{[1][3][]3}}
+\citation{veach1995optimally,veach1998robust,ramamoorthi2007first,gargallo2007minimizing}
+\citation{li2018differentiable,loubet2019reparameterizing,bangaru2020unbiased}
+\citation{mildenhall2021nerf,10.1145/3550469.3555397,zhang2022iron,10.1145/3355089.3356498,jakob2022dr,bangaru2023slang}
+\citation{sionna}
+\citation{hofmann2025inverse}
+\citation{chen2025invertwin}
+\citation{dudek2010millimeter}
+\citation{dodds2025mito}
+\citation{lei2024sar,deng2024isar}
+\citation{takawale2025spinr,huang2024dart}
+\citation{10.1145/3641519.3657510,zhang2025rf4d}
+\citation{rafidashti2025neuradar,lu2024newrf}
+\citation{kung2025radarsplat}
+\citation{3dgs}
+\citation{huang2024dart}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Feature comparison of physics-based differentiable radar renderers. Signal: ADC\,=\,raw FMCW, CIR\,=\,channel impulse response, IF\,=\,intermediate-frequency phasors. Multi-b.\,=\,multi-bounce; Diffr.\,=\,edge diffraction; Polar.\,=\,polarization; Geom.\,=\,differentiable geometry; Norm.\,=\,differentiable normals; Mat.\,=\,physics material model; Per-vtx\,=\,per-vertex materials; Bound.\,$\nabla $\,=\,boundary gradients; Real\,=\,validated on real data. Checkmarks denote supported pipeline capabilities; see Sec.\nobreakspace  {}\ref  {sec:supp_training} in the supplement for which parameters are active in our experiments.\relax }}{4}{table.caption.3}\protected@file@percent }
+\newlabel{tab:polarization_comparison}{{1}{4}{Feature comparison of physics-based differentiable radar renderers. Signal: ADC\,=\,raw FMCW, CIR\,=\,channel impulse response, IF\,=\,intermediate-frequency phasors. Multi-b.\,=\,multi-bounce; Diffr.\,=\,edge diffraction; Polar.\,=\,polarization; Geom.\,=\,differentiable geometry; Norm.\,=\,differentiable normals; Mat.\,=\,physics material model; Per-vtx\,=\,per-vertex materials; Bound.\,$\nabla $\,=\,boundary gradients; Real\,=\,validated on real data. Checkmarks denote supported pipeline capabilities; see Sec.~\ref {sec:supp_training} in the supplement for which parameters are active in our experiments.\relax }{table.caption.3}{}}
+\newlabel{tab:polarization_comparison@cref}{{[table][1][]1}{[1][3][]4}}
+\@writefile{brf}{\backcite{sionna}{{4}{1}{table.caption.3}}}
+\@writefile{brf}{\backcite{hofmann2025inverse}{{4}{1}{table.caption.3}}}
+\@writefile{brf}{\backcite{chen2025invertwin}{{4}{1}{table.caption.3}}}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Related Works}{4}{section.1.2}\protected@file@percent }
+\@writefile{brf}{\backcite{veach1995optimally, veach1998robust, ramamoorthi2007first, gargallo2007minimizing}{{4}{2}{section.1.2}}}
+\@writefile{brf}{\backcite{li2018differentiable,loubet2019reparameterizing, bangaru2020unbiased}{{4}{2}{section.1.2}}}
+\@writefile{brf}{\backcite{mildenhall2021nerf, 10.1145/3550469.3555397, zhang2022iron, 10.1145/3355089.3356498, jakob2022dr, bangaru2023slang}{{4}{2}{section.1.2}}}
+\@writefile{brf}{\backcite{sionna}{{4}{2}{section.1.2}}}
+\@writefile{brf}{\backcite{hofmann2025inverse}{{4}{2}{section.1.2}}}
+\@writefile{brf}{\backcite{chen2025invertwin}{{4}{2}{section.1.2}}}
+\@writefile{brf}{\backcite{dudek2010millimeter}{{4}{2}{figure.caption.4}}}
+\@writefile{brf}{\backcite{dodds2025mito}{{4}{2}{figure.caption.4}}}
+\citation{kramer2022coloradar}
+\citation{kazhdan2006poisson}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Overview of the mmIR pipeline. Given a LiDAR-derived mesh and initial sensor parameters, the differentiable forward model traces phase-coherent MIMO paths via multiple importance sampling over reflection and diffraction for all TX--RX pairs, then synthesizes raw FMCW ADC. End-to-end automatic differentiation through the full path (ray tracing $\to $ BSDF $\to $ phasor accumulation $\to $ ADC) enables joint optimization of per-vertex materials, geometry, normals, and 6-DoF radar pose from a range--azimuth reconstruction loss.\relax }}{5}{figure.caption.4}\protected@file@percent }
+\newlabel{fig:system}{{2}{5}{Overview of the mmIR pipeline. Given a LiDAR-derived mesh and initial sensor parameters, the differentiable forward model traces phase-coherent MIMO paths via multiple importance sampling over reflection and diffraction for all TX--RX pairs, then synthesizes raw FMCW ADC. End-to-end automatic differentiation through the full path (ray tracing $\to $ BSDF $\to $ phasor accumulation $\to $ ADC) enables joint optimization of per-vertex materials, geometry, normals, and 6-DoF radar pose from a range--azimuth reconstruction loss.\relax }{figure.caption.4}{}}
+\newlabel{fig:system@cref}{{[figure][2][]2}{[1][4][]5}}
+\@writefile{brf}{\backcite{lei2024sar,deng2024isar}{{5}{2}{figure.caption.4}}}
+\@writefile{brf}{\backcite{takawale2025spinr,huang2024dart}{{5}{2}{figure.caption.4}}}
+\@writefile{brf}{\backcite{10.1145/3641519.3657510,zhang2025rf4d}{{5}{2}{figure.caption.4}}}
+\@writefile{brf}{\backcite{rafidashti2025neuradar,lu2024newrf}{{5}{2}{figure.caption.4}}}
+\@writefile{brf}{\backcite{kung2025radarsplat}{{5}{2}{figure.caption.4}}}
+\@writefile{brf}{\backcite{3dgs}{{5}{2}{figure.caption.4}}}
+\@writefile{brf}{\backcite{huang2024dart}{{5}{2}{figure.caption.4}}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Methods}{5}{section.1.3}\protected@file@percent }
+\newlabel{sec:methods}{{3}{5}{Methods}{section.1.3}{}}
+\newlabel{sec:methods@cref}{{[section][3][]3}{[1][5][]5}}
+\@writefile{brf}{\backcite{kramer2022coloradar}{{5}{3}{section.1.3}}}
+\citation{veach1998robust}
+\@writefile{brf}{\backcite{kazhdan2006poisson}{{6}{3}{section.1.3}}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Forward Model}{6}{subsection.1.3.1}\protected@file@percent }
+\newlabel{sec:forward_model}{{3.1}{6}{Forward Model}{subsection.1.3.1}{}}
+\newlabel{sec:forward_model@cref}{{[subsection][1][3]3.1}{[1][6][]6}}
+\newlabel{eq:radar_bistatic}{{1}{6}{Forward Model}{equation.1.3.1}{}}
+\newlabel{eq:radar_bistatic@cref}{{[equation][1][]1}{[1][6][]6}}
+\newlabel{eq:radar_solid_angle}{{2}{6}{Forward Model}{equation.1.3.2}{}}
+\newlabel{eq:radar_solid_angle@cref}{{[equation][2][]2}{[1][6][]6}}
+\newlabel{eq:mc_multibounce}{{3}{6}{Forward Model}{equation.1.3.3}{}}
+\newlabel{eq:mc_multibounce@cref}{{[equation][3][]3}{[1][6][]6}}
+\@writefile{brf}{\backcite{veach1998robust}{{6}{3.1}{equation.1.3.3}}}
+\citation{9658500}
+\citation{9533181}
+\citation{itu_p2040}
+\citation{wei2024csvbsdf}
+\citation{beckmann1963scattering}
+\citation{walter2007microfacet}
+\citation{ulaby2019microwave}
+\newlabel{eq:path_adc}{{4}{7}{Forward Model}{equation.1.3.4}{}}
+\newlabel{eq:path_adc@cref}{{[equation][4][]4}{[1][6][]7}}
+\@writefile{brf}{\backcite{9658500}{{7}{3.1}{equation.1.3.4}}}
+\@writefile{brf}{\backcite{9533181}{{7}{3.1}{equation.1.3.4}}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Physically-Based mmWave BSDF}{7}{subsection.1.3.2}\protected@file@percent }
+\newlabel{sec:bsdf}{{3.2}{7}{Physically-Based mmWave BSDF}{subsection.1.3.2}{}}
+\newlabel{sec:bsdf@cref}{{[subsection][2][3]3.2}{[1][7][]7}}
+\@writefile{brf}{\backcite{itu_p2040}{{7}{3.2}{subsection.1.3.2}}}
+\@writefile{brf}{\backcite{wei2024csvbsdf}{{7}{3.2}{subsection.1.3.2}}}
+\@writefile{brf}{\backcite{beckmann1963scattering}{{7}{3.2}{subsection.1.3.2}}}
+\newlabel{eq:bsdf_full}{{5}{7}{Physically-Based mmWave BSDF}{equation.1.3.5}{}}
+\newlabel{eq:bsdf_full@cref}{{[equation][5][]5}{[1][7][]7}}
+\newlabel{eq:bsdf_coh}{{6}{7}{Physically-Based mmWave BSDF}{equation.1.3.6}{}}
+\newlabel{eq:bsdf_coh@cref}{{[equation][6][]6}{[1][7][]7}}
+\newlabel{eq:bsdf_inc}{{7}{7}{Physically-Based mmWave BSDF}{equation.1.3.7}{}}
+\newlabel{eq:bsdf_inc@cref}{{[equation][7][]7}{[1][7][]7}}
+\citation{born2013principles}
+\citation{veach1995optimally}
+\citation{talbot2005importance}
+\citation{bitterli2020spatiotemporal,lin2022generalized}
+\citation{zeltner2020specular}
+\citation{jakob2022dr}
+\@writefile{brf}{\backcite{walter2007microfacet}{{8}{3.2}{equation.1.3.7}}}
+\@writefile{brf}{\backcite{ulaby2019microwave}{{8}{3.2}{equation.1.3.7}}}
+\@writefile{brf}{\backcite{born2013principles}{{8}{3.2}{equation.1.3.7}}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Ray Generation}{8}{subsection.1.3.3}\protected@file@percent }
+\newlabel{sec:sampling}{{3.3}{8}{Ray Generation}{subsection.1.3.3}{}}
+\newlabel{sec:sampling@cref}{{[subsection][3][3]3.3}{[1][8][]8}}
+\@writefile{brf}{\backcite{veach1995optimally}{{8}{3.3}{subsection.1.3.3}}}
+\newlabel{sec:surface_sampling}{{3.3}{8}{RX-centric reservoir sampling}{section*.5}{}}
+\newlabel{sec:surface_sampling@cref}{{[subsection][3][3]3.3}{[1][8][]8}}
+\@writefile{toc}{\contentsline {paragraph}{RX-centric reservoir sampling.}{8}{section*.5}\protected@file@percent }
+\@writefile{brf}{\backcite{talbot2005importance}{{8}{3.3}{section*.5}}}
+\@writefile{brf}{\backcite{bitterli2020spatiotemporal, lin2022generalized}{{8}{3.3}{section*.5}}}
+\newlabel{sec:sms}{{3.3}{8}{Specular manifold sampling}{section*.6}{}}
+\newlabel{sec:sms@cref}{{[subsection][3][3]3.3}{[1][8][]8}}
+\@writefile{toc}{\contentsline {paragraph}{Specular manifold sampling.}{8}{section*.6}\protected@file@percent }
+\@writefile{brf}{\backcite{zeltner2020specular}{{8}{3.3}{section*.6}}}
+\@writefile{brf}{\backcite{jakob2022dr}{{8}{3.3}{section*.6}}}
+\citation{steinberg2024fsd}
+\citation{jakob2022dr}
+\citation{zhang2023projective}
+\citation{9658500}
+\newlabel{sec:fsd}{{3.3}{9}{Free-space diffraction BSDF}{section*.7}{}}
+\newlabel{sec:fsd@cref}{{[subsection][3][3]3.3}{[1][9][]9}}
+\@writefile{toc}{\contentsline {paragraph}{Free-space diffraction BSDF.}{9}{section*.7}\protected@file@percent }
+\@writefile{brf}{\backcite{steinberg2024fsd}{{9}{3.3}{section*.7}}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Differentiable Optimization}{9}{subsection.1.3.4}\protected@file@percent }
+\newlabel{sec:optimization}{{3.4}{9}{Differentiable Optimization}{subsection.1.3.4}{}}
+\newlabel{sec:optimization@cref}{{[subsection][4][3]3.4}{[1][9][]9}}
+\@writefile{brf}{\backcite{jakob2022dr}{{9}{3.4}{subsection.1.3.4}}}
+\@writefile{brf}{\backcite{zhang2023projective}{{9}{3.4}{subsection.1.3.4}}}
+\@writefile{toc}{\contentsline {paragraph}{Loss function.}{9}{section*.8}\protected@file@percent }
+\newlabel{eq:ra_loss}{{8}{9}{Loss function}{equation.1.3.8}{}}
+\newlabel{eq:ra_loss@cref}{{[equation][8][]8}{[1][9][]9}}
+\@writefile{brf}{\backcite{9658500}{{9}{3.4}{equation.1.3.8}}}
+\citation{kramer2022coloradar}
+\citation{sionna}
+\citation{sionna}
+\citation{sionna}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Antenna configurations used in our evaluation. Left: cascaded MMWCAS-RF-EVM (12TX$\times $16RX $\to $ 86 unique azimuth virtual elements; Sec.\nobreakspace  {}\ref  {sec:supp_range_angle_resolution} in the supplement) used for training. Center: single-chip AWR1843 (3TX$\times $4RX $\to $ 12 virtual elements) used for cross-sensor transfer. Right: dense virtual array (100TX$\times $100RX $\to $ 10{,}000 virtual elements) used for 3D inference. Top row: physical TX (red) and RX (blue) positions. Bottom row: virtual aperture (TX$+$RX convolution).\relax }}{10}{figure.caption.9}\protected@file@percent }
+\newlabel{fig:antenna_layouts}{{3}{10}{Antenna configurations used in our evaluation. Left: cascaded MMWCAS-RF-EVM (12TX$\times $16RX $\to $ 86 unique azimuth virtual elements; Sec.~\ref {sec:supp_range_angle_resolution} in the supplement) used for training. Center: single-chip AWR1843 (3TX$\times $4RX $\to $ 12 virtual elements) used for cross-sensor transfer. Right: dense virtual array (100TX$\times $100RX $\to $ 10{,}000 virtual elements) used for 3D inference. Top row: physical TX (red) and RX (blue) positions. Bottom row: virtual aperture (TX$+$RX convolution).\relax }{figure.caption.9}{}}
+\newlabel{fig:antenna_layouts@cref}{{[figure][3][]3}{[1][10][]10}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Range--azimuth (RA) and ADC training evaluation across seven outdoor scenes. mmIR is compared against Sionna-RT\nobreakspace  {}\cite  {sionna}. Metrics: Pearson correlation (Corr), PSNR, SSIM, RMSE, and ADC-level magnitude error. Best in \textbf  {bold}.\relax }}{10}{table.caption.10}\protected@file@percent }
+\@writefile{brf}{\backcite{sionna}{{10}{2}{table.caption.10}}}
+\newlabel{tab:training_ra}{{2}{10}{Range--azimuth (RA) and ADC training evaluation across seven outdoor scenes. mmIR is compared against Sionna-RT~\cite {sionna}. Metrics: Pearson correlation (Corr), PSNR, SSIM, RMSE, and ADC-level magnitude error. Best in \textbf {bold}.\relax }{table.caption.10}{}}
+\newlabel{tab:training_ra@cref}{{[table][2][]2}{[1][10][]10}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Experiments}{10}{section.1.4}\protected@file@percent }
+\@writefile{brf}{\backcite{kramer2022coloradar}{{10}{4}{figure.caption.9}}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Training Evaluation: ADC Rendering and Range--Azimuth}{10}{subsection.1.4.1}\protected@file@percent }
+\newlabel{sec:training_ra}{{4.1}{10}{Training Evaluation: ADC Rendering and Range--Azimuth}{subsection.1.4.1}{}}
+\newlabel{sec:training_ra@cref}{{[subsection][1][4]4.1}{[1][10][]10}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Qualitative range--azimuth (RA) comparison across all seven training scenes, sorted by Pearson correlation (highest first). Each column shows one scene. Rows, top to bottom: scene mesh with radar position (red sphere) and boresight direction (green arrow); ground-truth RA; mmIR (ours); Sionna-RT baseline. Horizontal axis: cross-range (m); vertical axis: range (m). mmIR captures the dominant scatterer structure and multipath returns across all scenes, while Sionna-RT produces weaker, less spatially accurate responses.\relax }}{11}{figure.caption.11}\protected@file@percent }
+\newlabel{fig:eval_ra}{{4}{11}{Qualitative range--azimuth (RA) comparison across all seven training scenes, sorted by Pearson correlation (highest first). Each column shows one scene. Rows, top to bottom: scene mesh with radar position (red sphere) and boresight direction (green arrow); ground-truth RA; mmIR (ours); Sionna-RT baseline. Horizontal axis: cross-range (m); vertical axis: range (m). mmIR captures the dominant scatterer structure and multipath returns across all scenes, while Sionna-RT produces weaker, less spatially accurate responses.\relax }{figure.caption.11}{}}
+\newlabel{fig:eval_ra@cref}{{[figure][4][]4}{[1][10][]11}}
+\@writefile{brf}{\backcite{sionna}{{11}{4.1}{figure.caption.11}}}
+\citation{wirth2024maroon}
+\citation{kung2025radarsplat}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Cross-sensor transfer evaluation. Scene parameters optimized on the cascaded radar (12TX$\times $16RX, 86 unique azimuth virtual elements) are frozen and used to render ADC for the co-located single-chip radar (3TX$\times $4RX, 12 virtual elements) without re-training. Best in \textbf  {bold}.\relax }}{12}{table.caption.12}\protected@file@percent }
+\newlabel{tab:radar_transfer}{{3}{12}{Cross-sensor transfer evaluation. Scene parameters optimized on the cascaded radar (12TX$\times $16RX, 86 unique azimuth virtual elements) are frozen and used to render ADC for the co-located single-chip radar (3TX$\times $4RX, 12 virtual elements) without re-training. Best in \textbf {bold}.\relax }{table.caption.12}{}}
+\newlabel{tab:radar_transfer@cref}{{[table][3][]3}{[1][12][]12}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Radar Transfer Evaluation}{12}{subsection.1.4.2}\protected@file@percent }
+\newlabel{sec:radar_transfer}{{4.2}{12}{Radar Transfer Evaluation}{subsection.1.4.2}{}}
+\newlabel{sec:radar_transfer@cref}{{[subsection][2][4]4.2}{[1][12][]12}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces 3D occupancy evaluation against LiDAR ground truth. Baseline: ColoRadar-provided 3D point cloud from the cascaded radar's near-1D virtual aperture, where elevation is synthesized by extruding range--azimuth detections along the vertical axis due to minimal elevation resolution. Ours: dense virtual array (100TX$\times $100RX) with full 2D aperture enabling range--azimuth--elevation (RAE) imaging. Occupancy metrics use KD-tree nearest neighbors ($\tau {=}0.5$\,m). Best in \textbf  {bold}.\relax }}{13}{table.caption.13}\protected@file@percent }
+\newlabel{tab:3d_occupancy}{{4}{13}{3D occupancy evaluation against LiDAR ground truth. Baseline: ColoRadar-provided 3D point cloud from the cascaded radar's near-1D virtual aperture, where elevation is synthesized by extruding range--azimuth detections along the vertical axis due to minimal elevation resolution. Ours: dense virtual array (100TX$\times $100RX) with full 2D aperture enabling range--azimuth--elevation (RAE) imaging. Occupancy metrics use KD-tree nearest neighbors ($\tau {=}0.5$\,m). Best in \textbf {bold}.\relax }{table.caption.13}{}}
+\newlabel{tab:3d_occupancy@cref}{{[table][4][]4}{[1][12][]13}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Inference: 3D Occupancy via Dense Virtual Array}{13}{subsection.1.4.3}\protected@file@percent }
+\newlabel{sec:3d_occupancy}{{4.3}{13}{Inference: 3D Occupancy via Dense Virtual Array}{subsection.1.4.3}{}}
+\newlabel{sec:3d_occupancy@cref}{{[subsection][3][4]4.3}{[1][12][]13}}
+\@writefile{brf}{\backcite{wirth2024maroon}{{13}{4.3}{figure.caption.14}}}
+\@writefile{brf}{\backcite{kung2025radarsplat}{{13}{4.3}{figure.caption.14}}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Conclusion}{13}{section.1.5}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Single-frame 3D occupancy comparison overlaid on the LiDAR mesh. Top row: mmIR dense virtual array (100$\times $100 elements, uniform $\lambda /2$ spacing) with full 2D aperture enabling range--azimuth--elevation (RAE) imaging, thresholded at the 99.9th intensity percentile. Bottom row: ColoRadar-provided 3D point cloud from the cascaded radar's near-1D virtual aperture, which resolves only range--azimuth and extrudes detections along elevation, producing vertically smeared structure. Red sphere: radar position; green arrow: boresight direction.\relax }}{14}{figure.caption.14}\protected@file@percent }
+\newlabel{fig:3d_single_frame_comparison}{{5}{14}{Single-frame 3D occupancy comparison overlaid on the LiDAR mesh. Top row: mmIR dense virtual array (100$\times $100 elements, uniform $\lambda /2$ spacing) with full 2D aperture enabling range--azimuth--elevation (RAE) imaging, thresholded at the 99.9th intensity percentile. Bottom row: ColoRadar-provided 3D point cloud from the cascaded radar's near-1D virtual aperture, which resolves only range--azimuth and extrudes detections along elevation, producing vertically smeared structure. Red sphere: radar position; green arrow: boresight direction.\relax }{figure.caption.14}{}}
+\newlabel{fig:3d_single_frame_comparison@cref}{{[figure][5][]5}{[1][12][]14}}
+\citation{skolnik2001introduction,dudek2010millimeter}
+\citation{270463,alizadeh2019remote}
+\@writefile{toc}{\contentsline {section}{\numberline {A}TDM MIMO FMCW Theory}{15}{section.A.1}\protected@file@percent }
+\newlabel{sec:rationale}{{A}{15}{TDM MIMO FMCW Theory}{section.A.1}{}}
+\newlabel{sec:rationale@cref}{{[subappendix][1][2147483647]A}{[1][15][]15}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.1}FMCW Formulation}{15}{subsection.A.1.1}\protected@file@percent }
+\newlabel{sec:supp_fmcw}{{A.1}{15}{FMCW Formulation}{subsection.A.1.1}{}}
+\newlabel{sec:supp_fmcw@cref}{{[subsubappendix][1][2147483647,1]A.1}{[1][15][]15}}
+\@writefile{brf}{\backcite{skolnik2001introduction,dudek2010millimeter}{{15}{A.1}{subsection.A.1.1}}}
+\newlabel{eq:real_beat}{{12}{15}{FMCW Formulation}{equation.A.1.12}{}}
+\newlabel{eq:real_beat@cref}{{[equation][12][2147483647]12}{[1][15][]15}}
+\citation{270463}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Block diagram of IQ demodulation in FMCW radar. The received echo is mixed with in-phase (I) and quadrature (Q) copies of the transmit chirp and low-pass filtered, producing complex baseband samples that preserve both amplitude and phase for downstream range and angle processing.\relax }}{16}{figure.caption.16}\protected@file@percent }
+\newlabel{fig:iq_demod}{{6}{16}{Block diagram of IQ demodulation in FMCW radar. The received echo is mixed with in-phase (I) and quadrature (Q) copies of the transmit chirp and low-pass filtered, producing complex baseband samples that preserve both amplitude and phase for downstream range and angle processing.\relax }{figure.caption.16}{}}
+\newlabel{fig:iq_demod@cref}{{[figure][6][2147483647]6}{[1][15][]16}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.2}IQ Demodulation for Complex Baseband ADC}{16}{subsection.A.1.2}\protected@file@percent }
+\newlabel{sec:supp_iq}{{A.2}{16}{IQ Demodulation for Complex Baseband ADC}{subsection.A.1.2}{}}
+\newlabel{sec:supp_iq@cref}{{[subsubappendix][2][2147483647,1]A.2}{[1][15][]16}}
+\@writefile{brf}{\backcite{270463, alizadeh2019remote}{{16}{A.2}{subsection.A.1.2}}}
+\citation{9658500}
+\@writefile{brf}{\backcite{270463}{{17}{A.2}{equation.A.1.17}}}
+\newlabel{eq:complex_baseband_continuous}{{22}{17}{IQ Demodulation for Complex Baseband ADC}{equation.A.1.22}{}}
+\newlabel{eq:complex_baseband_continuous@cref}{{[equation][22][2147483647]22}{[1][17][]17}}
+\newlabel{eq:adc_samples}{{23}{17}{IQ Demodulation for Complex Baseband ADC}{equation.A.1.23}{}}
+\newlabel{eq:adc_samples@cref}{{[equation][23][2147483647]23}{[1][17][]17}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.3}TDM MIMO for 2D and 3D Imaging}{17}{subsection.A.1.3}\protected@file@percent }
+\newlabel{sec:tdm_mimo_imaging}{{A.3}{17}{TDM MIMO for 2D and 3D Imaging}{subsection.A.1.3}{}}
+\newlabel{sec:tdm_mimo_imaging@cref}{{[subsubappendix][3][2147483647,1]A.3}{[1][17][]17}}
+\@writefile{brf}{\backcite{9658500}{{17}{A.3}{subsection.A.1.3}}}
+\@writefile{toc}{\contentsline {paragraph}{TDM MIMO data cube.}{17}{section*.17}\protected@file@percent }
+\newlabel{eq:tdm_mimo_sample}{{24}{17}{TDM MIMO data cube}{equation.A.1.24}{}}
+\newlabel{eq:tdm_mimo_sample@cref}{{[equation][24][2147483647]24}{[1][17][]17}}
+\@writefile{toc}{\contentsline {paragraph}{Range FFT (fast-time).}{18}{section*.18}\protected@file@percent }
+\newlabel{eq:range_fft}{{25}{18}{Range FFT (fast-time)}{equation.A.1.25}{}}
+\newlabel{eq:range_fft@cref}{{[equation][25][2147483647]25}{[1][18][]18}}
+\newlabel{eq:range_bin}{{26}{18}{Range FFT (fast-time)}{equation.A.1.26}{}}
+\newlabel{eq:range_bin@cref}{{[equation][26][2147483647]26}{[1][18][]18}}
+\@writefile{toc}{\contentsline {paragraph}{Angle-of-arrival from virtual array phase.}{18}{section*.19}\protected@file@percent }
+\newlabel{eq:azimuth_fft}{{28}{18}{Angle-of-arrival from virtual array phase}{equation.A.1.28}{}}
+\newlabel{eq:azimuth_fft@cref}{{[equation][28][2147483647]28}{[1][18][]18}}
+\newlabel{eq:mx_fft}{{30}{19}{Angle-of-arrival from virtual array phase}{equation.A.1.30}{}}
+\newlabel{eq:mx_fft@cref}{{[equation][30][2147483647]30}{[1][19][]19}}
+\newlabel{eq:mxz_fft}{{31}{19}{Angle-of-arrival from virtual array phase}{equation.A.1.31}{}}
+\newlabel{eq:mxz_fft@cref}{{[equation][31][2147483647]31}{[1][19][]19}}
+\@writefile{toc}{\contentsline {paragraph}{Slow-time (Doppler) dimension.}{19}{section*.20}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.4}Bistatic Radar Equation: From RCS to MC Estimator}{19}{subsection.A.1.4}\protected@file@percent }
+\newlabel{sec:supp_mc_derivation}{{A.4}{19}{Bistatic Radar Equation: From RCS to MC Estimator}{subsection.A.1.4}{}}
+\newlabel{sec:supp_mc_derivation@cref}{{[subsubappendix][4][2147483647,1]A.4}{[1][19][]19}}
+\@writefile{toc}{\contentsline {paragraph}{Area-domain form.}{20}{section*.21}\protected@file@percent }
+\newlabel{eq:supp_radar_area}{{32}{20}{Area-domain form}{equation.A.1.32}{}}
+\newlabel{eq:supp_radar_area@cref}{{[equation][32][2147483647]32}{[1][19][]20}}
+\@writefile{toc}{\contentsline {paragraph}{Change of variables to receiver solid angle.}{20}{section*.22}\protected@file@percent }
+\newlabel{eq:supp_omega_area}{{33}{20}{Change of variables to receiver solid angle}{equation.A.1.33}{}}
+\newlabel{eq:supp_omega_area@cref}{{[equation][33][2147483647]33}{[1][20][]20}}
+\newlabel{eq:supp_solid_angle}{{34}{20}{Change of variables to receiver solid angle}{equation.A.1.34}{}}
+\newlabel{eq:supp_solid_angle@cref}{{[equation][34][2147483647]34}{[1][20][]20}}
+\@writefile{toc}{\contentsline {paragraph}{Single-bounce MC estimator.}{20}{section*.23}\protected@file@percent }
+\newlabel{eq:supp_mc_single}{{35}{20}{Single-bounce MC estimator}{equation.A.1.35}{}}
+\newlabel{eq:supp_mc_single@cref}{{[equation][35][2147483647]35}{[1][20][]20}}
+\@writefile{toc}{\contentsline {paragraph}{Multi-bounce generalization.}{20}{section*.24}\protected@file@percent }
+\newlabel{eq:supp_mc_multi}{{36}{20}{Multi-bounce generalization}{equation.A.1.36}{}}
+\newlabel{eq:supp_mc_multi@cref}{{[equation][36][2147483647]36}{[1][20][]20}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.5}From Received Power to ADC Counts}{20}{subsection.A.1.5}\protected@file@percent }
+\newlabel{sec:supp_power_to_adc}{{A.5}{20}{From Received Power to ADC Counts}{subsection.A.1.5}{}}
+\newlabel{sec:supp_power_to_adc@cref}{{[subsubappendix][5][2147483647,1]A.5}{[1][20][]20}}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Radar hardware parameters used in the forward model.\relax }}{21}{table.caption.29}\protected@file@percent }
+\newlabel{tab:hardware_params}{{5}{21}{Radar hardware parameters used in the forward model.\relax }{table.caption.29}{}}
+\newlabel{tab:hardware_params@cref}{{[table][5][2147483647]5}{[1][21][]21}}
+\@writefile{toc}{\contentsline {paragraph}{E-field to voltage.}{21}{section*.25}\protected@file@percent }
+\newlabel{eq:supp_voltage}{{37}{21}{E-field to voltage}{equation.A.1.37}{}}
+\newlabel{eq:supp_voltage@cref}{{[equation][37][2147483647]37}{[1][20][]21}}
+\@writefile{toc}{\contentsline {paragraph}{Voltage to ADC counts.}{21}{section*.26}\protected@file@percent }
+\newlabel{eq:supp_adc_scale}{{38}{21}{Voltage to ADC counts}{equation.A.1.38}{}}
+\newlabel{eq:supp_adc_scale@cref}{{[equation][38][2147483647]38}{[1][21][]21}}
+\newlabel{eq:supp_adc_combined}{{39}{21}{Voltage to ADC counts}{equation.A.1.39}{}}
+\newlabel{eq:supp_adc_combined@cref}{{[equation][39][2147483647]39}{[1][21][]21}}
+\@writefile{toc}{\contentsline {paragraph}{Per-path ADC amplitude.}{21}{section*.27}\protected@file@percent }
+\newlabel{eq:supp_adc_amplitude}{{40}{21}{Per-path ADC amplitude}{equation.A.1.40}{}}
+\newlabel{eq:supp_adc_amplitude@cref}{{[equation][40][2147483647]40}{[1][21][]21}}
+\@writefile{toc}{\contentsline {paragraph}{Hardware parameters.}{21}{section*.28}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Note on the $(4\pi )^2$ vs.\ $(4\pi )^3$ factor.}{21}{section*.30}\protected@file@percent }
+\citation{9658500}
+\citation{li2023azimuth}
+\citation{9658500}
+\citation{9658500}
+\citation{rs_qar}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.6}Range and Angular Resolution}{22}{subsection.A.1.6}\protected@file@percent }
+\newlabel{sec:supp_range_angle_resolution}{{A.6}{22}{Range and Angular Resolution}{subsection.A.1.6}{}}
+\newlabel{sec:supp_range_angle_resolution@cref}{{[subsubappendix][6][2147483647,1]A.6}{[1][22][]22}}
+\@writefile{brf}{\backcite{9658500}{{22}{A.6}{subsection.A.1.6}}}
+\@writefile{brf}{\backcite{li2023azimuth}{{22}{A.6}{subsection.A.1.6}}}
+\@writefile{toc}{\contentsline {paragraph}{Range resolution and windowing.}{22}{section*.31}\protected@file@percent }
+\@writefile{brf}{\backcite{9658500}{{22}{A.6}{equation.A.1.41}}}
+\@writefile{toc}{\contentsline {paragraph}{Virtual aperture and angular resolution.}{22}{section*.32}\protected@file@percent }
+\@writefile{brf}{\backcite{9658500}{{22}{A.6}{equation.A.1.43}}}
+\@writefile{toc}{\contentsline {paragraph}{TI MMWCAS for training vs.\ dense virtual array for inference.}{22}{section*.33}\protected@file@percent }
+\@writefile{brf}{\backcite{rs_qar}{{22}{A.6}{equation.A.1.44}}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.7}Polar-to-Cartesian Conversion}{23}{subsection.A.1.7}\protected@file@percent }
+\newlabel{sec:supp_polar_to_cartesian}{{A.7}{23}{Polar-to-Cartesian Conversion}{subsection.A.1.7}{}}
+\newlabel{sec:supp_polar_to_cartesian@cref}{{[subsubappendix][7][2147483647,1]A.7}{[1][23][]23}}
+\@writefile{toc}{\contentsline {paragraph}{2D Range–Azimuth.}{23}{section*.34}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{3D RAE processing.}{23}{section*.35}\protected@file@percent }
+\citation{kramer2022coloradar}
+\citation{kazhdan2006poisson}
+\@writefile{toc}{\contentsline {section}{\numberline {B}Implementation Details}{24}{section.A.2}\protected@file@percent }
+\newlabel{sec:supp_implementation}{{B}{24}{Implementation Details}{section.A.2}{}}
+\newlabel{sec:supp_implementation@cref}{{[subappendix][2][2147483647]B}{[1][24][]24}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.1}Input Data Format and Pre-Processing}{24}{subsection.A.2.1}\protected@file@percent }
+\newlabel{sec:supp_preprocessing}{{B.1}{24}{Input Data Format and Pre-Processing}{subsection.A.2.1}{}}
+\newlabel{sec:supp_preprocessing@cref}{{[subsubappendix][1][2147483647,2]B.1}{[1][24][]24}}
+\@writefile{brf}{\backcite{kramer2022coloradar}{{24}{B.1}{subsection.A.2.1}}}
+\@writefile{brf}{\backcite{kazhdan2006poisson}{{24}{B.1}{subsection.A.2.1}}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.2}LiDAR-Radar Coarse-to-Fine Alignment}{24}{subsection.A.2.2}\protected@file@percent }
+\newlabel{sec:supp_alignment}{{B.2}{24}{LiDAR-Radar Coarse-to-Fine Alignment}{subsection.A.2.2}{}}
+\newlabel{sec:supp_alignment@cref}{{[subsubappendix][2][2147483647,2]B.2}{[1][24][]24}}
+\@writefile{toc}{\contentsline {paragraph}{Coarse grid search (GPU-accelerated).}{24}{section*.36}\protected@file@percent }
+\citation{chen2025invertwin}
+\@writefile{toc}{\contentsline {paragraph}{Fine optimization.}{25}{section*.37}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.3}Amplitude-Only Optimization and Gradient Stabilization}{25}{subsection.A.2.3}\protected@file@percent }
+\newlabel{sec:phase_sensitivity_loss_landscape}{{B.3}{25}{Amplitude-Only Optimization and Gradient Stabilization}{subsection.A.2.3}{}}
+\newlabel{sec:phase_sensitivity_loss_landscape@cref}{{[subsubappendix][3][2147483647,2]B.3}{[1][25][]25}}
+\@writefile{brf}{\backcite{chen2025invertwin}{{25}{B.3}{subsection.A.2.3}}}
+\@writefile{toc}{\contentsline {paragraph}{Amplitude-only gradient propagation.}{25}{section*.38}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Amplitude-gradient challenges.}{25}{section*.39}\protected@file@percent }
+\citation{steinberg2024fsd}
+\@writefile{toc}{\contentsline {paragraph}{Per-parameter group gradient clipping.}{26}{section*.40}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.4}Training Details}{26}{subsection.A.2.4}\protected@file@percent }
+\newlabel{sec:supp_training}{{B.4}{26}{Training Details}{subsection.A.2.4}{}}
+\newlabel{sec:supp_training@cref}{{[subsubappendix][4][2147483647,2]B.4}{[1][26][]26}}
+\@writefile{brf}{\backcite{steinberg2024fsd}{{26}{B.4}{subsection.A.2.4}}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Training hyperparameters used for all seven scenes. Renderer and optimizer settings are shared across scenes; only input data paths differ.\relax }}{27}{table.caption.41}\protected@file@percent }
+\newlabel{tab:training_hyperparams}{{6}{27}{Training hyperparameters used for all seven scenes. Renderer and optimizer settings are shared across scenes; only input data paths differ.\relax }{table.caption.41}{}}
+\newlabel{tab:training_hyperparams@cref}{{[table][6][2147483647]6}{[1][26][]27}}
+\@writefile{toc}{\contentsline {paragraph}{Per-group learning rates and gradient clipping.}{27}{section*.42}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Material parameterization.}{28}{section*.43}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Material parameter reparameterization. The optimizer operates in unconstrained space $x$; each parameter is mapped to a bounded physical value via the listed transform. Clamp bounds are applied before the exponential to prevent overflow.\relax }}{28}{table.caption.44}\protected@file@percent }
+\newlabel{tab:material_reparam}{{7}{28}{Material parameter reparameterization. The optimizer operates in unconstrained space $x$; each parameter is mapped to a bounded physical value via the listed transform. Clamp bounds are applied before the exponential to prevent overflow.\relax }{table.caption.44}{}}
+\newlabel{tab:material_reparam@cref}{{[table][7][2147483647]7}{[1][28][]28}}
+\@writefile{toc}{\contentsline {paragraph}{Error-map-driven material initialization.}{28}{section*.45}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Antenna pattern mode.}{28}{section*.46}\protected@file@percent }
+\citation{kung2025radarsplat}
+\@writefile{toc}{\contentsline {paragraph}{Amplitude-only gradient propagation.}{29}{section*.47}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.5}Inference Details}{29}{subsection.A.2.5}\protected@file@percent }
+\newlabel{sec:supp_inference}{{B.5}{29}{Inference Details}{subsection.A.2.5}{}}
+\newlabel{sec:supp_inference@cref}{{[subsubappendix][5][2147483647,2]B.5}{[1][29][]29}}
+\@writefile{toc}{\contentsline {paragraph}{Dense Array Configuration}{29}{section*.48}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Dense Array ADC Generation}{29}{section*.49}\protected@file@percent }
+\@writefile{brf}{\backcite{kung2025radarsplat}{{29}{B.5}{section*.49}}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.6}Post-Processing Details}{29}{subsection.A.2.6}\protected@file@percent }
+\newlabel{sec:supp_postprocess}{{B.6}{29}{Post-Processing Details}{subsection.A.2.6}{}}
+\newlabel{sec:supp_postprocess@cref}{{[subsubappendix][6][2147483647,2]B.6}{[1][29][]29}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Per-vertex material deviation from ITU-R P.2040 concrete defaults after optimization, shown across all seven scenes. Color encodes the normalized mean deviation across six physics parameters ($\varepsilon _r$, $\varepsilon _i$, $\sigma _h$, $\ell _c$, $\tau $, $d$) using the inferno colormap, where black = zero deviation (unchanged from defaults) and bright yellow = maximum deviation within each parameter's physical range. Log-scale parameters ($\varepsilon _i$, $\sigma _h$, $\ell _c$, $d$) are normalized in log-space; linear parameters ($\varepsilon _r$, $\tau $) in linear-space. Deviations concentrate on radar-visible surfaces and diminish in occluded or shadow regions.\relax }}{30}{figure.caption.50}\protected@file@percent }
+\newlabel{fig:3d_material}{{7}{30}{Per-vertex material deviation from ITU-R P.2040 concrete defaults after optimization, shown across all seven scenes. Color encodes the normalized mean deviation across six physics parameters ($\varepsilon _r$, $\varepsilon _i$, $\sigma _h$, $\ell _c$, $\tau $, $d$) using the inferno colormap, where black = zero deviation (unchanged from defaults) and bright yellow = maximum deviation within each parameter's physical range. Log-scale parameters ($\varepsilon _i$, $\sigma _h$, $\ell _c$, $d$) are normalized in log-space; linear parameters ($\varepsilon _r$, $\tau $) in linear-space. Deviations concentrate on radar-visible surfaces and diminish in occluded or shadow regions.\relax }{figure.caption.50}{}}
+\newlabel{fig:3d_material@cref}{{[figure][7][2147483647]7}{[1][30][]30}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Per-vertex angular deviation between initial (LiDAR-derived) and optimized surface normals across all seven scenes. Color encodes the absolute angle between initial and optimized normal vectors using the inferno colormap, where black = $0^{\circ }$ (no change) and bright yellow = $30^{\circ }$ or greater (clamped at $30^{\circ }$). Larger deviations appear primarily at mesh boundaries and on surfaces with irregular tessellation.\relax }}{30}{figure.caption.51}\protected@file@percent }
+\newlabel{fig:normals_deviation}{{8}{30}{Per-vertex angular deviation between initial (LiDAR-derived) and optimized surface normals across all seven scenes. Color encodes the absolute angle between initial and optimized normal vectors using the inferno colormap, where black = $0^{\circ }$ (no change) and bright yellow = $30^{\circ }$ or greater (clamped at $30^{\circ }$). Larger deviations appear primarily at mesh boundaries and on surfaces with irregular tessellation.\relax }{figure.caption.51}{}}
+\newlabel{fig:normals_deviation@cref}{{[figure][8][2147483647]8}{[1][30][]30}}
+\@writefile{toc}{\contentsline {section}{\numberline {C}Additional Results}{30}{section.A.3}\protected@file@percent }
+\newlabel{sec:supp_qualitative}{{C}{30}{Additional Results}{section.A.3}{}}
+\newlabel{sec:supp_qualitative@cref}{{[subappendix][3][2147483647]C}{[1][30][]30}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.1}Material Visualization}{30}{subsection.A.3.1}\protected@file@percent }
+\newlabel{sec:qual_materials}{{C.1}{30}{Material Visualization}{subsection.A.3.1}{}}
+\newlabel{sec:qual_materials@cref}{{[subsubappendix][1][2147483647,3]C.1}{[1][30][]30}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.2}Surface Normal Visualization}{30}{subsection.A.3.2}\protected@file@percent }
+\newlabel{sec:qual_normals}{{C.2}{30}{Surface Normal Visualization}{subsection.A.3.2}{}}
+\newlabel{sec:qual_normals@cref}{{[subsubappendix][2][2147483647,3]C.2}{[1][30][]30}}
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces World-space surface normal comparison across all seven scenes. Each vertex is colored by its unit normal direction mapped to RGB (X$\to $R, Y$\to $G, Z$\to $B; value range $[-1,1] \to [0,1]$). Top row (``Initial''): normals computed from the Poisson-reconstructed LiDAR mesh. Bottom row (``Optimized''): normals after joint optimization. Differences between rows show where surface orientations changed during optimization; changes are most apparent at mesh boundaries and on large planar surfaces where Poisson reconstruction artifacts are common.\relax }}{31}{figure.caption.52}\protected@file@percent }
+\newlabel{fig:normals}{{9}{31}{World-space surface normal comparison across all seven scenes. Each vertex is colored by its unit normal direction mapped to RGB (X$\to $R, Y$\to $G, Z$\to $B; value range $[-1,1] \to [0,1]$). Top row (``Initial''): normals computed from the Poisson-reconstructed LiDAR mesh. Bottom row (``Optimized''): normals after joint optimization. Differences between rows show where surface orientations changed during optimization; changes are most apparent at mesh boundaries and on large planar surfaces where Poisson reconstruction artifacts are common.\relax }{figure.caption.52}{}}
+\newlabel{fig:normals@cref}{{[figure][9][2147483647]9}{[1][30][]31}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.3}Antenna Beam Pattern Visualization}{31}{subsection.A.3.3}\protected@file@percent }
+\newlabel{sec:qual_beam}{{C.3}{31}{Antenna Beam Pattern Visualization}{subsection.A.3.3}{}}
+\newlabel{sec:qual_beam@cref}{{[subsubappendix][3][2147483647,3]C.3}{[1][31][]31}}
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Antenna beam pattern comparison across all seven scenes (polar plots, dB scale). Each plot shows four curves: TX elevation (red solid), TX azimuth (red dashed), RX elevation (blue solid), and RX azimuth (blue dashed). Top row (``Initial''): reference patterns shared across all scenes. Bottom row (``Optimized''): per-scene optimized patterns. Optimization adjusts main-lobe gain and sidelobe structure to compensate for calibration uncertainty in the reference antenna data. Per-scene variation in the optimized patterns is expected, as each scene compensates independently for calibration uncertainty. All values floored at the initial pattern minimum ($-32$\,dB).\relax }}{32}{figure.caption.53}\protected@file@percent }
+\newlabel{fig:beam_patterns}{{10}{32}{Antenna beam pattern comparison across all seven scenes (polar plots, dB scale). Each plot shows four curves: TX elevation (red solid), TX azimuth (red dashed), RX elevation (blue solid), and RX azimuth (blue dashed). Top row (``Initial''): reference patterns shared across all scenes. Bottom row (``Optimized''): per-scene optimized patterns. Optimization adjusts main-lobe gain and sidelobe structure to compensate for calibration uncertainty in the reference antenna data. Per-scene variation in the optimized patterns is expected, as each scene compensates independently for calibration uncertainty. All values floored at the initial pattern minimum ($-32$\,dB).\relax }{figure.caption.53}{}}
+\newlabel{fig:beam_patterns@cref}{{[figure][10][2147483647]10}{[1][31][]32}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.4}Ablation Studies}{32}{subsection.A.3.4}\protected@file@percent }
+\newlabel{sec:ablation}{{C.4}{32}{Ablation Studies}{subsection.A.3.4}{}}
+\newlabel{sec:ablation@cref}{{[subsubappendix][4][2147483647,3]C.4}{[1][32][]32}}
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Component ablation averaged over seven training scenes (500 iterations each). Each row disables one component from the full mmIR model. Best per-column in \textbf  {bold}.\relax }}{32}{table.caption.54}\protected@file@percent }
+\newlabel{tab:ablation}{{8}{32}{Component ablation averaged over seven training scenes (500 iterations each). Each row disables one component from the full mmIR model. Best per-column in \textbf {bold}.\relax }{table.caption.54}{}}
+\newlabel{tab:ablation@cref}{{[table][8][2147483647]8}{[1][32][]32}}
+\@writefile{toc}{\contentsline {paragraph}{Rendering transport.}{32}{section*.55}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Optimization targets.}{33}{section*.56}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Initialization.}{33}{section*.57}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.5}Runtime}{33}{subsection.A.3.5}\protected@file@percent }
+\newlabel{sec:runtime}{{C.5}{33}{Runtime}{subsection.A.3.5}{}}
+\newlabel{sec:runtime@cref}{{[subsubappendix][5][2147483647,3]C.5}{[1][33][]33}}
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Runtime comparison and breakdown on a single NVIDIA RTX 4090 GPU (24\,GB). Training times are averaged over 500 iterations (mmIR) and 150 iterations (Sionna-RT) on scene S0F135 ($\sim $72K vertices), excluding the first 5 iterations (JIT compilation warmup).\relax }}{34}{table.caption.58}\protected@file@percent }
+\newlabel{tab:runtime}{{9}{34}{Runtime comparison and breakdown on a single NVIDIA RTX 4090 GPU (24\,GB). Training times are averaged over 500 iterations (mmIR) and 150 iterations (Sionna-RT) on scene S0F135 ($\sim $72K vertices), excluding the first 5 iterations (JIT compilation warmup).\relax }{table.caption.58}{}}
+\newlabel{tab:runtime@cref}{{[table][9][2147483647]9}{[1][33][]34}}
+\@writefile{toc}{\contentsline {section}{\numberline {D}Limitations}{34}{section.A.4}\protected@file@percent }
+\newlabel{sec:limitations}{{D}{34}{Limitations}{section.A.4}{}}
+\newlabel{sec:limitations@cref}{{[subappendix][4][2147483647]D}{[1][33][]34}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {D.1}Refraction, Absorption, and Sub-surface Scattering}{34}{subsection.A.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {D.2}Doppler Phase Term for Moving Radar}{34}{subsection.A.4.2}\protected@file@percent }
+\citation{steinberg2024fsd}
+\@writefile{toc}{\contentsline {subsection}{\numberline {D.3}Dynamic Scenes and Objects}{35}{subsection.A.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {D.4}Multi-bounce Diffraction}{35}{subsection.A.4.4}\protected@file@percent }
+\@writefile{brf}{\backcite{steinberg2024fsd}{{35}{D.4}{subsection.A.4.4}}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {D.5}Amplitude-Only Gradient Signal}{35}{subsection.A.4.5}\protected@file@percent }
+\newlabel{sec:lim_amplitude_only}{{D.5}{35}{Amplitude-Only Gradient Signal}{subsection.A.4.5}{}}
+\newlabel{sec:lim_amplitude_only@cref}{{[subsubappendix][5][2147483647,4]D.5}{[1][35][]35}}
+\bibstyle{splncs04}
+\bibdata{main,supplement}
+\bibcite{alizadeh2019remote}{1}
+\bibcite{10.1145/3550469.3555397}{2}
+\@writefile{toc}{\contentsline {subsection}{\numberline {D.6}Mesh Quality Bottleneck}{36}{subsection.A.4.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {D.7}Sensitivity to Sensor Alignment}{36}{subsection.A.4.7}\protected@file@percent }
+\bibcite{bangaru2020unbiased}{3}
+\bibcite{bangaru2023slang}{4}
+\bibcite{barnes2020oxford}{5}
+\bibcite{beckmann1963scattering}{6}
+\bibcite{bitterli2020spatiotemporal}{7}
+\bibcite{born2013principles}{8}
+\bibcite{10.1145/3641519.3657510}{9}
+\bibcite{270463}{10}
+\bibcite{caesar2020nuscenes}{11}
+\bibcite{chen2025invertwin}{12}
+\bibcite{deng2024isar}{13}
+\bibcite{dodds2025mito}{14}
+\bibcite{dudek2010millimeter}{15}
+\bibcite{gao2019experiments}{16}
+\bibcite{gargallo2007minimizing}{17}
+\bibcite{guan2020through}{18}
+\bibcite{hofmann2025inverse}{19}
+\bibcite{sionna}{20}
+\bibcite{huang2024dart}{21}
+\bibcite{itu_p2040}{22}
+\bibcite{jakob2022dr}{23}
+\bibcite{jin2024diffsound}{24}
+\bibcite{kato2020differentiable}{25}
+\bibcite{kazhdan2006poisson}{26}
+\bibcite{3dgs}{27}
+\bibcite{kramer2022coloradar}{28}
+\bibcite{kung2025radarsplat}{29}
+\bibcite{lei2024sar}{30}
+\bibcite{li2018differentiable}{31}
+\bibcite{9658500}{32}
+\bibcite{li2023azimuth}{33}
+\bibcite{lin2023millimeter}{34}
+\bibcite{lin2022generalized}{35}
+\bibcite{loubet2019reparameterizing}{36}
+\bibcite{lu2024newrf}{37}
+\bibcite{mildenhall2021nerf}{38}
+\bibcite{mostajabi2020high}{39}
+\bibcite{10.1145/3355089.3356498}{40}
+\bibcite{rafidashti2025neuradar}{41}
+\bibcite{ramamoorthi2007first}{42}
+\bibcite{rs_qar}{43}
+\bibcite{9533181}{44}
+\bibcite{skolnik2001introduction}{45}
+\bibcite{steinberg2024fsd}{46}
+\bibcite{sun2020mimo}{47}
+\bibcite{takawale2025spinr}{48}
+\bibcite{talbot2005importance}{49}
+\bibcite{ulaby2019microwave}{50}
+\bibcite{veach1998robust}{51}
+\bibcite{veach1995optimally}{52}
+\bibcite{walter2007microfacet}{53}
+\bibcite{watts20162d}{54}
+\bibcite{wei2024csvbsdf}{55}
+\bibcite{wirth2024maroon}{56}
+\bibcite{zeltner2020specular}{57}
+\bibcite{zhang2023projective}{58}
+\bibcite{zhang2025rf4d}{59}
+\bibcite{zhang2022iron}{60}
+\bibcite{zhang20173d}{61}
+\gdef \@abspage@last{40}

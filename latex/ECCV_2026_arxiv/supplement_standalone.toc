@@ -1,0 +1,62 @@
+\contentsline {section}{\numberline {A}TDM MIMO FMCW Theory}{1}{section.0.1}%
+\contentsline {subsection}{\numberline {A.1}FMCW Formulation}{2}{subsection.0.1.1}%
+\contentsline {subsection}{\numberline {A.2}IQ Demodulation for Complex Baseband ADC}{2}{subsection.0.1.2}%
+\contentsline {subsection}{\numberline {A.3}TDM MIMO for 2D and 3D Imaging}{4}{subsection.0.1.3}%
+\contentsline {paragraph}{TDM MIMO data cube.}{4}{section*.3}%
+\contentsline {paragraph}{Range FFT (fast-time).}{5}{section*.4}%
+\contentsline {paragraph}{Angle-of-arrival from virtual array phase.}{5}{section*.5}%
+\contentsline {paragraph}{Slow-time (Doppler) dimension.}{6}{section*.6}%
+\contentsline {subsection}{\numberline {A.4}Bistatic Radar Equation: From RCS to MC Estimator}{6}{subsection.0.1.4}%
+\contentsline {paragraph}{Area-domain form.}{6}{section*.7}%
+\contentsline {paragraph}{Change of variables to receiver solid angle.}{7}{section*.8}%
+\contentsline {paragraph}{Single-bounce MC estimator.}{7}{section*.9}%
+\contentsline {paragraph}{Multi-bounce generalization.}{7}{section*.10}%
+\contentsline {subsection}{\numberline {A.5}From Received Power to ADC Counts}{7}{subsection.0.1.5}%
+\contentsline {paragraph}{E-field to voltage.}{7}{section*.11}%
+\contentsline {paragraph}{Voltage to ADC counts.}{8}{section*.12}%
+\contentsline {paragraph}{Per-path ADC amplitude.}{8}{section*.13}%
+\contentsline {paragraph}{Hardware parameters.}{8}{section*.14}%
+\contentsline {paragraph}{Note on the $(4\pi )^2$ vs.\ $(4\pi )^3$ factor.}{8}{section*.16}%
+\contentsline {subsection}{\numberline {A.6}Range and Angular Resolution}{8}{subsection.0.1.6}%
+\contentsline {paragraph}{Range resolution and windowing.}{9}{section*.17}%
+\contentsline {paragraph}{Virtual aperture and angular resolution.}{9}{section*.18}%
+\contentsline {paragraph}{TI MMWCAS for training vs.\ dense virtual array for inference.}{9}{section*.19}%
+\contentsline {subsection}{\numberline {A.7}Polar-to-Cartesian Conversion}{10}{subsection.0.1.7}%
+\contentsline {paragraph}{2D Range–Azimuth.}{10}{section*.20}%
+\contentsline {paragraph}{3D RAE processing.}{10}{section*.21}%
+\contentsline {section}{\numberline {B}Implementation Details}{11}{section.0.2}%
+\contentsline {subsection}{\numberline {B.1}Input Data Format and Pre-Processing}{11}{subsection.0.2.1}%
+\contentsline {subsection}{\numberline {B.2}LiDAR-Radar Coarse-to-Fine Alignment}{11}{subsection.0.2.2}%
+\contentsline {paragraph}{Coarse grid search (GPU-accelerated).}{11}{section*.22}%
+\contentsline {paragraph}{Fine optimization.}{12}{section*.23}%
+\contentsline {subsection}{\numberline {B.3}Amplitude-Only Optimization and Gradient Stabilization}{12}{subsection.0.2.3}%
+\contentsline {paragraph}{Amplitude-only gradient propagation.}{12}{section*.24}%
+\contentsline {paragraph}{Amplitude-gradient challenges.}{12}{section*.25}%
+\contentsline {paragraph}{Per-parameter group gradient clipping.}{13}{section*.26}%
+\contentsline {subsection}{\numberline {B.4}Training Details}{13}{subsection.0.2.4}%
+\contentsline {paragraph}{Per-group learning rates and gradient clipping.}{14}{section*.28}%
+\contentsline {paragraph}{Material parameterization.}{15}{section*.29}%
+\contentsline {paragraph}{Error-map-driven material initialization.}{15}{section*.31}%
+\contentsline {paragraph}{Antenna pattern mode.}{15}{section*.32}%
+\contentsline {paragraph}{Amplitude-only gradient propagation.}{16}{section*.33}%
+\contentsline {subsection}{\numberline {B.5}Inference Details}{16}{subsection.0.2.5}%
+\contentsline {paragraph}{Dense Array Configuration}{16}{section*.34}%
+\contentsline {paragraph}{Dense Array ADC Generation}{16}{section*.35}%
+\contentsline {subsection}{\numberline {B.6}Post-Processing Details}{16}{subsection.0.2.6}%
+\contentsline {section}{\numberline {C}Additional Results}{17}{section.0.3}%
+\contentsline {subsection}{\numberline {C.1}Material Visualization}{17}{subsection.0.3.1}%
+\contentsline {subsection}{\numberline {C.2}Surface Normal Visualization}{17}{subsection.0.3.2}%
+\contentsline {subsection}{\numberline {C.3}Antenna Beam Pattern Visualization}{18}{subsection.0.3.3}%
+\contentsline {subsection}{\numberline {C.4}Ablation Studies}{19}{subsection.0.3.4}%
+\contentsline {paragraph}{Rendering transport.}{19}{section*.41}%
+\contentsline {paragraph}{Optimization targets.}{20}{section*.42}%
+\contentsline {paragraph}{Initialization.}{20}{section*.43}%
+\contentsline {subsection}{\numberline {C.5}Runtime}{20}{subsection.0.3.5}%
+\contentsline {section}{\numberline {D}Limitations}{21}{section.0.4}%
+\contentsline {subsection}{\numberline {D.1}Refraction, Absorption, and Sub-surface Scattering}{21}{subsection.0.4.1}%
+\contentsline {subsection}{\numberline {D.2}Doppler Phase Term for Moving Radar}{21}{subsection.0.4.2}%
+\contentsline {subsection}{\numberline {D.3}Dynamic Scenes and Objects}{22}{subsection.0.4.3}%
+\contentsline {subsection}{\numberline {D.4}Multi-bounce Diffraction}{22}{subsection.0.4.4}%
+\contentsline {subsection}{\numberline {D.5}Amplitude-Only Gradient Signal}{22}{subsection.0.4.5}%
+\contentsline {subsection}{\numberline {D.6}Mesh Quality Bottleneck}{23}{subsection.0.4.6}%
+\contentsline {subsection}{\numberline {D.7}Sensitivity to Sensor Alignment}{23}{subsection.0.4.7}%

@@ -1,0 +1,9 @@
+\begin{abstract}
+High-resolution 3D radar data is scarce: commodity mmWave sensors use small antenna arrays that limit angular resolution to several degrees, and existing datasets provide only 2D range--azimuth maps or sparse point clouds rather than raw ADC. Hardware scaling is expensive, synthetic-aperture scanning is impractical at fleet scale, and learned synthesis methods are bottlenecked by the very data shortage they aim to address.
+%
+We present mmIR, an open-source differentiable FMCW radar inverse renderer that fits a physics-based forward model to real captures and re-renders from dense virtual apertures to synthesize high-resolution 3D radar data. Using LiDAR-derived meshes as a geometric scaffold, mmIR optimizes per-vertex ITU physics materials, vertex normals, and antenna beam patterns through end-to-end automatic differentiation of a phase-coherent MIMO forward model with multi-bounce propagation, polarization, and free-space diffraction.
+%
+On seven outdoor ColoRadar scenes, mmIR achieves 0.63 mean Pearson correlation on range--azimuth maps versus 0.32 for Sionna-RT. Scenes trained on a cascaded imaging radar transfer to a co-located single-chip radar without re-training (0.58 correlation), and dense virtual arrays (100$\times$100 elements) produce single-frame 3D occupancy validated against LiDAR.
+
+\keywords{Differentiable rendering \and FMCW radar \and Inverse rendering \and mmWave \and 3D reconstruction}
+\end{abstract}

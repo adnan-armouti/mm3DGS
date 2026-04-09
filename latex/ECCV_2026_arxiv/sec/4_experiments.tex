@@ -1,0 +1,53 @@
+\section{Experiments}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figs/antenna_layouts.pdf}
+  \caption{Antenna configurations used in our evaluation. Left: cascaded MMWCAS-RF-EVM (12TX$\times$16RX $\to$ 86 unique azimuth virtual elements; Sec.~\ref{sec:supp_range_angle_resolution} in the supplement) used for training. Center: single-chip AWR1843 (3TX$\times$4RX $\to$ 12 virtual elements) used for cross-sensor transfer. Right: dense virtual array (100TX$\times$100RX $\to$ 10{,}000 virtual elements) used for 3D inference. Top row: physical TX (red) and RX (blue) positions. Bottom row: virtual aperture (TX$+$RX convolution).}
+  \label{fig:antenna_layouts}
+\end{figure}
+
+We evaluate mmIR on seven diverse outdoor scenes from the ColoRadar dataset~\cite{kramer2022coloradar}, which provides synchronized mmWave radar and LiDAR captures with raw ADC access. We design three experiments that progressively test our forward model under increasingly challenging conditions: (1)~training evaluation on the cascaded imaging radar used for optimization (12TX$\times$16RX, 86 virtual elements); (2)~cross-sensor transfer to a co-located single-chip radar (3TX$\times$4RX, 12 virtual elements) without re-training; and (3)~3D occupancy inference via a dense virtual array (100TX$\times$100RX, 10{,}000 virtual elements). Figure~\ref{fig:antenna_layouts} illustrates all three antenna configurations. Dataset details, scene geometry reconstruction, and implementation hyperparameters are provided in the supplement (Sec.~\ref{sec:supp_implementation}).
+
+\subsection{Training Evaluation: ADC Rendering and Range--Azimuth}
+\label{sec:training_ra}
+
+\input{tables/training_ra}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figs/training_ra/training_single_v2.pdf}
+  \caption{Qualitative range--azimuth (RA) comparison across all seven training scenes, sorted by Pearson correlation (highest first). Each column shows one scene. Rows, top to bottom: scene mesh with radar position (red sphere) and boresight direction (green arrow); ground-truth RA; mmIR (ours); Sionna-RT baseline. Horizontal axis: cross-range (m); vertical axis: range (m). mmIR captures the dominant scatterer structure and multipath returns across all scenes, while Sionna-RT produces weaker, less spatially accurate responses.}
+  \label{fig:eval_ra}
+\end{figure}
+
+We compare rendered and measured range--azimuth (RA) maps on the cascaded radar used for optimization. Table~\ref{tab:training_ra} reports Pearson correlation, PSNR, SSIM, RMSE, and ADC-level magnitude metrics across all seven scenes, with Sionna-RT~\cite{sionna} as baseline. Evaluating in the RA domain implicitly validates phase accuracy: the azimuth FFT converts relative phase differences across virtual elements into angular information, so any systematic phase error (per-element bias, incorrect path-length scaling, or incoherent phasor accumulation) would smear or shift targets in the angular domain, degrading all RA metrics. Absolute phase is not meaningful in practice, as it depends on user-configurable initial phase, oscillator drift, and phase noise; these common-mode offsets appear in the DC term of the spatial FFT and are dropped during processing.
+
+mmIR achieves a mean Pearson correlation of \textbf{0.919}, substantially outperforming Sionna-RT (0.324). Table~\ref{tab:training_ra} quantifies this gap across all metrics; Figure~\ref{fig:eval_ra} provides the corresponding qualitative comparison, sorted by correlation. mmIR reproduces both the dominant scatterer locations and the diffuse multipath structure present in the ground truth, whereas Sionna-RT produces attenuated responses with spatially misaligned features.
+
+Three architectural differences drive this gap. First, mmIR's physically-based BSDF with six per-vertex learnable parameters captures spatially varying reflectance that Sionna-RT's per-object scattering model cannot represent; this is most evident in geometrically complex scenes (S1-F438, S0-F135) where mixed-material surfaces dominate the radar response. Second, mmIR jointly optimizes surface normals and antenna beam patterns, parameters entirely outside Sionna-RT's optimization scope, correcting both surface orientation errors inherited from noisy LiDAR tessellation and systematic antenna gain biases. Third, Sionna-RT's path solver executes outside the AD graph: ray tracing runs under gradient suspension and all path geometry is subsequently detached, so while material gradients propagate through field coefficients at each bounce, the path topology itself is frozen and no gradients reach vertex positions or normals, and a material change at one surface cannot redirect subsequent bounces. mmIR places the entire forward model inside a single computation graph, enabling end-to-end gradient flow from the loss through ADC synthesis, phasor accumulation, BSDF evaluation, and ray--triangle intersections. The weakest scene, S2F160 (0.864), shows that even challenging geometries with complex multipath achieve high correlation. mmIR substantially outperforms the baseline on every scene, indicating that the richer parameter space and deeper gradient flow consistently improve fit quality.
+
+\subsection{Radar Transfer Evaluation}
+\label{sec:radar_transfer}
+
+\input{tables/radar_transfer}
+
+A central claim of physics-based inverse rendering is that the optimized scene captures true physical properties, not sensor-specific patterns. We validate this by \emph{cross-sensor transfer}: the scene parameters trained on the cascaded radar (12TX $\times$ 16RX, 86 virtual elements) are frozen and used to render ADC for the single-chip radar (3TX $\times$ 4RX, 12 virtual elements) that shares the same physical mounting (Fig.~\ref{fig:antenna_layouts}). We apply the same rigid-body alignment transformation learned during cascaded training to the single-chip configuration and render forward-only.
+
+This experiment tests whether our inverse renderer has learned transferable scene physics rather than memorizing the training sensor's idiosyncrasies. Table~\ref{tab:radar_transfer} shows that mmIR achieves a mean transfer correlation of \textbf{0.554}, outperforming Sionna-RT (0.114), demonstrating that the learned materials generalize across sensor configurations.
+
+\subsection{Inference: 3D Occupancy via Dense Virtual Array}
+\label{sec:3d_occupancy}
+
+\input{tables/3d_occupancy}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figs/test_3d/test_3d_v1.pdf}
+  \caption{Single-frame 3D occupancy comparison overlaid on the LiDAR mesh. Top row: mmIR dense virtual array (100$\times$100 elements, uniform $\lambda/2$ spacing) with full 2D aperture enabling range--azimuth--elevation (RAE) imaging, thresholded at the 99.9th intensity percentile. Bottom row: ColoRadar-provided 3D point cloud from the cascaded radar's near-1D virtual aperture, which resolves only range--azimuth and extrudes detections along elevation, producing vertically smeared structure. Red sphere: radar position; green arrow: boresight direction.}
+  \label{fig:3d_single_frame_comparison}
+\end{figure}
+
+After training, we freeze the optimized scene parameters and re-render from a dense virtual array (100TX $\times$ 100RX, 10,000 virtual elements with $\lambda/2$ spacing) inspired by the Rohde \& Schwarz QAR50~\cite{wirth2024maroon} (Fig.~\ref{fig:antenna_layouts}, right). We convert synthesized ADC into a 3D tensor via Range--Azimuth--Elevation (RAE) FFT and extract a sparse radar point cloud by thresholding at the 99.9th intensity percentile. Following~\cite{kung2025radarsplat}, we use single-bounce propagation at test time for the dense array.
+
+We evaluate against LiDAR after radar-guided filtering: (1) filtering by the dense array's 0~dB beam limits, (2) projecting LiDAR points onto the radar polar voxel grid, and (3) retaining only points where radar normalized intensity $\geq 0.1$. Occupancy metrics use KD-tree nearest neighbors with $\tau=0.5$~m threshold; geometric fidelity is measured via RMSE and Relative Chamfer Distance (R-CD). Table~\ref{tab:3d_occupancy} shows substantial variation driven by radar visibility: scenes with multiple surfaces within the field-of-view achieve strong reconstruction (S1F185: Precision=0.997, R-CD=0.067), while open scenes with ground planes nearly parallel to boresight show degraded recall as specular energy is directed away from receivers. Additional qualitative analysis, quantitative ablation, and runtime results are in the supplement (Sec.~\ref{sec:supp_qualitative}).

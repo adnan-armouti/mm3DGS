@@ -1,0 +1,49 @@
+This is BibTeX, Version 0.99d (TeX Live 2022/dev/Debian)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: supplement_standalone.aux
+The style file: splncs04.bst
+Database file #1: supplement_only.bib
+Warning--empty journal in alizadeh2019remote
+Warning--can't use both volume and number fields in kazhdan2006poisson
+You've used 12 entries,
+            2850 wiz_defined-function locations,
+            672 strings with 7061 characters,
+and the built_in function-call counts, 7500 in all, are:
+= -- 631
+> -- 244
+< -- 11
++ -- 101
+- -- 88
+* -- 472
+:= -- 948
+add.period$ -- 20
+call.type$ -- 12
+change.case$ -- 91
+chr.to.int$ -- 0
+cite$ -- 14
+duplicate$ -- 638
+empty$ -- 659
+format.name$ -- 97
+if$ -- 1652
+int.to.chr$ -- 0
+int.to.str$ -- 12
+missing$ -- 129
+newline$ -- 42
+num.names$ -- 24
+pop$ -- 257
+preamble$ -- 1
+purify$ -- 68
+quote$ -- 0
+skip$ -- 219
+stack$ -- 0
+substring$ -- 458
+swap$ -- 356
+text.length$ -- 11
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 46
+warning$ -- 2
+while$ -- 55
+width$ -- 14
+write$ -- 128
+(There were 2 warnings)

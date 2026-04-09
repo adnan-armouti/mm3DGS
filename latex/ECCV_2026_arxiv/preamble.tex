@@ -1,0 +1,21 @@
+%% Additional packages and commands for the paper.
+
+% Colors for table cells
+% xcolor is loaded by eccv.sty; table option is passed in main.tex
+\usepackage{multirow}
+
+\colorlet{mediumgray}{gray!60}
+\colorlet{lightergray}{gray!20}
+\definecolor{lightred}{RGB}{255,200,200}
+\definecolor{lightgreen}{RGB}{200,255,200}
+\definecolor{lightyellow}{RGB}{255,255,200}
+\definecolor{lightgray}{RGB}{200,200,200}
+
+% Inline annotations
+\newcommand{\red}[1]{{\color{red}#1}}
+\newcommand{\todo}[1]{{\color{red}#1}}
+\newcommand{\TODO}[1]{\textbf{\color{red}[TODO: #1]}}
+
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{placeins}   % \FloatBarrier for precise float placement

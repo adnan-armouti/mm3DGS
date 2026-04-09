@@ -1,0 +1,127 @@
+\documentclass[runningheads]{llncs}
+
+% Must pass table option to xcolor before eccv.sty loads it
+\PassOptionsToPackage{table,dvipsnames}{xcolor}
+
+% ---------------------------------------------------------------
+% ECCV package
+% TODO REVIEW: Insert your submission number below by replacing '*****'
+% TODO FINAL: Comment out the following line for the camera-ready version
+\usepackage[review,year=2026,ID=11932]{eccv}
+% TODO FINAL: Un-comment the following line for the camera-ready version
+%\usepackage{eccv}
+
+% ---------------------------------------------------------------
+% Other packages
+
+\usepackage{eccvabbrv}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage[accsupp]{axessibility}
+
+% Additional packages from our paper
+\input{preamble}
+
+% ---------------------------------------------------------------
+% Hyperref
+% TODO FINAL: Comment out the following line for the camera-ready version
+\usepackage[pagebackref,breaklinks,colorlinks,citecolor=eccvblue]{hyperref}
+% TODO FINAL: Un-comment the following line for the camera-ready version
+%\usepackage{hyperref}
+
+% ---------------------------------------------------------------
+% Stub labels for main-paper cross-references.
+% These provide the display text that appears when \ref is used in
+% supplement sections that reference main-paper equations, figures, or
+% sections.  Update the numbers if the main paper layout changes.
+
+% Main-paper equations
+\makeatletter
+\newcommand{\stublabel}[2]{%
+  \begingroup
+    \protected@edef\@currentlabel{#2}%
+    \label{#1}%
+  \endgroup
+}
+\makeatother
+
+\begin{document}
+
+% ---------------------------------------------------------------
+\title{mmIR: Supplementary Material}
+
+\titlerunning{mmIR: Supplementary Material}
+
+% TODO FINAL: Replace with your author list
+\author{First Author\inst{1} \and
+Second Author\inst{1} \and
+Third Author\inst{1}}
+
+\authorrunning{F.~Author et al.}
+
+% TODO FINAL: Replace with your institution
+\institute{University, City, Country\\
+\email{\{first,second,third\}@university.edu}}
+
+% Skip \maketitle (llncs forces \newpage, wasting page 1).
+% Typeset a minimal header manually so content flows immediately.
+% Convention follows ECCV supplements: "Supplement: [Full Paper Title]"
+{\centering
+  {\Large\bfseries Supplementary Material for\\ mmIR: Frequency-Space Inverse Rendering\\ for 3D Millimeter-Wave Radar ADC Synthesis\par}
+  \vspace{0.5em}
+  {Anonymous ECCV 2026 Submission\par}
+  \vspace{0.25em}
+  {Paper ID \#11932\par}
+  \vspace{1.5em}
+}
+
+% ---------------------------------------------------------------
+% Table of contents for supplement navigation
+% Left-aligned section header, compact entries, all on page 1.
+\setcounter{tocdepth}{2}
+\section*{Table of Contents}
+\vspace{-0.5em}
+\begingroup
+\hypersetup{linkcolor=black}
+\small
+\makeatletter
+\@starttoc{toc}
+\makeatother
+\endgroup
+\vspace{1em}
+
+% ---------------------------------------------------------------
+% Create stub labels for main-paper cross-references.
+% These ensure that \ref{...} calls in the supplement sections resolve
+% to the correct equation/figure/section numbers from the main paper.
+% Update these if main-paper numbering changes.
+
+\stublabel{eq:radar_bistatic}{1}
+\stublabel{eq:path_adc}{5}
+\stublabel{eq:ra_loss}{8}
+\stublabel{eq:bsdf_full}{6}
+\stublabel{sec:optimization}{3.4}
+\stublabel{fig:antenna_layouts}{3}
+\stublabel{fig:3d_single_frame_comparison}{5}
+\stublabel{tab:training_ra}{2}
+\stublabel{tab:radar_transfer}{3}
+\stublabel{tab:3d_occupancy}{4}
+\stublabel{sec:3d_occupancy}{4.3}
+
+% ---------------------------------------------------------------
+% Supplement sections
+
+\setcounter{section}{0}
+\renewcommand{\thesection}{\Alph{section}}
+
+\input{sec/6_FMCW}
+\input{sec/7_Implementation_Details}
+\input{sec/8_Qualitative_Ablation}
+\input{sec/9_Limitations}
+
+% ---------------------------------------------------------------
+% Bibliography (supplement-only references)
+\bibliographystyle{splncs04}
+\bibliography{supplement_only}
+
+\end{document}

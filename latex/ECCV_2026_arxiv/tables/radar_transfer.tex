@@ -1,0 +1,25 @@
+% Table 2: Radar Transfer — Per-scene results with aggregate
+\begin{table}[t]
+\centering
+\caption{Cross-sensor transfer evaluation. Scene parameters optimized on the cascaded radar (12TX$\times$16RX, 86 unique azimuth virtual elements) are frozen and used to render ADC for the co-located single-chip radar (3TX$\times$4RX, 12 virtual elements) without re-training. Best in \textbf{bold}.}
+\label{tab:radar_transfer}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{l cc cc cc cc cc cc}
+\toprule
+& \multicolumn{2}{c}{RA Correlation $\uparrow$} & \multicolumn{2}{c}{RA PSNR $\uparrow$} & \multicolumn{2}{c}{RA SSIM $\uparrow$} & \multicolumn{2}{c}{RA RMSE $\downarrow$} & \multicolumn{2}{c}{ADC Log-Mag MSE $\downarrow$} & \multicolumn{2}{c}{ADC MM-Mag MSE $\downarrow$} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-9} \cmidrule(lr){10-11} \cmidrule(lr){12-13}
+Scene & Ours & Bench. & Ours & Bench. & Ours & Bench. & Ours & Bench. & Ours & Bench. & Ours & Bench. \\
+\midrule
+  S0F135 & \textbf{0.533} & 0.002 & \textbf{25.6} & 17.8 & \textbf{0.505} & 0.464 & \textbf{0.0524} & 0.1283 & \textbf{10.9639} & 301.4341 & 0.2194 & \textbf{0.0668} \\
+  S0F390 & \textbf{0.464} & 0.328 & 21.2 & \textbf{24.2} & 0.529 & \textbf{0.566} & 0.0873 & \textbf{0.0619} & \textbf{12.9644} & 331.2549 & \textbf{0.0630} & 0.0840 \\
+  S1F185 & \textbf{0.567} & 0.136 & \textbf{22.4} & 20.1 & 0.422 & \textbf{0.480} & \textbf{0.0759} & 0.0990 & \textbf{0.5754} & 324.8441 & 0.1993 & \textbf{0.0771} \\
+  S1F438 & \textbf{0.684} & 0.079 & \textbf{23.2} & 13.5 & \textbf{0.674} & 0.202 & \textbf{0.0694} & 0.2119 & \textbf{21.8672} & 348.0237 & 0.1507 & \textbf{0.0662} \\
+  S2F105 & \textbf{0.608} & 0.084 & \textbf{24.7} & 22.8 & 0.609 & \textbf{0.690} & \textbf{0.0583} & 0.0721 & \textbf{3.4458} & 289.7929 & 0.1959 & \textbf{0.1068} \\
+  S2F160 & \textbf{0.276} & 0.159 & \textbf{19.3} & 18.3 & \textbf{0.493} & 0.463 & \textbf{0.1085} & 0.1219 & \textbf{20.1530} & 338.1699 & 0.0893 & \textbf{0.0798} \\
+  S2F300 & \textbf{0.745} & 0.008 & \textbf{27.2} & 23.6 & \textbf{0.468} & 0.412 & \textbf{0.0434} & 0.0661 & \textbf{7.7226} & 287.9379 & 0.1074 & \textbf{0.0948} \\
+\midrule
+  Mean & \textbf{0.554$\pm$0.143} & 0.114$\pm$0.103 & \textbf{23.4$\pm$2.5} & 20.0$\pm$3.6 & \textbf{0.529$\pm$0.080} & 0.468$\pm$0.138 & \textbf{0.0707$\pm$0.0206} & 0.1087$\pm$0.0488 & \textbf{11.0989$\pm$7.3886} & 317.3511$\pm$22.3659 & 0.1464$\pm$0.0565 & \textbf{0.0822$\pm$0.0136} \\
+\bottomrule
+\end{tabular}
+}
+\end{table}

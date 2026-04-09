@@ -1,0 +1,25 @@
+% Table: 3D Occupancy — Without log loss (linear magnitude)
+\begin{table}[h!]
+\centering
+\caption{3D occupancy evaluation without log loss. Same protocol as Table~\ref{tab:3d_occupancy}: dense virtual array (100TX$\times$100RX) vs.\ ColoRadar cascaded radar. Occupancy metrics use KD-tree nearest neighbors ($\tau{=}0.5$\,m). Best in \textbf{bold}.}
+\label{tab:3d_occupancy_nolog}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{l cc cc cc cc cc cc}
+\toprule
+& \multicolumn{2}{c}{Precision $\uparrow$} & \multicolumn{2}{c}{Recall $\uparrow$} & \multicolumn{2}{c}{F1 $\uparrow$} & \multicolumn{2}{c}{Accuracy $\uparrow$} & \multicolumn{2}{c}{RMSE $\downarrow$} & \multicolumn{2}{c}{R-CD $\downarrow$} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-9} \cmidrule(lr){10-11} \cmidrule(lr){12-13}
+Scene & Ours & ColoR & Ours & ColoR & Ours & ColoR & Ours & ColoR & Ours & ColoR & Ours & ColoR \\
+\midrule
+  S0F135 & 0.077 & \textbf{0.223} & 0.018 & \textbf{0.054} & 0.029 & \textbf{0.087} & 0.044 & \textbf{0.057} & \textbf{2.324} & 3.302 & 0.248 & \textbf{0.228} \\
+  S0F390 & \textbf{0.481} & 0.045 & \textbf{0.110} & 0.014 & \textbf{0.179} & 0.021 & \textbf{0.212} & 0.017 & \textbf{2.692} & 2.745 & 0.216 & \textbf{0.207} \\
+  S1F185 & \textbf{0.997} & 0.483 & \textbf{0.566} & 0.082 & \textbf{0.722} & 0.141 & \textbf{0.703} & 0.103 & \textbf{0.909} & 2.380 & \textbf{0.067} & 0.236 \\
+  S1F438 & \textbf{0.633} & 0.433 & \textbf{0.265} & 0.117 & \textbf{0.373} & 0.185 & \textbf{0.362} & 0.131 & \textbf{1.511} & 3.339 & \textbf{0.116} & 0.268 \\
+  S2F105 & \textbf{0.771} & 0.154 & \textbf{0.162} & 0.025 & \textbf{0.268} & 0.044 & \textbf{0.340} & 0.029 & \textbf{1.099} & 3.402 & \textbf{0.113} & 0.282 \\
+  S2F160 & \textbf{0.516} & 0.383 & \textbf{0.177} & 0.165 & \textbf{0.264} & 0.231 & \textbf{0.257} & 0.183 & 1.917 & \textbf{1.611} & 0.146 & \textbf{0.118} \\
+  S2F300 & \textbf{0.850} & 0.508 & \textbf{0.501} & 0.122 & \textbf{0.630} & 0.197 & \textbf{0.601} & 0.130 & \textbf{1.040} & 1.643 & \textbf{0.083} & 0.118 \\
+\midrule
+  Mean & \textbf{0.618$\pm$0.278} & 0.319$\pm$0.165 & \textbf{0.257$\pm$0.189} & 0.083$\pm$0.051 & \textbf{0.352$\pm$0.233} & 0.129$\pm$0.075 & \textbf{0.360$\pm$0.210} & 0.093$\pm$0.056 & \textbf{1.642$\pm$0.638} & 2.632$\pm$0.721 & \textbf{0.141$\pm$0.062} & 0.208$\pm$0.061 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}

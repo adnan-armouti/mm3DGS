@@ -1,0 +1,36 @@
+\section{Limitations}
+\label{sec:limitations}
+
+\subsection{Refraction, Absorption, and Sub-surface Scattering}
+
+Currently, mmIR only models propagation in free space between surface interactions, with interfaces handled by a surface BSDF and diffraction. Transmission into volumes (including glass, plastic, drywall among others), internal attenuation, and sub-surface scattering are not simulated. In effect, any refracted component is absorbed at the first interface. This is reasonable for predominantly metallic and high-contrast scenes, but less accurate for semi-transparent or volumetric media. Supporting these effects would require explicit volumetric permittivity and internal transport via Bidirectional Scattering Distribution Functions (BSDFs), which account for both reflection and transmission.
+
+\subsection{Doppler Phase Term for Moving Radar}
+
+Our FMCW model assumes a static radar pose within each frame and attributes phase only to geometric path length. Ego-motion during a chirp burst introduces an additional Doppler phase term that we do not explicitly model. As a result, mmIR is best matched to quasi-static captures; fast platform motion will induce residual phase errors that cannot be fully absorbed by geometry or material calibration without a time-resolved pose model. Incorporating ego-motion would require a TDM-aware motion model that accounts for platform displacement between successive transmit slots.
+
+\subsection{Dynamic Scenes and Objects}
+
+We optimize a single static mesh with static material parameters to render all ADC measurements. Temporally varying objects (including vehicles, people, vibrating structures) are treated as noise and may appear as blurred or ghosted structure in 3D. To the best of our knowledge, the outdoor scenes chosen from the ColoRadar dataset for our experiments do not feature any moving objects. Accounting for dynamic scenes requires per-frame geometry, deformable models, or an explicit separation of static and dynamic components, which is not currently included and left for future work.
+
+\subsection{Multi-bounce Diffraction}
+
+Diffraction is modeled via the free-space diffraction (FSD) BSDF~\cite{steinberg2024fsd} at single-bounce surface interactions, combined with multi-bounce specular/diffuse reflections. Higher-order diffraction chains (edge--edge, edge--surface--edge) and more detailed grazing-angle behavior are not modeled. Extending to multi-bounce diffraction requires preserving Jones-vector transport along diffracted paths, which the FSD BSDF framework naturally supports. Multi-bounce diffraction may contribute additional energy in highly cluttered or strongly shadowed environments that the current single-bounce model does not capture.
+
+\subsection{Amplitude-Only Gradient Signal}
+\label{sec:lim_amplitude_only}
+
+As described in Sec.~\ref{sec:phase_sensitivity_loss_landscape}, each ADC sample contains a phase term $\phi \propto d/\lambda$ that is extremely sensitive to path-length changes: at 77\,GHz ($\lambda \approx 4$\,mm), a sub-millimeter displacement induces an $\mathcal{O}(1)$ change in phase, and a half-wavelength shift produces a full $2\pi$ wrap. In our inverse-rendering setting, small parameter updates change individual path lengths by micrometers, flipping phasor contributions between constructive and destructive interference and producing a highly oscillatory, speckle-like loss landscape with narrow local minima spaced at fractions of the wavelength.
+
+Our default training configuration therefore detaches the phase trigonometric terms $\cos(\phi)$ and $\sin(\phi)$ from the AD graph, propagating gradients only through the amplitude $w$ of each phasor contribution (Sec.~\ref{sec:phase_sensitivity_loss_landscape}). While this improves training stability and convergence, it limits the information available to the optimizer: the loss cannot directly drive parameter updates based on path-length discrepancies. In principle, phase gradients carry complementary geometric information that amplitude alone cannot provide. Enabling full phase+amplitude gradients may benefit future work on joint geometry and material optimization, provided the phase gradient noise can be sufficiently mitigated, for instance via larger sample counts, frequency-dependent phase smoothing, or learned gradient scaling.
+
+\subsection{Mesh Quality Bottleneck}
+
+mmIR is bottlenecked by the quality of the LiDAR-derived mesh used as scene geometry. If the Poisson surface reconstruction introduces artifacts (missing surfaces, incorrect topology, or smoothed-out fine structure), the rendered ADC may diverge from the real measurement despite material or pose optimization. Thin structures (fences, poles, foliage) and regions with sparse LiDAR returns are particularly susceptible to reconstruction error, and may produce \emph{phantom reflectors}: mesh triangles that do not correspond to any real-world surface but still contribute spurious radar returns. Our learnable energy gate $A(\boldsymbol{\omega}_t)$ (Eq.~\ref{eq:bsdf_full}) partially mitigates this: optimization can drive $A \to 0$ for phantom triangles by learning high imaginary permittivity or thin-slab resonance, effectively suppressing their reflected energy.
+
+We further employ an error-map-driven material initialization that identifies over-reflecting triangles (where rendered intensity exceeds ground truth) before gradient-based training and pre-adjusts their roughness and permittivity to reduce phantom contributions. Furthermore, LiDAR ($\lambda \sim 900$~nm) and mmWave radar ($\lambda \sim 4$~mm) interact with surfaces at fundamentally different scales: surfaces that produce strong LiDAR returns (e.g., foliage, thin fabric) may be effectively transparent at mmWave frequencies, while surfaces that are specular at mmWave (e.g., rough concrete) scatter diffusely in LiDAR. The mesh therefore includes surfaces with negligible radar cross-section and may miss structures that are radar-visible but LiDAR-dark. Our learnable energy gate partially compensates by suppressing radar-invisible surfaces, but cannot reconstruct geometry absent from the mesh. Nevertheless, these mechanisms cannot recover surfaces that are missing from the mesh entirely. Mitigating this limitation requires either higher-fidelity meshing pipelines (e.g.,\ neural implicit surfaces, multi-frame aggregation) or jointly optimizing coarse mesh topology during inverse rendering.
+
+\subsection{Sensitivity to Sensor Alignment}
+
+The inverse rendering task is highly sensitive to the LiDAR--radar alignment, both for the cascaded imaging radar used during training and the single-chip radar used for transfer evaluation. Small translational or rotational errors shift rendered paths relative to measured ones, introducing systematic phase errors that material optimization alone cannot absorb. Our coarse-to-fine GPU alignment mitigates gross misalignment but may converge to local optima in scenes with ambiguous geometry (flat surfaces, repetitive structure). This sensitivity is amplified for multi-chip cascade configurations where inter-chip calibration errors compound across the virtual array.
+

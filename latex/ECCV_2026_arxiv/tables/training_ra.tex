@@ -1,0 +1,25 @@
+% Table 1: Training RA — Per-scene results with aggregate
+\begin{table}[t]
+\centering
+\caption{Range--azimuth (RA) and ADC training evaluation across seven outdoor scenes. mmIR is compared against Sionna-RT~\cite{sionna}. Metrics: Pearson correlation (Corr), PSNR, SSIM, RMSE, and ADC-level magnitude error. Best in \textbf{bold}.}
+\label{tab:training_ra}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{l cc cc cc cc cc cc}
+\toprule
+& \multicolumn{2}{c}{RA Correlation $\uparrow$} & \multicolumn{2}{c}{RA PSNR $\uparrow$} & \multicolumn{2}{c}{RA SSIM $\uparrow$} & \multicolumn{2}{c}{RA RMSE $\downarrow$} & \multicolumn{2}{c}{ADC Log-Mag MSE $\downarrow$} & \multicolumn{2}{c}{ADC MM-Mag MSE $\downarrow$} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-9} \cmidrule(lr){10-11} \cmidrule(lr){12-13}
+Scene & Ours & Sionna & Ours & Sionna & Ours & Sionna & Ours & Sionna & Ours & Sionna & Ours & Sionna \\
+\midrule
+  S0F135 & \textbf{0.921} & 0.418 & \textbf{37.4} & 21.4 & \textbf{0.938} & 0.509 & \textbf{0.0135} & 0.0850 & \textbf{48.3271} & 244.8361 & \textbf{0.0421} & 0.0469 \\
+  S0F390 & \textbf{0.936} & 0.242 & \textbf{41.0} & 23.4 & \textbf{0.937} & 0.550 & \textbf{0.0089} & 0.0674 & \textbf{5.0250} & 294.3032 & \textbf{0.0289} & 0.0417 \\
+  S1F185 & \textbf{0.954} & 0.312 & \textbf{39.8} & 18.9 & \textbf{0.926} & 0.326 & \textbf{0.0102} & 0.1138 & \textbf{32.3385} & 282.6453 & \textbf{0.0398} & 0.0461 \\
+  S1F438 & \textbf{0.942} & 0.346 & \textbf{37.7} & 19.9 & \textbf{0.926} & 0.401 & \textbf{0.0130} & 0.1008 & \textbf{32.5274} & 288.9782 & \textbf{0.0369} & 0.0435 \\
+  S2F105 & \textbf{0.887} & 0.188 & \textbf{34.6} & 28.7 & \textbf{0.894} & 0.724 & \textbf{0.0185} & 0.0367 & \textbf{23.5161} & 244.9075 & 0.0498 & \textbf{0.0481} \\
+  S2F160 & \textbf{0.864} & 0.370 & \textbf{34.0} & 22.4 & \textbf{0.789} & 0.519 & \textbf{0.0200} & 0.0763 & \textbf{27.6683} & 275.3327 & \textbf{0.0444} & 0.0461 \\
+  S2F300 & \textbf{0.930} & 0.388 & \textbf{38.7} & 21.3 & \textbf{0.906} & 0.512 & \textbf{0.0117} & 0.0858 & \textbf{30.0014} & 247.1371 & \textbf{0.0370} & 0.0543 \\
+\midrule
+  Mean & \textbf{0.919$\pm$0.030} & 0.324$\pm$0.076 & \textbf{37.6$\pm$2.4} & 22.3$\pm$3.0 & \textbf{0.902$\pm$0.049} & 0.506$\pm$0.115 & \textbf{0.0137$\pm$0.0038} & 0.0808$\pm$0.0229 & \textbf{28.4863$\pm$11.9698} & 268.3057$\pm$20.3703 & \textbf{0.0399$\pm$0.0061} & 0.0467$\pm$0.0037 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
