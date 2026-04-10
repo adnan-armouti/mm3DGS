@@ -329,8 +329,49 @@ def cull_gaussians(model, rast, cos_threshold=0.05):
         return active
 
 
+def compute_analytical_weights(positions, normals, rast, vertex_areas):
+    """Compute radar view-factor importance weights (Option C).
+
+    w_i = A_i × |cos(θ_i)| × G_tx(dir_i) × G_rx(dir_i) / d_i²
+
+    This approximates the MC importance weight 1/(pdf × n_attempted) using
+    the radar equation terms that determine how much each vertex contributes.
+    """
+    with torch.no_grad():
+        # Mean radar position and boresight
+        radar_center = (rast.tx_positions.mean(0) + rast.rx_positions.mean(0)) / 2
+        tx_bore_mean = rast.tx_boresights.mean(0)
+        rx_bore_mean = rast.rx_boresights.mean(0)
+
+        # Direction and distance from each Gaussian to radar
+        to_radar = radar_center - positions
+        dist = to_radar.norm(dim=-1).clamp(min=1e-6)
+        to_radar_dir = to_radar / dist.unsqueeze(-1)
+
+        # Cosine factor (double-sided)
+        cos_theta = torch.abs((normals * to_radar_dir).sum(-1))
+
+        # Path loss
+        inv_d_sq = 1.0 / (dist * dist)
+
+        # Antenna gain (mean TX and RX boresight)
+        tx_bore_exp = tx_bore_mean.unsqueeze(0).expand_as(to_radar_dir)
+        rx_bore_exp = rx_bore_mean.unsqueeze(0).expand_as(to_radar_dir)
+        gain_tx = rast.tx_antenna.evaluate(to_radar_dir, tx_bore_exp)
+        gain_rx = rast.rx_antenna.evaluate(-to_radar_dir, rx_bore_exp)
+
+        # Combined weight
+        w = vertex_areas * cos_theta * gain_tx * gain_rx * inv_d_sq
+
+        # Normalize so mean weight = 1 (prevents LR sensitivity to scale)
+        w = w / w.mean().clamp(min=1e-10)
+
+    return w
+
+
 def render_gaussians(model, rast, vertex_areas=None, detach_phase=True,
-                     chunk_size=500, active_mask=None):
+                     chunk_size=500, active_mask=None, use_checkpoint=False,
+                     use_analytical_weights=False):
     """Render ADC from Gaussian surfels using the rasterizer.
 
     Shadow test is skipped for performance (cosine filtering handles occlusion).
@@ -339,13 +380,20 @@ def render_gaussians(model, rast, vertex_areas=None, detach_phase=True,
     Args:
         vertex_areas: (N,) pre-computed vertex areas. If None, uses uniform.
         active_mask: (N,) bool mask of active Gaussians. If None, uses all.
+        use_checkpoint: Use gradient checkpointing to reduce peak memory.
+        use_analytical_weights: Use radar view-factor weights (Option C).
     """
     positions = model.positions
     normals = model.get_normals()
     opacities = model.get_opacities()
     raw_materials = model.raw_materials
 
-    if vertex_areas is not None:
+    if use_analytical_weights and vertex_areas is not None:
+        # Option C: radar view-factor weights
+        analytical_w = compute_analytical_weights(
+            positions, normals, rast, vertex_areas)
+        areas = analytical_w * opacities
+    elif vertex_areas is not None:
         areas = vertex_areas * opacities
     else:
         areas = opacities
@@ -360,7 +408,7 @@ def render_gaussians(model, rast, vertex_areas=None, detach_phase=True,
     return rast.render_differentiable(
         raw_materials, normals, positions, areas,
         detach_phase=detach_phase, chunk_size=chunk_size,
-        skip_shadow=True)
+        skip_shadow=True, use_checkpoint=use_checkpoint)
 
 
 # =========================================================================
@@ -461,7 +509,8 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
     if mode == 'c2':
         with torch.no_grad():
             adc_real, adc_imag = render_gaussians(
-                model, rast, vertex_areas=vertex_areas, active_mask=active_mask)
+                model, rast, vertex_areas=vertex_areas, active_mask=active_mask,
+                use_analytical_weights=False)
             adc_ri = torch.stack([adc_real, adc_imag], dim=-1).cpu().numpy()
             ra_polar = adc_to_ra_image(torch.from_numpy(adc_ri).float()).numpy()
             ra_cart = ra_polar_to_cartesian(ra_polar, range_res)
@@ -473,6 +522,12 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
                 print(f"  C2 cart_corr: {metrics['cart_corr']:.4f}")
             return metrics['cart_corr'], 0
 
+    # Option E: make antenna patterns learnable
+    tx_E = torch.nn.Parameter(rast.tx_antenna.E.clone())
+    tx_H = torch.nn.Parameter(rast.tx_antenna.H.clone())
+    rx_E = torch.nn.Parameter(rast.rx_antenna.E.clone())
+    rx_H = torch.nn.Parameter(rast.rx_antenna.H.clone())
+
     # Optimizer (C3/C4/C5)
     param_groups = [
         {"params": [model.raw_materials], "lr": 0.5, "name": "materials"},
@@ -480,10 +535,11 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
         {"params": [model.rotations], "lr": 1e-3, "name": "rotations"},
         {"params": [model.log_scales], "lr": 5e-3, "name": "scales"},
         {"params": [model.logit_opacities], "lr": 5e-2, "name": "opacities"},
+        {"params": [tx_E, tx_H, rx_E, rx_H], "lr": 0.05, "name": "patterns"},
     ]
     clip_vals = {
         "materials": 1.0, "positions": 1.0, "rotations": 0.5,
-        "scales": 1.0, "opacities": 1.0,
+        "scales": 1.0, "opacities": 1.0, "patterns": 1.0,
     }
     base_lrs = {g["name"]: g["lr"] for g in param_groups}
     optimizer = torch.optim.Adam(param_groups, betas=(0.9, 0.999), eps=1e-8)
@@ -506,20 +562,19 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
         if mode in ('c4', 'c5') and it % 50 == 0 and it > 0:
             active_mask = cull_gaussians(model, rast)
 
-        # Mini-batch: sample up to BATCH_SIZE active vertices per iteration
-        # to keep the computation graph small enough for backward pass.
-        BATCH_SIZE = 4000
-        active_indices = active_mask.nonzero(as_tuple=True)[0]
-        if len(active_indices) > BATCH_SIZE:
-            perm = torch.randperm(len(active_indices), device=DEVICE)[:BATCH_SIZE]
-            batch_mask = torch.zeros_like(active_mask)
-            batch_mask[active_indices[perm]] = True
-        else:
-            batch_mask = active_mask
+        # Option E: inject learnable patterns into rasterizer
+        rast.tx_antenna.E = tx_E
+        rast.tx_antenna.H = tx_H
+        rast.rx_antenna.E = rx_E
+        rast.rx_antenna.H = rx_H
 
+        # Option G: render ALL active Gaussians with gradient checkpointing.
+        # Each chunk's forward pass intermediates are freed and recomputed
+        # during backward, keeping peak memory bounded to ~1 chunk.
         adc_real, adc_imag = render_gaussians(
             model, rast, vertex_areas=vertex_areas,
-            active_mask=batch_mask, chunk_size=200)
+            active_mask=active_mask, chunk_size=200,
+            use_checkpoint=True, use_analytical_weights=False)
         loss, loss_dict = compute_ra_loss(adc_real, adc_imag, gt_adc_ri)
         loss.backward()
 
@@ -585,7 +640,8 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
             with torch.no_grad():
                 eval_r, eval_i = render_gaussians(
                     model, rast, vertex_areas=vertex_areas,
-                    active_mask=active_mask, chunk_size=200)
+                    active_mask=active_mask, chunk_size=200,
+                    use_analytical_weights=False)
                 adc_ri = torch.stack([eval_r, eval_i], dim=-1).cpu().numpy()
                 del eval_r, eval_i
                 ra_polar = adc_to_ra_image(torch.from_numpy(adc_ri).float()).numpy()

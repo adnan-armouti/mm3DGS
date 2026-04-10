@@ -536,18 +536,16 @@ class RasterizerTorch:
 
     def render_differentiable(self, raw_params_t, normals_t, verts_t, areas_t,
                               detach_phase=True, chunk_size=2000,
-                              skip_shadow=False):
+                              skip_shadow=False, use_checkpoint=False):
         """Differentiable forward pass — for training.
 
         All inputs are PyTorch tensors on device. Returns (adc_real, adc_imag)
         as differentiable tensors on device.
 
-        Memory strategy: each chunk produces a separate ADC tensor that is
-        summed. scatter_add is used within a chunk only. This keeps peak
-        memory proportional to chunk_size, not total vertex count.
-
         Args:
             skip_shadow: If True, skip the DrJit shadow ray test.
+            use_checkpoint: If True, use gradient checkpointing per chunk
+                to reduce peak memory (recomputes forward during backward).
         """
         n_vis = verts_t.shape[0]
         n_tx, n_rx, K = self.n_tx, self.n_rx, self.K
@@ -563,13 +561,22 @@ class RasterizerTorch:
         for ci in range(n_chunks):
             i0 = ci * chunk_size
             i1 = min(i0 + chunk_size, n_vis)
-            # Each chunk gets its own ADC accumulator
-            cr = torch.zeros(n_tx, n_rx, K, device=self.device)
-            ci_adc = torch.zeros(n_tx, n_rx, K, device=self.device)
-            self._render_chunk_torch(
-                verts_t[i0:i1], normals_t[i0:i1], areas_t[i0:i1],
-                raw_params_t[i0:i1], cr, ci_adc,
-                detach_phase=detach_phase)
+
+            if use_checkpoint:
+                cr, ci_adc = torch.utils.checkpoint.checkpoint(
+                    self._render_chunk_return,
+                    verts_t[i0:i1], normals_t[i0:i1], areas_t[i0:i1],
+                    raw_params_t[i0:i1], detach_phase,
+                    use_reentrant=False,
+                )
+            else:
+                cr = torch.zeros(n_tx, n_rx, K, device=self.device)
+                ci_adc = torch.zeros(n_tx, n_rx, K, device=self.device)
+                self._render_chunk_torch(
+                    verts_t[i0:i1], normals_t[i0:i1], areas_t[i0:i1],
+                    raw_params_t[i0:i1], cr, ci_adc,
+                    detach_phase=detach_phase)
+
             adc_real = adc_real + cr
             adc_imag = adc_imag + ci_adc
 
@@ -577,3 +584,18 @@ class RasterizerTorch:
             self._mi_scene = saved_scene
 
         return adc_real, adc_imag
+
+    def _render_chunk_return(self, verts_t, normals_t, areas_t,
+                             raw_params_t, detach_phase):
+        """Wrapper for _render_chunk_torch that returns (real, imag) tensors.
+
+        Used by torch.utils.checkpoint which requires a function that returns
+        tensors (not in-place scatter_add).
+        """
+        n_tx, n_rx, K = self.n_tx, self.n_rx, self.K
+        cr = torch.zeros(n_tx, n_rx, K, device=self.device)
+        ci = torch.zeros(n_tx, n_rx, K, device=self.device)
+        self._render_chunk_torch(
+            verts_t, normals_t, areas_t, raw_params_t,
+            cr, ci, detach_phase=detach_phase)
+        return cr, ci
