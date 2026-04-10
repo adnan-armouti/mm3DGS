@@ -408,7 +408,8 @@ def render_gaussians(model, rast, vertex_areas=None, detach_phase=True,
     return rast.render_differentiable(
         raw_materials, normals, positions, areas,
         detach_phase=detach_phase, chunk_size=chunk_size,
-        skip_shadow=True, use_checkpoint=use_checkpoint)
+        skip_shadow=True, use_checkpoint=use_checkpoint,
+        bistatic_path_loss=True)
 
 
 # =========================================================================
@@ -480,15 +481,13 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
     if mode in ('c2', 'c3'):
         active_mask = visible_mask
     else:
-        # For LiDAR init: keep Gaussians near visible mesh vertices
-        from scipy.spatial import KDTree
-        vis_verts_np = rast.vertices_np[visible_verts]
-        tree = KDTree(vis_verts_np)
-        gauss_pos_np = model.positions.detach().cpu().numpy()
-        dists, _ = tree.query(gauss_pos_np)
-        # Keep Gaussians within 0.5m of a visible vertex
-        near_visible = torch.from_numpy(dists < 0.5).to(DEVICE)
-        active_mask = near_visible & cull_gaussians(model, rast)
+        # For C4/C5: if Gaussian count matches mesh vertex count, positions
+        # are at mesh vertices so visible_mask applies directly.
+        # Otherwise, fall back to FOV culling.
+        if model.N == len(rast.vertices_np) and model.N == len(visible_mask):
+            active_mask = visible_mask & cull_gaussians(model, rast)
+        else:
+            active_mask = cull_gaussians(model, rast)
     n_active = active_mask.sum().item()
 
     # Cap active count to avoid OOM (12K verts * 192 MIMO fits in ~13 GB)

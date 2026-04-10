@@ -360,7 +360,8 @@ class RasterizerTorch:
         return torch.from_numpy(~occluded_np).to(self.device)
 
     def _render_chunk_torch(self, verts_t, normals_t, areas_t, raw_params_t,
-                            adc_real, adc_imag, detach_phase=True):
+                            adc_real, adc_imag, detach_phase=True,
+                            bistatic_path_loss=False):
         """Render a chunk of scatterers in PyTorch and accumulate into ADC.
 
         Matches the DrJit rasterizer exactly: flat per-path evaluation with
@@ -374,6 +375,9 @@ class RasterizerTorch:
             adc_real: (n_tx, n_rx, K) accumulator
             adc_imag: (n_tx, n_rx, K) accumulator
             detach_phase: if True, phase is not differentiable (matching mmIR)
+            bistatic_path_loss: if True, use 1/(d_tx^2 * d_rx^2) instead of
+                1/d_tx^2. Required for direct surface-area summation (Gaussians).
+                Must be False for MC-weighted rendering (mmIR compatibility).
         """
         n_tx = self.n_tx
         n_rx = self.n_rx
@@ -437,12 +441,22 @@ class RasterizerTorch:
         gain_rx = self.rx_antenna.evaluate(-dir_to_rx, self.rx_boresights[r_idx])
         brdf_weight = brdf_weight * gain_tx * gain_rx
 
-        # Area weighting
-        brdf_weight = brdf_weight * areas_t[v_idx]
-
-        # Radar equation
-        d_safe = d_tx.clamp(min=1e-4)
-        path_loss = 1.0 / (d_safe * d_safe)
+        # Area / solid-angle weighting
+        if bistatic_path_loss:
+            # RX-sphere splatting: dOmega = A * |cos(theta_rx)| / d_rx^2
+            # This is the solid angle each Gaussian subtends at the RX element,
+            # making the sum algebraically equivalent to mmIR's RX-hemisphere MC.
+            d_safe_rx = d_rx.clamp(min=1e-4)
+            dOmega_rx = areas_t[v_idx] * cos_theta_out / (d_safe_rx * d_safe_rx)
+            brdf_weight = brdf_weight * dOmega_rx
+            # Path loss: 1/d_tx^2 only (d_rx^2 is now inside dOmega_rx)
+            d_safe_tx = d_tx.clamp(min=1e-4)
+            path_loss = 1.0 / (d_safe_tx * d_safe_tx)
+        else:
+            # MC hemisphere sampling: area weight + 1/d_tx^2 (d_rx^2 in MC Jacobian)
+            brdf_weight = brdf_weight * areas_t[v_idx]
+            d_safe_tx = d_tx.clamp(min=1e-4)
+            path_loss = 1.0 / (d_safe_tx * d_safe_tx)
         radar_scale = self.radar_constant * self.rx_dBFS_scale * self.adc_scale
         weight = radar_scale * torch.sqrt(
             (brdf_weight * path_loss).clamp(min=1e-20))
@@ -536,7 +550,8 @@ class RasterizerTorch:
 
     def render_differentiable(self, raw_params_t, normals_t, verts_t, areas_t,
                               detach_phase=True, chunk_size=2000,
-                              skip_shadow=False, use_checkpoint=False):
+                              skip_shadow=False, use_checkpoint=False,
+                              bistatic_path_loss=False):
         """Differentiable forward pass — for training.
 
         All inputs are PyTorch tensors on device. Returns (adc_real, adc_imag)
@@ -546,6 +561,8 @@ class RasterizerTorch:
             skip_shadow: If True, skip the DrJit shadow ray test.
             use_checkpoint: If True, use gradient checkpointing per chunk
                 to reduce peak memory (recomputes forward during backward).
+            bistatic_path_loss: If True, use 1/(d_tx^2 * d_rx^2) for direct
+                surface-area summation. False preserves MC compatibility.
         """
         n_vis = verts_t.shape[0]
         n_tx, n_rx, K = self.n_tx, self.n_rx, self.K
@@ -566,7 +583,7 @@ class RasterizerTorch:
                 cr, ci_adc = torch.utils.checkpoint.checkpoint(
                     self._render_chunk_return,
                     verts_t[i0:i1], normals_t[i0:i1], areas_t[i0:i1],
-                    raw_params_t[i0:i1], detach_phase,
+                    raw_params_t[i0:i1], detach_phase, bistatic_path_loss,
                     use_reentrant=False,
                 )
             else:
@@ -575,7 +592,8 @@ class RasterizerTorch:
                 self._render_chunk_torch(
                     verts_t[i0:i1], normals_t[i0:i1], areas_t[i0:i1],
                     raw_params_t[i0:i1], cr, ci_adc,
-                    detach_phase=detach_phase)
+                    detach_phase=detach_phase,
+                    bistatic_path_loss=bistatic_path_loss)
 
             adc_real = adc_real + cr
             adc_imag = adc_imag + ci_adc
@@ -586,7 +604,7 @@ class RasterizerTorch:
         return adc_real, adc_imag
 
     def _render_chunk_return(self, verts_t, normals_t, areas_t,
-                             raw_params_t, detach_phase):
+                             raw_params_t, detach_phase, bistatic_path_loss):
         """Wrapper for _render_chunk_torch that returns (real, imag) tensors.
 
         Used by torch.utils.checkpoint which requires a function that returns
@@ -597,5 +615,6 @@ class RasterizerTorch:
         ci = torch.zeros(n_tx, n_rx, K, device=self.device)
         self._render_chunk_torch(
             verts_t, normals_t, areas_t, raw_params_t,
-            cr, ci, detach_phase=detach_phase)
+            cr, ci, detach_phase=detach_phase,
+            bistatic_path_loss=bistatic_path_loss)
         return cr, ci
