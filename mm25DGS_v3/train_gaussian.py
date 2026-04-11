@@ -261,19 +261,32 @@ def init_from_lidar(scene, target_n=None, device=DEVICE):
         quats = _normals_to_quaternions(normals)
         model.rotations.copy_(torch.from_numpy(quats).to(device))
 
-        # Scales from k-NN PCA
+        # Scales from k-NN PCA (fully vectorized)
         tree2 = KDTree(xyz)
-        _, knn_idx = tree2.query(xyz, k=min(21, N))
-        knn_idx = knn_idx[:, 1:]  # exclude self
+        k_nn = min(20, N - 1)
+        _, knn_idx = tree2.query(xyz, k=k_nn + 1)
+        knn_idx = knn_idx[:, 1:]  # (N, k_nn) exclude self
+
+        # Neighbor offsets: (N, k_nn, 3)
+        neighbors = xyz[knn_idx] - xyz[:, None, :]
+
+        # Project onto tangent plane: remove normal component
+        # proj = neighbors - (neighbors · n) × n
+        n_exp = normals[:, None, :]                          # (N, 1, 3)
+        dot_n = (neighbors * n_exp).sum(axis=-1, keepdims=True)  # (N, k_nn, 1)
+        proj = neighbors - dot_n * n_exp                     # (N, k_nn, 3)
+
+        # Covariance: (N, 3, 3) = projᵀ @ proj / k_nn
+        # Use einsum for batch matmul: (N, 3, k_nn) @ (N, k_nn, 3) -> (N, 3, 3)
+        cov = np.einsum('nki,nkj->nij', proj, proj) / k_nn  # (N, 3, 3)
+
+        # Batch eigendecomposition
+        eigvals = np.linalg.eigvalsh(cov)                    # (N, 3) sorted ascending
+
+        # Scales = sqrt of two largest eigenvalues, clamped
         scales = np.zeros((N, 2), dtype=np.float32)
-        for i in range(N):
-            neighbors = xyz[knn_idx[i]] - xyz[i]
-            n_i = normals[i]
-            proj = neighbors - np.outer(neighbors @ n_i, n_i)
-            cov = (proj.T @ proj) / len(knn_idx[i])
-            eigvals = np.linalg.eigvalsh(cov)
-            scales[i, 0] = np.clip(np.sqrt(max(eigvals[2], 1e-12)), 0.01, 0.5)
-            scales[i, 1] = np.clip(np.sqrt(max(eigvals[1], 1e-12)), 0.01, 0.5)
+        scales[:, 0] = np.clip(np.sqrt(np.maximum(eigvals[:, 2], 1e-12)), 0.01, 0.5)
+        scales[:, 1] = np.clip(np.sqrt(np.maximum(eigvals[:, 1], 1e-12)), 0.01, 0.5)
         model.log_scales.copy_(torch.from_numpy(np.log(scales)).to(device))
 
         model.logit_opacities.fill_(0.0)
@@ -284,27 +297,41 @@ def init_from_lidar(scene, target_n=None, device=DEVICE):
 
 
 def _normals_to_quaternions(normals):
-    """Convert normal vectors to quaternions [w,x,y,z]."""
+    """Convert normal vectors to quaternions [w,x,y,z]. Fully vectorized."""
     N = len(normals)
+    # Normalize
+    nrm = np.maximum(np.linalg.norm(normals, axis=1, keepdims=True), 1e-12)
+    n = normals / nrm
+
+    # Rotation from up=(0,0,1) to n
+    # dot = n[:, 2]  (since up = [0,0,1])
+    dot = n[:, 2].copy()
+
+    # axis = cross(up, n) = [-n_y, n_x, 0]
+    axis = np.zeros((N, 3), dtype=np.float32)
+    axis[:, 0] = -n[:, 1]
+    axis[:, 1] = n[:, 0]
+    # axis[:, 2] = 0 already
+
+    axis_len = np.maximum(np.linalg.norm(axis, axis=1, keepdims=True), 1e-12)
+    axis = axis / axis_len
+
+    angle = np.arccos(np.clip(dot, -1.0, 1.0))
+    half_angle = angle / 2.0
+
     quats = np.zeros((N, 4), dtype=np.float32)
-    up = np.array([0, 0, 1], dtype=np.float32)
+    quats[:, 0] = np.cos(half_angle)
+    quats[:, 1] = axis[:, 0] * np.sin(half_angle)
+    quats[:, 2] = axis[:, 1] * np.sin(half_angle)
+    quats[:, 3] = axis[:, 2] * np.sin(half_angle)
 
-    for i in range(N):
-        n = normals[i]
-        n = n / max(np.linalg.norm(n), 1e-12)
+    # Handle near-parallel (dot > 0.9999): identity quaternion
+    parallel = dot > 0.9999
+    quats[parallel] = [1, 0, 0, 0]
 
-        # Rotation from (0,0,1) to n
-        dot = np.dot(up, n)
-        if dot > 0.9999:
-            quats[i] = [1, 0, 0, 0]
-        elif dot < -0.9999:
-            quats[i] = [0, 1, 0, 0]  # 180 deg around x
-        else:
-            axis = np.cross(up, n)
-            axis = axis / max(np.linalg.norm(axis), 1e-12)
-            angle = np.arccos(np.clip(dot, -1, 1))
-            quats[i, 0] = np.cos(angle / 2)
-            quats[i, 1:] = axis * np.sin(angle / 2)
+    # Handle near-antiparallel (dot < -0.9999): 180° around x
+    anti = dot < -0.9999
+    quats[anti] = [0, 1, 0, 0]
 
     return quats
 
