@@ -428,6 +428,56 @@ def _compute_hit_frequency_weights(hits, model, rast, device='cuda:0'):
     return torch.from_numpy(importance).to(device)
 
 
+def _compute_shadow_mask(positions, rast, device='cuda:0'):
+    """Pre-compute per-(Gaussian, TX) shadow mask using Mitsuba ray test.
+
+    For each Gaussian × TX pair, casts a shadow ray from the Gaussian toward
+    the TX element. If the ray hits another surface before reaching the TX,
+    that path is marked as occluded.
+
+    Args:
+        positions: (M, 3) Gaussian positions on device
+        rast: RasterizerTorch with _mi_scene set
+
+    Returns:
+        (M, n_tx) bool tensor — True = visible, False = occluded
+    """
+    import mitsuba as mi
+    import drjit as dr
+
+    if not hasattr(rast, '_mi_scene') or rast._mi_scene is None:
+        # No scene available — assume all visible
+        return torch.ones(positions.shape[0], rast.n_tx, dtype=torch.bool, device=device)
+
+    M = positions.shape[0]
+    n_tx = rast.n_tx
+    pos_np = positions.detach().cpu().numpy()
+    tx_pos_np = rast.tx_positions.cpu().numpy()
+
+    shadow_mask = np.ones((M, n_tx), dtype=bool)
+
+    for t in range(n_tx):
+        # Direction from Gaussian to TX
+        delta = tx_pos_np[t] - pos_np                               # (M, 3)
+        dist = np.linalg.norm(delta, axis=1).clip(min=1e-6)         # (M,)
+        direction = delta / dist[:, None]                            # (M, 3)
+
+        # Shadow ray: offset origin slightly along direction to avoid self-hit
+        eps = 1e-4
+        origins = pos_np + eps * direction
+
+        # Create Mitsuba rays
+        o = mi.Point3f(mi.Float(origins[:, 0]), mi.Float(origins[:, 1]), mi.Float(origins[:, 2]))
+        d = mi.Vector3f(mi.Float(direction[:, 0]), mi.Float(direction[:, 1]), mi.Float(direction[:, 2]))
+        rays = mi.Ray3f(o, d)
+        rays.maxt = mi.Float(dist - 2 * eps)
+
+        occluded = rast._mi_scene.ray_test(rays)
+        shadow_mask[:, t] = ~np.array(occluded)
+
+    return torch.from_numpy(shadow_mask).to(device)
+
+
 def cull_gaussians(model, rast, cos_threshold=0.05):
     """Pre-filter Gaussians to only those visible to the radar.
 
@@ -470,15 +520,16 @@ def cull_gaussians(model, rast, cos_threshold=0.05):
 
 def render_gaussians_factorized(model, rast, vertex_areas=None,
                                 detach_phase=True, active_mask=None,
-                                chunk_size=2000, importance_weights=None):
+                                chunk_size=2000, importance_weights=None,
+                                shadow_mask=None):
     """Range-profile splatting renderer. Returns (rp_real, rp_imag).
 
     Output is complex range profiles (n_tx, n_rx, K), NOT ADC.
     Use range_profile_to_ra() or compute_ra_loss_rp() for RA conversion.
 
     Args:
-        importance_weights: (N,) per-Gaussian importance from reservoir hit
-            frequency (Option 2B). Multiplied into the area weight.
+        importance_weights: (N,) per-Gaussian importance (Option 2B). Currently unused.
+        shadow_mask: (N, n_tx) bool — pre-computed TX shadow visibility (F7).
     """
     from mm25DGS_v3.rasterizer_factorized import render_factorized
     from mm25DGS_v2.rasterizer_torch import reparameterize_torch
@@ -497,6 +548,13 @@ def render_gaussians_factorized(model, rast, vertex_areas=None,
     if importance_weights is not None:
         areas = areas * importance_weights
 
+    # Slice shadow mask by active_mask
+    sm = None
+    if shadow_mask is not None and active_mask is not None:
+        sm = shadow_mask[active_mask]
+    elif shadow_mask is not None:
+        sm = shadow_mask
+
     if active_mask is not None:
         positions = positions[active_mask]
         normals = normals[active_mask]
@@ -506,7 +564,7 @@ def render_gaussians_factorized(model, rast, vertex_areas=None,
     return render_factorized(
         positions, normals, areas, raw_materials, rast,
         reparameterize_torch, detach_phase=detach_phase,
-        chunk_size=chunk_size)
+        chunk_size=chunk_size, shadow_mask=sm)
 
 
 # =========================================================================
@@ -550,11 +608,12 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
     visible_mask = torch.zeros(model.N, dtype=torch.bool, device=DEVICE)
     visible_mask[torch.from_numpy(visible_verts).long().to(DEVICE)] = True
 
-    # Option 2B: Compute per-Gaussian importance weights from reservoir hit frequency.
-    # For each Gaussian, count how many reservoir hits land nearby. This approximates
-    # the MC sampling density, bridging the gap between deterministic Gaussian
-    # summation and mmIR's importance-sampled MC integration.
-    hit_importance = _compute_hit_frequency_weights(hits, model, rast, device=DEVICE)
+    # Option 2B: Compute per-Gaussian importance weights (currently disabled).
+    hit_importance = None
+
+    # F7: Pre-compute shadow mask using Mitsuba scene (before freeing it).
+    # For each (Gaussian, TX) pair, test if the line-of-sight is occluded.
+    shadow = _compute_shadow_mask(model.positions, rast, device=DEVICE)
 
     # Free Mitsuba scene to reclaim GPU memory for training
     del hits
@@ -605,7 +664,7 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
         with torch.no_grad():
             rp_r, rp_i = render_gaussians_factorized(
                 model, rast, vertex_areas=vertex_areas, active_mask=active_mask,
-                importance_weights=None)
+                shadow_mask=None)
             ra_mag = range_profile_to_ra_mag(rp_r, rp_i)
             ra_polar = ra_mag.cpu().numpy()
             del rp_r, rp_i
@@ -671,7 +730,7 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
         adc_real, adc_imag = render_gaussians_factorized(
             model, rast, vertex_areas=vertex_areas,
             active_mask=active_mask, chunk_size=2000,
-            importance_weights=hit_importance)
+            shadow_mask=shadow)
         loss, loss_dict = compute_ra_loss_rp(adc_real, adc_imag, gt_adc_ri)
         loss.backward()
 
@@ -731,7 +790,7 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
                 eval_r, eval_i = render_gaussians_factorized(
                     model, rast, vertex_areas=vertex_areas,
                     active_mask=active_mask, chunk_size=2000,
-                    importance_weights=None)
+                    shadow_mask=None)
                 # Range profile → RA via azimuth FFT only
                 ra_mag = range_profile_to_ra_mag(eval_r, eval_i)
                 ra_polar = ra_mag.cpu().numpy()

@@ -34,6 +34,7 @@ def render_factorized(
     reparameterize_fn,  # reparameterize_torch function
     detach_phase=True,
     chunk_size=2000,    # unused (kept for API compat)
+    shadow_mask=None,   # (M, n_tx) bool — False = occluded, zero weight
 ):
     """Range-profile splatting renderer. Returns (rp_real, rp_imag).
 
@@ -350,8 +351,10 @@ def render_factorized(
     sqrt_f_cos = torch.sqrt(f_cos.clamp(min=1e-20))
     w_full = C_radar * sqrt_f_cos * alpha_tx.unsqueeze(-1) * alpha_rx.unsqueeze(-2)
 
-    # Zero out back-facing paths
+    # Zero out back-facing and occluded paths
     active_i = cos_i > 1e-6
+    if shadow_mask is not None:
+        active_i = active_i & shadow_mask
     active_o = cos_o > 1e-6
     active = active_i.unsqueeze(-1) & active_o.unsqueeze(-2)
     w_full = w_full * active.float()
