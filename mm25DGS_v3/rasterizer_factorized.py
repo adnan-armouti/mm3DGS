@@ -373,45 +373,45 @@ def render_factorized(
         phi_carrier = phi_carrier.detach()
 
     # Splat to range bins with Hann PSF
-    SPREAD = 5  # deposit to ±2 bins around peak (5 bins total)
+    SPREAD = 21  # deposit to ±10 bins around peak
     n_floor = n_peak.floor().long()
     n_frac = n_peak - n_floor.float()
 
     # Precompute flat channel indices: (M, n_tx, n_rx) -> flat (M*n_tx*n_rx,)
-    M_flat = M * n_tx * n_rx
     t_idx_flat = torch.arange(n_tx, device=device).unsqueeze(0).unsqueeze(-1).expand(M, -1, n_rx).reshape(-1)
     r_idx_flat = torch.arange(n_rx, device=device).unsqueeze(0).unsqueeze(0).expand(M, n_tx, -1).reshape(-1)
 
     rp_real = torch.zeros(n_tx, n_rx, K, device=device)
     rp_imag = torch.zeros(n_tx, n_rx, K, device=device)
 
-    w_flat = w_full.reshape(-1)                                 # (M*n_tx*n_rx,)
-    phi_flat = phi_carrier.reshape(-1)                          # (M*n_tx*n_rx,)
-    n_floor_flat = n_floor.reshape(-1)                          # (M*n_tx*n_rx,)
-    n_frac_flat = n_frac.reshape(-1)                            # (M*n_tx*n_rx,)
+    w_flat = w_full.reshape(-1)
+    phi_flat = phi_carrier.reshape(-1)
+    n_floor_flat = n_floor.reshape(-1)
+    n_frac_flat = n_frac.reshape(-1)
 
     # Carrier phasor
     carrier_real = w_flat * torch.cos(phi_flat)
     carrier_imag = w_flat * torch.sin(phi_flat)
 
+    # Active paths (skip negligible weights)
+    active_paths = w_flat > 1e-20
+
     for dn in range(-(SPREAD // 2), SPREAD // 2 + 1):
-        n_bin = n_floor_flat + dn                                # (M_flat,)
-        valid = (n_bin >= 0) & (n_bin < K) & (w_flat > 1e-20)
+        # Modular wrapping: DFT is periodic with period K
+        n_bin = (n_floor_flat + dn) % K                          # (M_flat,) in [0, K)
 
         # PSF at fractional offset (dn - frac)
-        delta = float(dn) - n_frac_flat                          # (M_flat,)
-        psf_val = hann_psf(delta, K)                             # (M_flat,) complex
+        delta = float(dn) - n_frac_flat
+        psf_val = hann_psf(delta, K)
 
-        # Contribution = carrier × psf = (w*exp(jφ)) × psf
-        # Real part: (carrier_real * psf_real - carrier_imag * psf_imag)
+        # Contribution = carrier × psf
         contrib_real = carrier_real * psf_val.real - carrier_imag * psf_val.imag
         contrib_imag = carrier_real * psf_val.imag + carrier_imag * psf_val.real
 
-        # Scatter-add to range profile
+        # Scatter-add to range profile (modular indices, no clamp needed)
         flat_idx = t_idx_flat * (n_rx * K) + r_idx_flat * K + n_bin
-        flat_idx = flat_idx.clamp(0, n_tx * n_rx * K - 1)      # safety clamp
 
-        rp_real.view(-1).scatter_add_(0, flat_idx[valid], contrib_real[valid])
-        rp_imag.view(-1).scatter_add_(0, flat_idx[valid], contrib_imag[valid])
+        rp_real.view(-1).scatter_add_(0, flat_idx[active_paths], contrib_real[active_paths])
+        rp_imag.view(-1).scatter_add_(0, flat_idx[active_paths], contrib_imag[active_paths])
 
     return rp_real, rp_imag
