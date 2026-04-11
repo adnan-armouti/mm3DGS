@@ -246,9 +246,10 @@ def _compute_scales_and_areas(vertices, normals, faces, mesh):
     vertex_areas = np.zeros(N, dtype=np.float32)
     for i in range(3):
         np.add.at(vertex_areas, faces[:, i], face_areas / 3.0)
-    # Scale ~ sqrt(area)
-    scales = np.sqrt(np.maximum(vertex_areas, 1e-12))
-    scales = np.clip(scales, 0.01, 0.5)
+    # Scale set so that surfel area = pi*s1*s2 = vertex_area
+    # => s = sqrt(vertex_area / pi)
+    scales = np.sqrt(np.maximum(vertex_areas, 1e-12) / math.pi)
+    scales = np.clip(scales, 0.005, 0.3)
     return np.column_stack([scales, scales]), vertex_areas
 
 
@@ -378,7 +379,8 @@ def render_gaussians(model, rast, vertex_areas=None, detach_phase=True,
     Pre-culling via active_mask reduces the number of paths.
 
     Args:
-        vertex_areas: (N,) pre-computed vertex areas. If None, uses uniform.
+        vertex_areas: (N,) pre-computed vertex areas (used only for analytical
+            weights mode). Surfel areas are now computed from learnable scales.
         active_mask: (N,) bool mask of active Gaussians. If None, uses all.
         use_checkpoint: Use gradient checkpointing to reduce peak memory.
         use_analytical_weights: Use radar view-factor weights (Option C).
@@ -388,15 +390,18 @@ def render_gaussians(model, rast, vertex_areas=None, detach_phase=True,
     opacities = model.get_opacities()
     raw_materials = model.raw_materials
 
+    # F3: compute surfel areas from learnable scales (not static vertex_areas)
+    # Area of elliptical disc: A = pi * s1 * s2
+    # Scales receive gradients through: loss -> weight -> dOmega -> area -> scales
+    scales = model.get_scales()  # (N, 2) = exp(log_scales)
+    surfel_areas = math.pi * scales[:, 0] * scales[:, 1]
+
     if use_analytical_weights and vertex_areas is not None:
-        # Option C: radar view-factor weights
         analytical_w = compute_analytical_weights(
             positions, normals, rast, vertex_areas)
         areas = analytical_w * opacities
-    elif vertex_areas is not None:
-        areas = vertex_areas * opacities
     else:
-        areas = opacities
+        areas = surfel_areas * opacities
 
     # Apply culling mask
     if active_mask is not None:
@@ -449,7 +454,7 @@ def render_gaussians_factorized(model, rast, vertex_areas=None,
 # Training loop
 # =========================================================================
 
-def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True):
+def train_gaussians(scene, mode='c3', num_iters=1500, target_n=None, verbose=True, tag=None):
     """Train Gaussian surfels.
 
     Args:
@@ -523,17 +528,6 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
             active_mask = cull_gaussians(model, rast)
     n_active = active_mask.sum().item()
 
-    # Cap active count to avoid OOM (12K verts * 192 MIMO fits in ~13 GB)
-    MAX_ACTIVE = 12000
-    if n_active > MAX_ACTIVE:
-        active_indices = active_mask.nonzero(as_tuple=True)[0]
-        # Subsample uniformly
-        perm = torch.randperm(n_active, device=DEVICE)[:MAX_ACTIVE]
-        new_mask = torch.zeros_like(active_mask)
-        new_mask[active_indices[perm]] = True
-        active_mask = new_mask
-        n_active = MAX_ACTIVE
-
     if verbose:
         print(f"  Active after culling: {n_active}/{model.N}")
 
@@ -565,7 +559,7 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
         {"params": [model.raw_materials], "lr": 0.5, "name": "materials"},
         {"params": [model.positions], "lr": 1.6e-4, "name": "positions"},
         {"params": [model.rotations], "lr": 1e-3, "name": "rotations"},
-        {"params": [model.log_scales], "lr": 5e-3, "name": "scales"},
+        {"params": [model.log_scales], "lr": 0.5, "name": "scales"},
         {"params": [model.logit_opacities], "lr": 5e-2, "name": "opacities"},
         {"params": [tx_E, tx_H, rx_E, rx_H], "lr": 0.05, "name": "patterns"},
     ]
@@ -616,7 +610,7 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
                 rms_clip_grad(p, clip)
 
         # LR warmup
-        lr_scale = get_lr_scale(it)
+        lr_scale = get_lr_scale(it, total_iters=num_iters)
         for group in optimizer.param_groups:
             group["lr"] = base_lrs[group["name"]] * lr_scale
 
@@ -643,13 +637,6 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
                     # Update vertex_areas and active_mask
                     vertex_areas = vertex_areas[keep_idx] if vertex_areas is not None else None
                     active_mask = cull_gaussians(model, rast)
-                    n_active = active_mask.sum().item()
-                    MAX_ACTIVE = 12000
-                    if n_active > MAX_ACTIVE:
-                        ai = active_mask.nonzero(as_tuple=True)[0]
-                        p = torch.randperm(n_active, device=DEVICE)[:MAX_ACTIVE]
-                        active_mask = torch.zeros(model.N, dtype=torch.bool, device=DEVICE)
-                        active_mask[ai[p]] = True
 
                     # Rebuild optimizer
                     param_groups = [
@@ -694,8 +681,9 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
         print(f"\n  Best cart_corr: {best_corr:.4f} at iter {best_iter}")
 
     # Save
+    dir_name = f'train_gaussian_{mode}' if tag is None else f'train_gaussian_{mode}_{tag}'
     output_dir = os.path.join(PROJECT_ROOT, 'mm25DGS_v2', 'output',
-                              f'train_gaussian_{mode}', scene)
+                              dir_name, scene)
     os.makedirs(output_dir, exist_ok=True)
     model.save = lambda path: torch.save({
         k: v.data for k, v in model.state_dict().items()
@@ -713,12 +701,12 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
     return best_corr, best_iter
 
 
-def run_all_scenes(mode='c3', num_iters=500, target_n=None):
+def run_all_scenes(mode='c3', num_iters=500, target_n=None, tag=None):
     """Run training on all 7 scenes."""
     results = {}
     for scene in SCENES:
         corr, it = train_gaussians(scene, mode=mode, num_iters=num_iters,
-                                   target_n=target_n)
+                                   target_n=target_n, tag=tag)
         mmIR_metrics = json.load(open(
             os.path.join(TRAIN_OUTPUT_DIR, scene, 'best_metrics.json')))
         results[scene] = {
@@ -761,16 +749,18 @@ if __name__ == '__main__':
     parser.add_argument('--all', action='store_true')
     parser.add_argument('--mode', type=str, default='c3',
                         choices=['c2', 'c3', 'c4', 'c5'])
-    parser.add_argument('--iters', type=int, default=500)
+    parser.add_argument('--iters', type=int, default=1500)
     parser.add_argument('--n-gaussians', type=int, default=None,
                         help='Target Gaussian count for C4')
+    parser.add_argument('--tag', type=str, default=None,
+                        help='Output directory tag (e.g. f1, f2)')
     args = parser.parse_args()
 
     if args.all:
         run_all_scenes(mode=args.mode, num_iters=args.iters,
-                       target_n=args.n_gaussians)
+                       target_n=args.n_gaussians, tag=args.tag)
     elif args.scene:
         train_gaussians(args.scene, mode=args.mode, num_iters=args.iters,
-                        target_n=args.n_gaussians)
+                        target_n=args.n_gaussians, tag=args.tag)
     else:
         print("Usage: --scene <name> or --all")

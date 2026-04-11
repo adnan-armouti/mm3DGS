@@ -96,11 +96,22 @@ def _minmax_normalize(x):
 # LR schedule (B2)
 # =========================================================================
 
-def get_lr_scale(iteration, warmup_iters=5, warmup_factor=0.3):
-    """Linear warmup -> constant."""
+def get_lr_scale(iteration, warmup_iters=5, warmup_factor=0.3,
+                 total_iters=None, decay_start=100, min_lr_factor=0.01):
+    """Linear warmup -> constant (if total_iters is None) or cosine decay.
+
+    When total_iters is provided, applies cosine decay from decay_start to
+    total_iters, reaching min_lr_factor at the end. All 4 comparison papers
+    (3DGS, 3DGRT, EVER, VC-3DGS) use decaying LR schedules.
+    """
     if iteration < warmup_iters:
         return warmup_factor + (1.0 - warmup_factor) * (iteration / max(warmup_iters, 1))
-    return 1.0
+    if total_iters is None or iteration < decay_start:
+        return 1.0
+    # Cosine decay
+    progress = (iteration - decay_start) / max(total_iters - decay_start, 1)
+    progress = min(progress, 1.0)
+    return min_lr_factor + 0.5 * (1.0 - min_lr_factor) * (1 + math.cos(math.pi * progress))
 
 
 def rms_clip_grad(param, max_rms):
