@@ -386,6 +386,48 @@ def _get_visible_vertices(hits, faces):
     return vis_verts
 
 
+def _compute_hit_frequency_weights(hits, model, rast, device='cuda:0'):
+    """Compute per-Gaussian importance weights from reservoir hit frequency.
+
+    For each Gaussian, count how many reservoir hits are nearby (within the
+    Gaussian's Voronoi cell). This count approximates the MC sampling density
+    at that location. Gaussians in heavily-sampled regions get higher weight,
+    matching the 1/(pdf × N_attempted) correction that mmIR uses.
+
+    Returns: (N,) tensor of importance weights on device.
+    """
+    from scipy.spatial import KDTree
+
+    # Hit positions from reservoir sampler
+    hit_P = np.column_stack([
+        np.array(hits.hit_P.x),
+        np.array(hits.hit_P.y),
+        np.array(hits.hit_P.z),
+    ]).astype(np.float32)
+    n_hits = hit_P.shape[0]
+
+    # Gaussian positions
+    gauss_pos = model.positions.detach().cpu().numpy().astype(np.float32)
+    N = gauss_pos.shape[0]
+
+    # Build KDTree on Gaussian positions, query each hit's nearest Gaussian
+    tree = KDTree(gauss_pos)
+    _, nearest_gauss = tree.query(hit_P)  # (n_hits,) index of nearest Gaussian
+
+    # Count hits per Gaussian
+    hit_counts = np.bincount(nearest_gauss, minlength=N).astype(np.float32)
+
+    # Normalize: mean weight = 1 (so the overall amplitude scale is unchanged)
+    mean_count = hit_counts[hit_counts > 0].mean() if (hit_counts > 0).any() else 1.0
+    importance = hit_counts / max(mean_count, 1e-10)
+
+    # Gaussians with zero hits get weight 0 (they're not radar-visible)
+    # But keep a small floor so gradients can still flow to move them
+    importance = np.maximum(importance, 0.01)
+
+    return torch.from_numpy(importance).to(device)
+
+
 def cull_gaussians(model, rast, cos_threshold=0.05):
     """Pre-filter Gaussians to only those visible to the radar.
 
@@ -428,11 +470,15 @@ def cull_gaussians(model, rast, cos_threshold=0.05):
 
 def render_gaussians_factorized(model, rast, vertex_areas=None,
                                 detach_phase=True, active_mask=None,
-                                chunk_size=2000):
+                                chunk_size=2000, importance_weights=None):
     """Range-profile splatting renderer. Returns (rp_real, rp_imag).
 
     Output is complex range profiles (n_tx, n_rx, K), NOT ADC.
     Use range_profile_to_ra() or compute_ra_loss_rp() for RA conversion.
+
+    Args:
+        importance_weights: (N,) per-Gaussian importance from reservoir hit
+            frequency (Option 2B). Multiplied into the area weight.
     """
     from mm25DGS_v3.rasterizer_factorized import render_factorized
     from mm25DGS_v2.rasterizer_torch import reparameterize_torch
@@ -446,6 +492,10 @@ def render_gaussians_factorized(model, rast, vertex_areas=None,
         areas = vertex_areas * opacities
     else:
         areas = opacities
+
+    # Option 2B: apply reservoir hit-frequency importance weights
+    if importance_weights is not None:
+        areas = areas * importance_weights
 
     if active_mask is not None:
         positions = positions[active_mask]
@@ -493,11 +543,18 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
     raw_params_mmIR, _, _ = load_best_params(scene)
     rast.inject_trained_params(raw_params_mmIR, None, pattern_data)
 
-    # Use reservoir sampler to identify visible vertices (better culling)
+    # Use reservoir sampler to identify visible vertices AND compute
+    # per-Gaussian importance weights (Option 2B).
     hits = rast._run_reservoir_sampler(seed=42)
     visible_verts = _get_visible_vertices(hits, rast.faces_np)
     visible_mask = torch.zeros(model.N, dtype=torch.bool, device=DEVICE)
     visible_mask[torch.from_numpy(visible_verts).long().to(DEVICE)] = True
+
+    # Option 2B: Compute per-Gaussian importance weights from reservoir hit frequency.
+    # For each Gaussian, count how many reservoir hits land nearby. This approximates
+    # the MC sampling density, bridging the gap between deterministic Gaussian
+    # summation and mmIR's importance-sampled MC integration.
+    hit_importance = _compute_hit_frequency_weights(hits, model, rast, device=DEVICE)
 
     # Free Mitsuba scene to reclaim GPU memory for training
     del hits
@@ -547,7 +604,8 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
     if mode == 'c2':
         with torch.no_grad():
             rp_r, rp_i = render_gaussians_factorized(
-                model, rast, vertex_areas=vertex_areas, active_mask=active_mask)
+                model, rast, vertex_areas=vertex_areas, active_mask=active_mask,
+                importance_weights=None)
             ra_mag = range_profile_to_ra_mag(rp_r, rp_i)
             ra_polar = ra_mag.cpu().numpy()
             del rp_r, rp_i
@@ -612,7 +670,8 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
         # Factorized renderer: exact BSDF + factorized phase, no checkpoint needed
         adc_real, adc_imag = render_gaussians_factorized(
             model, rast, vertex_areas=vertex_areas,
-            active_mask=active_mask, chunk_size=2000)
+            active_mask=active_mask, chunk_size=2000,
+            importance_weights=hit_importance)
         loss, loss_dict = compute_ra_loss_rp(adc_real, adc_imag, gt_adc_ri)
         loss.backward()
 
@@ -671,7 +730,8 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
             with torch.no_grad():
                 eval_r, eval_i = render_gaussians_factorized(
                     model, rast, vertex_areas=vertex_areas,
-                    active_mask=active_mask, chunk_size=2000)
+                    active_mask=active_mask, chunk_size=2000,
+                    importance_weights=None)
                 # Range profile → RA via azimuth FFT only
                 ra_mag = range_profile_to_ra_mag(eval_r, eval_i)
                 ra_polar = ra_mag.cpu().numpy()
