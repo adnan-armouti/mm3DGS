@@ -625,7 +625,7 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
                 rms_clip_grad(p, clip)
 
         # LR warmup
-        lr_scale = get_lr_scale(it, total_iters=num_iters, decay_start=50)
+        lr_scale = get_lr_scale(it, total_iters=num_iters, decay_start=100)
         for group in optimizer.param_groups:
             group["lr"] = base_lrs[group["name"]] * lr_scale
 
