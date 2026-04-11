@@ -537,16 +537,8 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
             active_mask = cull_gaussians(model, rast)
     n_active = active_mask.sum().item()
 
-    # Cap active count to avoid OOM (12K verts * 192 MIMO fits in ~13 GB)
-    MAX_ACTIVE = 12000
-    if n_active > MAX_ACTIVE:
-        active_indices = active_mask.nonzero(as_tuple=True)[0]
-        # Subsample uniformly
-        perm = torch.randperm(n_active, device=DEVICE)[:MAX_ACTIVE]
-        new_mask = torch.zeros_like(active_mask)
-        new_mask[active_indices[perm]] = True
-        active_mask = new_mask
-        n_active = MAX_ACTIVE
+    # F1: No active cap — v3 range splat handles large M without OOM
+    # (BSDF tensor is (M, 12, 16) = ~37 MB at M=50K, PSF splat is scatter-based)
 
     if verbose:
         print(f"  Active after culling: {n_active}/{model.N}")
@@ -633,7 +625,7 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
                 rms_clip_grad(p, clip)
 
         # LR warmup
-        lr_scale = get_lr_scale(it)
+        lr_scale = get_lr_scale(it, total_iters=num_iters, decay_start=50)
         for group in optimizer.param_groups:
             group["lr"] = base_lrs[group["name"]] * lr_scale
 
@@ -660,13 +652,6 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
                     # Update vertex_areas and active_mask
                     vertex_areas = vertex_areas[keep_idx] if vertex_areas is not None else None
                     active_mask = cull_gaussians(model, rast)
-                    n_active = active_mask.sum().item()
-                    MAX_ACTIVE = 12000
-                    if n_active > MAX_ACTIVE:
-                        ai = active_mask.nonzero(as_tuple=True)[0]
-                        p = torch.randperm(n_active, device=DEVICE)[:MAX_ACTIVE]
-                        active_mask = torch.zeros(model.N, dtype=torch.bool, device=DEVICE)
-                        active_mask[ai[p]] = True
 
                     # Rebuild optimizer
                     param_groups = [
