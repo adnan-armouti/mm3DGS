@@ -682,6 +682,9 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
 
     best_corr = -1.0
     best_iter = 0
+    best_state = None
+    best_ra_rend_cart = None
+    best_ra_gt_cart = None
     t0 = time.time()
 
     for it in range(num_iters):
@@ -781,6 +784,16 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
                 if cart_corr > best_corr:
                     best_corr = cart_corr
                     best_iter = it
+                    # Save best state (model + patterns + RA maps)
+                    best_state = {
+                        'model': {k: v.data.clone() for k, v in model.state_dict().items()},
+                        'tx_E': tx_E.data.clone(),
+                        'tx_H': tx_H.data.clone(),
+                        'rx_E': rx_E.data.clone(),
+                        'rx_H': rx_H.data.clone(),
+                    }
+                    best_ra_rend_cart = ra_cart.copy()
+                    best_ra_gt_cart = ra_gt_cart.copy()
 
                 if verbose:
                     elapsed = time.time() - t0
@@ -791,14 +804,42 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
     if verbose:
         print(f"\n  Best cart_corr: {best_corr:.4f} at iter {best_iter}")
 
-    # Save
+    # Save best checkpoint (model + patterns + RA maps)
     output_dir = os.path.join(PROJECT_ROOT, 'mm25DGS_v3', 'output',
                               f'train_gaussian_{mode}', scene)
     os.makedirs(output_dir, exist_ok=True)
-    model.save = lambda path: torch.save({
-        k: v.data for k, v in model.state_dict().items()
-    }, path)
-    model.save(os.path.join(output_dir, 'best_model.pt'))
+
+    if best_state is not None:
+        torch.save(best_state, os.path.join(output_dir, 'best_model.pt'))
+        np.save(os.path.join(output_dir, 'ra_rendered_cart.npy'), best_ra_rend_cart)
+        np.save(os.path.join(output_dir, 'ra_gt_cart.npy'), best_ra_gt_cart)
+
+        # Save comparison PNG
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        def _mm(a):
+            mn, mx = a.min(), a.max()
+            return (a - mn) / (mx - mn) if mx - mn > 1e-30 else np.zeros_like(a)
+        r_db = 10 * np.log10(np.maximum(best_ra_rend_cart, 1e-10))
+        g_db = 10 * np.log10(np.maximum(best_ra_gt_cart, 1e-10))
+        db_max = max(r_db.max(), g_db.max())
+        fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+        axes[0].imshow(g_db.T, origin='lower', aspect='auto', cmap='viridis',
+                       vmin=db_max - 40, vmax=db_max)
+        axes[0].set_title('Ground Truth (dB)')
+        axes[1].imshow(r_db.T, origin='lower', aspect='auto', cmap='viridis',
+                       vmin=db_max - 40, vmax=db_max)
+        axes[1].set_title('Rendered (dB)')
+        error = _mm(best_ra_rend_cart) - _mm(best_ra_gt_cart)
+        axes[2].imshow(error.T, origin='lower', aspect='auto', cmap='RdBu_r',
+                       vmin=-0.3, vmax=0.3)
+        axes[2].set_title('Error')
+        plt.suptitle(f'{scene} | cart_corr={best_corr:.4f}', fontsize=14)
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, 'ra_comparison.png'), dpi=150, bbox_inches='tight')
+        plt.close(fig)
+
     with open(os.path.join(output_dir, 'metrics.json'), 'w') as f:
         json.dump({
             'best_cart_corr': best_corr,
