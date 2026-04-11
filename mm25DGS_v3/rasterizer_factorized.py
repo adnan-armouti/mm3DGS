@@ -372,46 +372,60 @@ def render_factorized(
         n_peak = n_peak.detach()
         phi_carrier = phi_carrier.detach()
 
-    # Splat to range bins with Hann PSF
-    SPREAD = 21  # deposit to ±10 bins around peak
+    # Splat to range bins with Hann PSF (precomputed lookup table)
+    SPREAD = 15
+
+    from mm25DGS_v3.psf import HannPSFTable
+
+    # Lazy-init PSF table (created once, reused across calls)
+    if not hasattr(render_factorized, '_psf_table') or \
+       render_factorized._psf_table.K != K or \
+       render_factorized._psf_table.spread != SPREAD or \
+       render_factorized._psf_table.device != str(device):
+        render_factorized._psf_table = HannPSFTable(K, SPREAD, n_grid=1024, device=str(device))
+    psf_table = render_factorized._psf_table
+
     n_floor = n_peak.floor().long()
     n_frac = n_peak - n_floor.float()
 
-    # Precompute flat channel indices: (M, n_tx, n_rx) -> flat (M*n_tx*n_rx,)
-    t_idx_flat = torch.arange(n_tx, device=device).unsqueeze(0).unsqueeze(-1).expand(M, -1, n_rx).reshape(-1)
-    r_idx_flat = torch.arange(n_rx, device=device).unsqueeze(0).unsqueeze(0).expand(M, n_tx, -1).reshape(-1)
-
-    rp_real = torch.zeros(n_tx, n_rx, K, device=device)
-    rp_imag = torch.zeros(n_tx, n_rx, K, device=device)
-
+    # Flatten all (M, n_tx, n_rx) paths
     w_flat = w_full.reshape(-1)
     phi_flat = phi_carrier.reshape(-1)
     n_floor_flat = n_floor.reshape(-1)
     n_frac_flat = n_frac.reshape(-1)
 
-    # Carrier phasor
-    carrier_real = w_flat * torch.cos(phi_flat)
-    carrier_imag = w_flat * torch.sin(phi_flat)
-
-    # Active paths (skip negligible weights)
+    # Active paths only
     active_paths = w_flat > 1e-20
+    w_act = w_flat[active_paths]
+    phi_act = phi_flat[active_paths]
+    n_floor_act = n_floor_flat[active_paths]
+    n_frac_act = n_frac_flat[active_paths]
 
-    for dn in range(-(SPREAD // 2), SPREAD // 2 + 1):
-        # Modular wrapping: DFT is periodic with period K
-        n_bin = (n_floor_flat + dn) % K                          # (M_flat,) in [0, K)
+    # Channel indices for active paths
+    t_idx_full = torch.arange(n_tx, device=device).unsqueeze(0).unsqueeze(-1).expand(M, -1, n_rx).reshape(-1)
+    r_idx_full = torch.arange(n_rx, device=device).unsqueeze(0).unsqueeze(0).expand(M, n_tx, -1).reshape(-1)
+    base_idx = t_idx_full[active_paths] * (n_rx * K) + r_idx_full[active_paths] * K
 
-        # PSF at fractional offset (dn - frac)
-        delta = float(dn) - n_frac_flat
-        psf_val = hann_psf(delta, K)
+    # Carrier phasor
+    carrier_real = w_act * torch.cos(phi_act)
+    carrier_imag = w_act * torch.sin(phi_act)
 
-        # Contribution = carrier × psf
-        contrib_real = carrier_real * psf_val.real - carrier_imag * psf_val.imag
-        contrib_imag = carrier_real * psf_val.imag + carrier_imag * psf_val.real
+    # PSF lookup (table interpolation — no trig at runtime)
+    psf_r, psf_i = psf_table.evaluate(n_frac_act)                 # (SPREAD, P_active)
 
-        # Scatter-add to range profile (modular indices, no clamp needed)
-        flat_idx = t_idx_flat * (n_rx * K) + r_idx_flat * K + n_bin
+    # Bin indices: (SPREAD, P_active)
+    dn_offsets = torch.arange(-(SPREAD // 2), SPREAD // 2 + 1, device=device)
+    bin_all = (n_floor_act[None, :] + dn_offsets[:, None]) % K
+    flat_idx_all = base_idx[None, :] + bin_all
 
-        rp_real.view(-1).scatter_add_(0, flat_idx[active_paths], contrib_real[active_paths])
-        rp_imag.view(-1).scatter_add_(0, flat_idx[active_paths], contrib_imag[active_paths])
+    # Contributions: carrier × PSF
+    contrib_real_all = carrier_real[None, :] * psf_r - carrier_imag[None, :] * psf_i
+    contrib_imag_all = carrier_real[None, :] * psf_i + carrier_imag[None, :] * psf_r
+
+    # Single scatter_add
+    rp_real = torch.zeros(n_tx, n_rx, K, device=device)
+    rp_imag = torch.zeros(n_tx, n_rx, K, device=device)
+    rp_real.view(-1).scatter_add_(0, flat_idx_all.reshape(-1), contrib_real_all.reshape(-1))
+    rp_imag.view(-1).scatter_add_(0, flat_idx_all.reshape(-1), contrib_imag_all.reshape(-1))
 
     return rp_real, rp_imag
