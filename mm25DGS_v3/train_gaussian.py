@@ -810,11 +810,24 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
     os.makedirs(output_dir, exist_ok=True)
 
     if best_state is not None:
+        from mmir.data.ra_utils import save_ra_cartesian_png
+
         torch.save(best_state, os.path.join(output_dir, 'best_model.pt'))
         np.save(os.path.join(output_dir, 'ra_rendered_cart.npy'), best_ra_rend_cart)
         np.save(os.path.join(output_dir, 'ra_gt_cart.npy'), best_ra_gt_cart)
 
-        # Save comparison PNG
+        # Individual RA PNGs (same format as train.py)
+        for scale in ('dB', 'linear'):
+            save_ra_cartesian_png(
+                best_ra_gt_cart,
+                os.path.join(output_dir, f'gt_ra_{scale}.png'),
+                range_res=range_res, scale=scale, title=f'GT ({scale})')
+            save_ra_cartesian_png(
+                best_ra_rend_cart,
+                os.path.join(output_dir, f'rendered_ra_{scale}.png'),
+                range_res=range_res, scale=scale, title=f'Rendered ({scale})')
+
+        # Side-by-side comparison PNG
         import matplotlib
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
