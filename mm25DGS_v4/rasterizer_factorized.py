@@ -403,9 +403,21 @@ def render_factorized(
     n_floor_act = n_floor_flat[active_paths]
     n_frac_act = n_frac_flat[active_paths]
 
-    # Channel indices for active paths
-    t_idx_full = torch.arange(n_tx, device=device).unsqueeze(0).unsqueeze(-1).expand(M, -1, n_rx).reshape(-1)
-    r_idx_full = torch.arange(n_rx, device=device).unsqueeze(0).unsqueeze(0).expand(M, n_tx, -1).reshape(-1)
+    # Channel indices for active paths.
+    # t_idx_full and r_idx_full depend ONLY on (M, n_tx, n_rx) — all static
+    # for the lifetime of the training loop. Cache on the function.
+    cache_key = (M, n_tx, n_rx, str(device))
+    if not hasattr(render_factorized, '_idx_cache') or \
+       render_factorized._idx_cache.get('key') != cache_key:
+        t_idx_full = torch.arange(n_tx, device=device).unsqueeze(0).unsqueeze(-1).expand(M, -1, n_rx).reshape(-1)
+        r_idx_full = torch.arange(n_rx, device=device).unsqueeze(0).unsqueeze(0).expand(M, n_tx, -1).reshape(-1)
+        render_factorized._idx_cache = {
+            'key': cache_key,
+            't_idx_full': t_idx_full,
+            'r_idx_full': r_idx_full,
+        }
+    t_idx_full = render_factorized._idx_cache['t_idx_full']
+    r_idx_full = render_factorized._idx_cache['r_idx_full']
     base_idx = t_idx_full[active_paths] * (n_rx * K) + r_idx_full[active_paths] * K
 
     # Carrier phasor
@@ -416,7 +428,14 @@ def render_factorized(
     psf_r, psf_i = psf_table.evaluate(n_frac_act)                 # (SPREAD, P_active)
 
     # Bin indices: (SPREAD, P_active)
-    dn_offsets = torch.arange(-(SPREAD // 2), SPREAD // 2 + 1, device=device)
+    # dn_offsets depends only on SPREAD; cache on the function.
+    if not hasattr(render_factorized, '_dn_offsets_cache') or \
+       render_factorized._dn_offsets_cache.get('key') != (SPREAD, str(device)):
+        render_factorized._dn_offsets_cache = {
+            'key': (SPREAD, str(device)),
+            'dn_offsets': torch.arange(-(SPREAD // 2), SPREAD // 2 + 1, device=device),
+        }
+    dn_offsets = render_factorized._dn_offsets_cache['dn_offsets']
     bin_all = (n_floor_act[None, :] + dn_offsets[:, None]) % K
     flat_idx_all = base_idx[None, :] + bin_all
 

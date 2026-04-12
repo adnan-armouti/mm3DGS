@@ -82,6 +82,23 @@ ITU_CONCRETE = np.array([5.31, 0.0326, 1e-4, 5e-3, 0.5, 0.15], dtype=np.float32)
 # Range profile -> RA image (azimuth FFT only, no range FFT)
 # =========================================================================
 
+# Module-level cache for the azimuth Hann window. Keyed by (length, device,
+# complex dtype). The window depends only on the static array geometry, so
+# computing it once per process is plenty.
+_HANN_CACHE = {}
+
+
+def _get_hann_window(num_vx, device, complex_dtype):
+    key = (num_vx, str(device), complex_dtype)
+    w = _HANN_CACHE.get(key)
+    if w is None:
+        # complex_dtype.real returns float32 if complex64, float64 if complex128
+        real_dtype = torch.float32 if complex_dtype == torch.complex64 else torch.float64
+        w = torch.hann_window(num_vx, device=device, dtype=real_dtype).to(complex_dtype)[:, None]
+        _HANN_CACHE[key] = w
+    return w
+
+
 def range_profile_to_ra(rp_real, rp_imag):
     """Convert complex range profiles to RA image via azimuth FFT only."""
     rp_ri = torch.stack([rp_real, rp_imag], dim=-1)              # (12, 16, K, 2)
@@ -94,8 +111,7 @@ def range_profile_to_ra(rp_real, rp_imag):
     ra = vx[0, 0, :, :]                                           # (86, 256)
 
     num_vx = ra.size(0)
-    ra = ra * torch.hann_window(
-        num_vx, device=ra.device, dtype=ra.real.dtype).to(ra.dtype)[:, None]
+    ra = ra * _get_hann_window(num_vx, ra.device, ra.dtype)
     ra = torch.fft.ifftshift(ra, dim=0)
     ra = torch.fft.fft(ra, n=128, dim=0)
     ra = ra[1:, :]
@@ -227,18 +243,36 @@ def cart_corr_torch(rend_cart, gt_cart_normalized):
     return num / den
 
 
-def compute_ra_loss_rp(rp_real, rp_imag, gt_adc_ri):
+def precompute_gt_loss_norm(gt_adc_ri):
+    """One-shot computation of the GT min-max-normalized RA magnitude for the loss.
+
+    The GT does not change during training; the loss recomputed it every
+    iter for no reason (~5 ms wasted per iter). Call this once before the
+    training loop and pass the result into compute_ra_loss_rp.
+    """
+    with torch.no_grad():
+        ra_gt = adc_to_ra_complex(gt_adc_ri)
+        ra_gt_mag = torch.abs(ra_gt)
+        mn, mx = ra_gt_mag.min(), ra_gt_mag.max()
+        return ((ra_gt_mag - mn) / (mx - mn).clamp(min=1e-30)).detach()
+
+
+def compute_ra_loss_rp(rp_real, rp_imag, gt_norm_cached):
+    """RA-MSE loss between rendered range profiles and the cached GT.
+
+    Args:
+        rp_real, rp_imag: rendered complex range profiles (with grad)
+        gt_norm_cached:   GT min-max-normalized RA magnitude tensor,
+                          precomputed by precompute_gt_loss_norm() at init.
+    """
     ra_rendered = range_profile_to_ra(rp_real, rp_imag)
     ra_rend_mag = torch.abs(ra_rendered)
 
-    ra_gt = adc_to_ra_complex(gt_adc_ri)
-    ra_gt_mag = torch.abs(ra_gt)
+    mn = ra_rend_mag.min()
+    mx = ra_rend_mag.max()
+    rend_norm = (ra_rend_mag - mn) / (mx - mn).clamp(min=1e-30)
 
-    def _mm(x):
-        mn, mx = x.min(), x.max()
-        return (x - mn) / (mx - mn) if mx - mn > 1e-30 else torch.zeros_like(x)
-
-    loss = torch.mean((_mm(ra_rend_mag) - _mm(ra_gt_mag)) ** 2)
+    loss = torch.mean((rend_norm - gt_norm_cached) ** 2)
     return loss, {"ra_mse": loss.item()}
 
 
@@ -677,6 +711,12 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
     gt_cart_gpu_norm = (_gt_cart_gpu - _gt_min) / (_gt_max - _gt_min).clamp(min=1e-30)
     del _gt_polar_gpu, _gt_cart_gpu, _gt_min, _gt_max, _gt_ra_polar_cpu
 
+    # Tier A1: pre-compute the GT min-max-normalized RA magnitude for the loss
+    # path. The GT does not change between iters; the previous code was
+    # recomputing adc_to_ra_complex(gt_adc_ri) inside compute_ra_loss_rp every
+    # iter (~5 ms wasted/iter). Now computed once and reused on every backward.
+    gt_loss_norm_cached = precompute_gt_loss_norm(gt_adc_ri)
+
     if verbose:
         print(f"\n{'='*60}")
         print(f"Gaussian Training: {scene} (v4 hemisphere)")
@@ -766,7 +806,7 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
             active_mask=active_mask,
             shadow_mask=None)
 
-        loss, loss_dict = compute_ra_loss_rp(rp_real, rp_imag, gt_adc_ri)
+        loss, loss_dict = compute_ra_loss_rp(rp_real, rp_imag, gt_loss_norm_cached)
 
         # Per-iter cart_corr metric, computed on the same forward pass.
         # We detach from the autograd graph since the metric is logging-only.
