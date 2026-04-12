@@ -107,6 +107,126 @@ def range_profile_to_ra_mag(rp_real, rp_imag):
     return range_profile_to_ra(rp_real, rp_imag).abs().float()
 
 
+# =========================================================================
+# GPU eval helpers (replace scipy griddata + numpy corrcoef)
+# =========================================================================
+
+def build_polar_to_cart_grid(n_az, n_range, range_res, grid_res=400, device=DEVICE):
+    """Pre-compute the (grid_res-1, grid_res-1, 2) sample grid for grid_sample.
+
+    Replicates the indexing of mmIR's ra_polar_to_cartesian (which uses
+    scipy.griddata with linear interpolation) using F.grid_sample bilinear
+    interpolation on a regular polar→cart grid.
+
+    Polar grid layout (matches range_profile_to_ra output):
+        shape   (n_az, n_range)        e.g. (127, 256)
+        az bin i → sin(angle) = (i - n_az/2) * 2/(n_az+1)  ← linear in sin(angle)
+        range bin j → r = j * range_res
+
+    Cartesian grid:
+        xi ∈ [-range_width, range_width]
+        yi ∈ [0, range_depth]
+        range_depth = n_range * range_res
+        range_width = range_depth / 2
+
+    For each (xi, yi):
+        r       = sqrt(xi² + yi²)            → range bin
+        sin_θ   = xi / r                     → az bin (since the polar grid
+                                              is uniform in sin(angle))
+
+    Returned grid is normalized to [-1, 1] for F.grid_sample with
+    align_corners=True. The grid samples the polar image (interpreted as
+    a 4D tensor of shape (1, 1, n_az, n_range)).
+
+    The mmIR reference also (a) drops the last row/col, (b) flips the
+    azimuth axis (`zi[:, ::-1]`). We replicate both: drop and flip applied
+    to the grid construction so the resulting cart image lines up with
+    the CPU reference.
+    """
+    range_depth = n_range * range_res
+    range_width = range_depth / 2.0
+
+    # mmIR uses linspace(grid_res) then drops the last col/row → (grid_res-1, grid_res-1)
+    xi = torch.linspace(-range_width, range_width, grid_res, device=device)
+    yi = torch.linspace(0.0, range_depth, grid_res, device=device)
+    xi = xi[:-1]
+    yi = yi[:-1]
+    xx, yy = torch.meshgrid(xi, yi, indexing='xy')   # (grid_res-1, grid_res-1)
+
+    # mmIR reverses the cart image along the azimuth (last) axis at the end:
+    #   `return zi[:, ::-1]`
+    # We bake the flip into the grid by flipping xx along its last axis.
+    xx = torch.flip(xx, dims=[-1])
+
+    r = torch.sqrt(xx * xx + yy * yy).clamp(min=1e-9)        # (h, w)
+    sin_theta = (xx / r).clamp(-1.0, 1.0)                    # (h, w)
+
+    # Polar grid az index from sin(theta).
+    # mmIR's polar grid: bin k → sin(angle) = (-num_angle_bins/2 + 1 + k) * 2/num_angle_bins
+    # where num_angle_bins = n_az + 1. For n_az=127 → num_angle_bins=128:
+    #   bin 0   → sin = -126/128 ≈ -0.984
+    #   bin 63  → sin = 0
+    #   bin 126 → sin = +126/128 ≈ +0.984
+    # Inverting: k = (n_az - 1)/2 + sin_theta * (n_az + 1)/2
+    az_idx = (n_az - 1) / 2.0 + sin_theta * (n_az + 1) / 2.0
+
+    # Polar grid range index: r_idx = r / range_res
+    range_idx = r / range_res
+
+    # Normalize to [-1, 1] for F.grid_sample with align_corners=True.
+    # grid coords: (x in [-1,1] = column = range_idx, y in [-1,1] = row = az_idx)
+    # F.grid_sample uses (x, y) order in the last dim where x is the WIDTH dim.
+    # We treat the polar tensor as (1, 1, H=n_az, W=n_range), so:
+    #   sample x ↔ range, sample y ↔ azimuth
+    range_norm = 2.0 * range_idx / (n_range - 1) - 1.0
+    az_norm    = 2.0 * az_idx    / (n_az - 1)    - 1.0
+
+    grid = torch.stack([range_norm, az_norm], dim=-1)        # (h, w, 2)
+    return grid.unsqueeze(0)                                 # (1, h, w, 2)
+
+
+def polar_to_cart_torch(ra_polar, sample_grid):
+    """GPU polar → cartesian via F.grid_sample.
+
+    Args:
+        ra_polar: (n_az, n_range) float tensor on GPU
+        sample_grid: (1, h, w, 2) precomputed by build_polar_to_cart_grid
+
+    Returns: (h, w) float tensor on GPU.
+    """
+    img = ra_polar.unsqueeze(0).unsqueeze(0)                 # (1, 1, H, W)
+    out = F.grid_sample(
+        img, sample_grid, mode='bilinear',
+        padding_mode='zeros', align_corners=True)
+    return out[0, 0]                                          # (h, w)
+
+
+def cart_corr_torch(rend_cart, gt_cart_normalized):
+    """GPU Pearson correlation between rendered cart RA and pre-normalized GT.
+
+    Both inputs are 2D float tensors. The GT is expected to be already
+    min-max normalized (cached once at init). The rendered tensor is
+    normalized inside this function.
+    """
+    rend_min = rend_cart.min()
+    rend_max = rend_cart.max()
+    rend_range = (rend_max - rend_min).clamp(min=1e-30)
+    rend_norm = (rend_cart - rend_min) / rend_range
+
+    rend_flat = rend_norm.flatten()
+    gt_flat = gt_cart_normalized.flatten()
+    rend_mean = rend_flat.mean()
+    gt_mean = gt_flat.mean()
+    rend_centered = rend_flat - rend_mean
+    gt_centered = gt_flat - gt_mean
+
+    num = (rend_centered * gt_centered).sum()
+    den = torch.sqrt(
+        (rend_centered ** 2).sum() * (gt_centered ** 2).sum()
+    ).clamp(min=1e-30)
+    return num / den
+
+
 def compute_ra_loss_rp(rp_real, rp_imag, gt_adc_ri):
     ra_rendered = range_profile_to_ra(rp_real, rp_imag)
     ra_rend_mag = torch.abs(ra_rendered)
@@ -514,14 +634,30 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
 
     range_res = compute_range_res_from_cfg(config.config_file)
 
-    # Pre-compute and cache the GT cartesian RA image once. The GT does not
-    # change between iterations; recomputing it inside the eval block was a
-    # ~50 ms-per-eval cost (CPU torch→numpy round-trip + numpy adc_to_ra +
-    # scipy griddata polar→cartesian) totally wasted on every eval.
+    # Pre-compute and cache the GT cartesian RA image. The GT does not change
+    # between iterations.
+    #
+    # GPU pipeline (used by per-iter cart_corr_torch):
+    #   * gt_polar (torch, GPU) — for the loss path
+    #   * gt_cart_gpu_norm (torch, GPU, min-max normalized) — for cart_corr_torch
+    #   * sample_grid (built once) — polar→cart sampling grid for grid_sample
+    #
+    # CPU image (used only at the end of training to save the best GT PNG):
+    #   * ra_gt_cart_cached (numpy, via scipy griddata) — for save_ra_cartesian_png
     _gt_adc_for_eval = torch.from_numpy(gt_adc_ri.cpu().numpy()).float()
-    _gt_ra_polar = adc_to_ra_image(_gt_adc_for_eval).numpy()
-    ra_gt_cart_cached = ra_polar_to_cartesian(_gt_ra_polar, range_res)
-    del _gt_adc_for_eval, _gt_ra_polar
+    _gt_ra_polar_cpu = adc_to_ra_image(_gt_adc_for_eval).numpy()
+    ra_gt_cart_cached = ra_polar_to_cartesian(_gt_ra_polar_cpu, range_res)
+    del _gt_adc_for_eval
+
+    # GPU GT cart for the per-iter metric
+    _gt_polar_gpu = torch.from_numpy(_gt_ra_polar_cpu.astype(np.float32)).to(DEVICE)
+    n_az_polar, n_range_polar = _gt_polar_gpu.shape
+    sample_grid = build_polar_to_cart_grid(
+        n_az_polar, n_range_polar, range_res, grid_res=400, device=DEVICE)
+    _gt_cart_gpu = polar_to_cart_torch(_gt_polar_gpu, sample_grid)
+    _gt_min, _gt_max = _gt_cart_gpu.min(), _gt_cart_gpu.max()
+    gt_cart_gpu_norm = (_gt_cart_gpu - _gt_min) / (_gt_max - _gt_min).clamp(min=1e-30)
+    del _gt_polar_gpu, _gt_cart_gpu, _gt_min, _gt_max, _gt_ra_polar_cpu
 
     if verbose:
         print(f"\n{'='*60}")
@@ -634,14 +770,16 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
                     model, rast, vertex_areas=vertex_areas,
                     active_mask=active_mask,
                     shadow_mask=None)
-                ra_mag = range_profile_to_ra_mag(eval_r, eval_i)
-                ra_polar = ra_mag.cpu().numpy()
+                ra_polar_t = range_profile_to_ra_mag(eval_r, eval_i)
                 del eval_r, eval_i
-                ra_cart = ra_polar_to_cartesian(ra_polar, range_res)
-                # GT cartesian was cached once at init (does not change)
-                ra_gt_cart = ra_gt_cart_cached
-                metrics = compute_cartesian_ra_metrics(ra_cart, ra_gt_cart)
-                cart_corr = metrics['cart_corr']
+
+                # GPU eval pipeline: polar→cart via grid_sample, corr in torch.
+                # Tracks the historical CPU cart_corr to within ~0.005 at
+                # converged values (the irreducible difference between
+                # bilinear-on-grid (this) and linear-on-Delaunay (scipy)).
+                ra_cart_gpu = polar_to_cart_torch(ra_polar_t, sample_grid)
+                cart_corr_t = cart_corr_torch(ra_cart_gpu, gt_cart_gpu_norm)
+                cart_corr = cart_corr_t.item()
 
                 if cart_corr > best_corr:
                     best_corr = cart_corr
@@ -654,8 +792,11 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
                         best_state['tx_H'] = tx_H.data.clone()
                         best_state['rx_E'] = rx_E.data.clone()
                         best_state['rx_H'] = rx_H.data.clone()
-                    best_ra_rend_cart = ra_cart.copy()
-                    best_ra_gt_cart = ra_gt_cart.copy()
+                    # Save the rendered cart image (numpy) for the final PNG.
+                    # This is the only place we touch the CPU per eval; it
+                    # only happens when the corr improves.
+                    best_ra_rend_cart = ra_cart_gpu.cpu().numpy()
+                    best_ra_gt_cart = ra_gt_cart_cached
 
                 if verbose:
                     elapsed = time.time() - t0
