@@ -33,7 +33,6 @@ def render_factorized(
     rast,               # RasterizerTorch instance (for constants + antenna)
     reparameterize_fn,  # reparameterize_torch function
     detach_phase=True,
-    chunk_size=2000,    # unused (kept for API compat)
     shadow_mask=None,   # (M, n_tx) bool — False = occluded, zero weight
 ):
     """Range-profile splatting renderer. Returns (rp_real, rp_imag).

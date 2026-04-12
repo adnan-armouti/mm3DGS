@@ -406,12 +406,16 @@ def init_visible_weighted(scene, rast, target_n=50000,
 # =========================================================================
 
 def render_gaussians(model, rast, vertex_areas, active_mask=None,
-                     shadow_mask=None, detach_phase=True, chunk_size=2000):
+                     shadow_mask=None, detach_phase=True):
     """Range-profile splatting renderer wrapper.
 
-    `vertex_areas` carries the precomputed per-Gaussian hemisphere weight
-    (uniform = 1.0 for c6 active Gaussians, 0.0 for inactive). It gets
-    multiplied by per-Gaussian opacity inside this wrapper.
+    `vertex_areas` carries the precomputed per-point hemisphere weight
+    (uniform = 1.0 for active points, 0.0 for inactive).
+
+    Renders the full active set in one shot — no chunking. The dominant
+    intermediate is the (M, n_tx, n_rx) BSDF tensor which at our scales
+    (M ≈ 45K active, n_tx=12, n_rx=16, fp32) is ~35 MB. Total renderer
+    working set is well under 1 GB on a 4090.
     """
     from mm25DGS_v4.rasterizer_factorized import render_factorized
 
@@ -438,7 +442,7 @@ def render_gaussians(model, rast, vertex_areas, active_mask=None,
     return render_factorized(
         positions, normals, areas, raw_materials, rast,
         reparameterize_torch, detach_phase=detach_phase,
-        chunk_size=chunk_size, shadow_mask=sm)
+        shadow_mask=sm)
 
 
 # =========================================================================
@@ -601,7 +605,7 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
 
         rp_real, rp_imag = render_gaussians(
             model, rast, vertex_areas=vertex_areas,
-            active_mask=active_mask, chunk_size=2000,
+            active_mask=active_mask,
             shadow_mask=None)
         loss, loss_dict = compute_ra_loss_rp(rp_real, rp_imag, gt_adc_ri)
         loss.backward()
@@ -628,7 +632,7 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
             with torch.no_grad():
                 eval_r, eval_i = render_gaussians(
                     model, rast, vertex_areas=vertex_areas,
-                    active_mask=active_mask, chunk_size=2000,
+                    active_mask=active_mask,
                     shadow_mask=None)
                 ra_mag = range_profile_to_ra_mag(eval_r, eval_i)
                 ra_polar = ra_mag.cpu().numpy()
