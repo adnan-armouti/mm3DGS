@@ -510,6 +510,15 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
 
     range_res = compute_range_res_from_cfg(config.config_file)
 
+    # Pre-compute and cache the GT cartesian RA image once. The GT does not
+    # change between iterations; recomputing it inside the eval block was a
+    # ~50 ms-per-eval cost (CPU torch→numpy round-trip + numpy adc_to_ra +
+    # scipy griddata polar→cartesian) totally wasted on every eval.
+    _gt_adc_for_eval = torch.from_numpy(gt_adc_ri.cpu().numpy()).float()
+    _gt_ra_polar = adc_to_ra_image(_gt_adc_for_eval).numpy()
+    ra_gt_cart_cached = ra_polar_to_cartesian(_gt_ra_polar, range_res)
+    del _gt_adc_for_eval, _gt_ra_polar
+
     if verbose:
         print(f"\n{'='*60}")
         print(f"Gaussian Training: {scene} (v4 hemisphere)")
@@ -625,9 +634,8 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
                 ra_polar = ra_mag.cpu().numpy()
                 del eval_r, eval_i
                 ra_cart = ra_polar_to_cartesian(ra_polar, range_res)
-                ra_gt_cart = ra_polar_to_cartesian(
-                    adc_to_ra_image(torch.from_numpy(gt_adc_ri.cpu().numpy()).float()).numpy(),
-                    range_res)
+                # GT cartesian was cached once at init (does not change)
+                ra_gt_cart = ra_gt_cart_cached
                 metrics = compute_cartesian_ra_metrics(ra_cart, ra_gt_cart)
                 cart_corr = metrics['cart_corr']
 
