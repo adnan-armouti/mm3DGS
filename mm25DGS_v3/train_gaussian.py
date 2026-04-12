@@ -296,6 +296,170 @@ def init_from_lidar(scene, target_n=None, device=DEVICE):
     return model, config, pattern_data, vertex_areas_t
 
 
+def _ray_test_visibility_batched(points_np, rx_center_np, mi_scene, chunk=200000):
+    """Batched ray test from points toward RX center. Returns visible mask."""
+    import mitsuba as mi
+    import drjit as dr
+    N = len(points_np)
+    visible = np.zeros(N, dtype=bool)
+    eps = 1e-3
+    for i in range(0, N, chunk):
+        j = min(i + chunk, N)
+        pts = points_np[i:j]
+        delta = rx_center_np - pts                             # (n, 3)
+        dist = np.linalg.norm(delta, axis=1).clip(min=1e-6)    # (n,)
+        direction = delta / dist[:, None]                       # (n, 3)
+        origins = pts + eps * direction
+        o = mi.Point3f(
+            mi.Float(origins[:, 0]), mi.Float(origins[:, 1]), mi.Float(origins[:, 2]))
+        d = mi.Vector3f(
+            mi.Float(direction[:, 0]), mi.Float(direction[:, 1]), mi.Float(direction[:, 2]))
+        rays = mi.Ray3f(o, d)
+        rays.maxt = mi.Float(dist - 2 * eps)
+        occluded = mi_scene.ray_test(rays)
+        visible[i:j] = ~np.array(occluded)
+    return visible
+
+
+def init_from_lidar_visible_weighted(scene, rast, target_n=None,
+                                     cos_bore_min=0.1,
+                                     n_intermediate=200000,
+                                     device=DEVICE):
+    """Initialize LiDAR FPS Gaussians restricted to RX-visible, cosine-weighted.
+
+    Pipeline:
+      1. Load pcl (1.5-2.5M points)
+      2. FOV restrict: cos_bore > cos_bore_min, within radar range
+      3. RX-side ray-traced visibility (non-occluded only)
+      4. Cosine-hemisphere importance resample (prob ∝ cos_bore)
+      5. FPS on the resampled set → target_n points
+
+    Requires rast with _mi_scene available (call before freeing Mitsuba).
+    """
+    config = load_trained_config(scene)
+    _, _, pattern_data = load_best_params(scene)
+
+    import trimesh
+    mesh = trimesh.load(config.scene_file)
+    mesh_verts = np.array(mesh.vertices, dtype=np.float32)
+    mesh_normals = np.array(mesh.vertex_normals, dtype=np.float32)
+
+    if target_n is None:
+        target_n = len(mesh_verts)
+
+    # Load full point cloud
+    pcl_path = config.scene_file.replace('scene/mesh.ply', 'scene/pcl.npy')
+    if os.path.exists(pcl_path):
+        pcl = np.load(pcl_path)
+        xyz_full = pcl[:, :3].astype(np.float32)
+    else:
+        xyz_full = mesh_verts.copy()
+
+    print(f"  [visible-weighted init] Full pcl: {len(xyz_full)} points")
+
+    # --- Step 1: FOV restrict ---
+    rx_center = rast.rx_positions.mean(dim=0).cpu().numpy()
+    boresight = rast.tx_boresights.mean(dim=0).cpu().numpy()
+    boresight = boresight / max(np.linalg.norm(boresight), 1e-8)
+
+    delta = xyz_full - rx_center
+    dist = np.linalg.norm(delta, axis=1).clip(min=1e-6)
+    dir_to_point = delta / dist[:, None]
+    cos_bore_full = (dir_to_point * boresight).sum(axis=-1)
+
+    # Max range from FMCW config
+    max_range = rast.K * 299792458.0 / (2.0 * rast.slope * (rast.K / rast.sample_rate))
+
+    fov_mask = (cos_bore_full > cos_bore_min) & (dist > 1.5) & (dist < max_range)
+    xyz_fov = xyz_full[fov_mask]
+    cos_bore_fov = cos_bore_full[fov_mask]
+    print(f"  [visible-weighted init] After FOV: {len(xyz_fov)} points")
+
+    # --- Step 2: RX visibility ray tracing ---
+    # Force-load the Mitsuba scene if not yet loaded
+    if not hasattr(rast, '_mi_scene') or rast._mi_scene is None:
+        from mmir.renderer.scene_context import SceneContext
+        scene_ctx = SceneContext.from_files(
+            config_file=rast._config_file, scene_file=rast._mesh_file,
+            pattern_file=None,
+            tx_pattern_file=rast._tx_pattern_file,
+            rx_pattern_file=rast._rx_pattern_file,
+            material_type="metal", enable_gradients=False, verbose=False,
+        )
+        rast._mi_scene = scene_ctx.scene
+
+    visible = _ray_test_visibility_batched(xyz_fov, rx_center, rast._mi_scene)
+    xyz_vis = xyz_fov[visible]
+    cos_bore_vis = cos_bore_fov[visible]
+    print(f"  [visible-weighted init] After visibility: {len(xyz_vis)} points")
+
+    if len(xyz_vis) < 100:
+        print(f"  [visible-weighted init] WARNING: very few visible points, falling back")
+        return init_from_lidar(scene, target_n=target_n, device=device)
+
+    # --- Step 3: Cosine-hemisphere importance resample ---
+    # Clip cos_bore to avoid zero probabilities at horizon
+    weights = np.maximum(cos_bore_vis, 0.01)
+    probs = weights / weights.sum()
+    n_resample = min(n_intermediate, 3 * target_n)
+    rng = np.random.default_rng(42)
+    sampled_idx = rng.choice(len(xyz_vis), size=n_resample, replace=True, p=probs)
+    unique_idx = np.unique(sampled_idx)
+    xyz_weighted = xyz_vis[unique_idx]
+    print(f"  [visible-weighted init] After cosine importance resample: {len(xyz_weighted)} points")
+
+    # --- Step 4: FPS to target_n ---
+    if len(xyz_weighted) > target_n:
+        pts_t = torch.from_numpy(xyz_weighted).to(device)
+        selected = _farthest_point_sampling(pts_t, target_n)
+        xyz = xyz_weighted[selected.cpu().numpy()]
+    else:
+        xyz = xyz_weighted
+    print(f"  [visible-weighted init] After FPS: {len(xyz)} points")
+
+    N = len(xyz)
+
+    # --- Normals from nearest mesh vertex ---
+    tree = KDTree(mesh_verts)
+    _, idx = tree.query(xyz)
+    normals = mesh_normals[idx]
+    norms = np.linalg.norm(normals, axis=1, keepdims=True)
+    normals = normals / np.maximum(norms, 1e-12)
+
+    model = GaussianSurfels(N, device=device)
+
+    with torch.no_grad():
+        model.positions.copy_(torch.from_numpy(xyz).to(device))
+
+        raw_default = inverse_reparameterize_torch(ITU_CONCRETE)
+        model.raw_materials.copy_(
+            torch.from_numpy(np.tile(raw_default, (N, 1))).to(device))
+
+        quats = _normals_to_quaternions(normals)
+        model.rotations.copy_(torch.from_numpy(quats).to(device))
+
+        # Scales from k-NN PCA
+        tree2 = KDTree(xyz)
+        k_nn = min(20, N - 1)
+        _, knn_idx = tree2.query(xyz, k=k_nn + 1)
+        knn_idx = knn_idx[:, 1:]
+        neighbors = xyz[knn_idx] - xyz[:, None, :]
+        n_exp = normals[:, None, :]
+        dot_n = (neighbors * n_exp).sum(axis=-1, keepdims=True)
+        proj = neighbors - dot_n * n_exp
+        cov = np.einsum('nki,nkj->nij', proj, proj) / k_nn
+        eigvals = np.linalg.eigvalsh(cov)
+        scales = np.zeros((N, 2), dtype=np.float32)
+        scales[:, 0] = np.clip(np.sqrt(np.maximum(eigvals[:, 2], 1e-12)), 0.01, 0.5)
+        scales[:, 1] = np.clip(np.sqrt(np.maximum(eigvals[:, 1], 1e-12)), 0.01, 0.5)
+        model.log_scales.copy_(torch.from_numpy(np.log(scales)).to(device))
+
+        model.logit_opacities.fill_(0.0)
+
+    vertex_areas_t = torch.ones(N, device=device)
+    return model, config, pattern_data, vertex_areas_t
+
+
 def _normals_to_quaternions(normals):
     """Convert normal vectors to quaternions [w,x,y,z]. Fully vectorized."""
     N = len(normals)
@@ -658,24 +822,41 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
         num_iters: Training iterations
         target_n: Number of Gaussians for LiDAR init (None = mesh count)
     """
+    use_hemisphere = (mode == 'c6')
+
     # Initialize
     if mode in ('c2', 'c3'):
         model, config, pattern_data, vertex_areas = init_from_mesh(scene)
-    elif mode in ('c4', 'c5', 'c6'):
+        rast = RasterizerTorch(
+            config_file=config.config_file,
+            mesh_file=config.scene_file,
+            tx_pattern_file=config.tx_pattern_file,
+            rx_pattern_file=config.rx_pattern_file,
+            device=DEVICE,
+        )
+    elif mode in ('c4', 'c5'):
         model, config, pattern_data, vertex_areas = init_from_lidar(scene, target_n=target_n)
+        rast = RasterizerTorch(
+            config_file=config.config_file,
+            mesh_file=config.scene_file,
+            tx_pattern_file=config.tx_pattern_file,
+            rx_pattern_file=config.rx_pattern_file,
+            device=DEVICE,
+        )
+    elif mode == 'c6':
+        # c6 needs rast available during init for visibility + cosine weighting
+        config = load_trained_config(scene)
+        rast = RasterizerTorch(
+            config_file=config.config_file,
+            mesh_file=config.scene_file,
+            tx_pattern_file=config.tx_pattern_file,
+            rx_pattern_file=config.rx_pattern_file,
+            device=DEVICE,
+        )
+        model, config, pattern_data, vertex_areas = init_from_lidar_visible_weighted(
+            scene, rast, target_n=target_n)
     else:
         raise ValueError(f"Unknown mode: {mode}")
-
-    use_hemisphere = (mode == 'c6')
-
-    # Create rasterizer
-    rast = RasterizerTorch(
-        config_file=config.config_file,
-        mesh_file=config.scene_file,
-        tx_pattern_file=config.tx_pattern_file,
-        rx_pattern_file=config.rx_pattern_file,
-        device=DEVICE,
-    )
 
     # Inject patterns from mmIR (for antenna patterns only)
     raw_params_mmIR, _, _ = load_best_params(scene)
