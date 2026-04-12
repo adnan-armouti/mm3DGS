@@ -593,7 +593,7 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
     clip_vals = {}
     if LEARN_MATERIALS:
         param_groups.append(
-            {"params": [model.raw_materials], "lr": 0.5, "name": "materials"})
+            {"params": [model.raw_materials], "lr": 0.7, "name": "materials"})
         clip_vals["materials"] = 1.0
     if LEARN_POSITIONS:
         param_groups.append(
@@ -601,7 +601,7 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
         clip_vals["positions"] = 1.0
     if LEARN_NORMALS:
         param_groups.append(
-            {"params": [model.rotations], "lr": 1e-3, "name": "rotations"})
+            {"params": [model.rotations], "lr": 2e-3, "name": "rotations"})
         clip_vals["rotations"] = 0.5
     if LEARN_PATTERNS:
         param_groups.append(
