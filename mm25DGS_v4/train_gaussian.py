@@ -580,7 +580,7 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
     t0 = time.time()
 
     for it in range(num_iters):
-        optimizer.zero_grad()
+        optimizer.zero_grad(set_to_none=True)
 
         # Inject learnable antenna patterns (only when LEARN_PATTERNS=True;
         # otherwise the rasterizer keeps its original tensors set at init).
