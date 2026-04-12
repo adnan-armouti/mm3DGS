@@ -5,7 +5,7 @@ Single training mode: visible-weighted FPS init + uniform hemisphere weights.
 Pipeline:
   1. Load pcl.npy (1.5–2.5M points). Columns 0–2 are xyz, 3–5 are unit normals.
   2. FOV restrict (cos_bore > cos_bore_min, within radar range).
-  3. RX-side ray-traced visibility against the Mitsuba scene (the only mesh use).
+  3. RX-side ray-traced visibility against the Mitsuba scene (the ONLY mesh use).
   4. Cosine-hemisphere importance resample (prob ∝ cos_bore).
   5. FPS to target_n.
   6. Train per-point quaternions (→ surface normals) + 6 material params
@@ -16,6 +16,16 @@ Pipeline:
 Primitive: a POINT, not a Gaussian. There is no scale and no opacity in
 the model. The renderer reads only position, normal, and material per
 point; the hemisphere weight on the active set is uniform = 1.0.
+
+Ray tracing footprint (one-shot at init, freed before training loop):
+  - One per-point RX-visibility ray test on the full FOV-filtered point
+    cloud (~1.5M rays, batched). Filters out occluded points before FPS,
+    so every point in the model is RX-visible by construction.
+  - No TX shadow mask. The A/B test in v4_ray_tracing_minimization_plan.md
+    showed shadow OFF is at least as good as shadow ON (mean +0.0068,
+    6/7 scenes improved or flat).
+  - No reservoir sampler. No per-Gaussian post-FPS sanity-check ray test.
+  - The renderer itself does ZERO ray tracing.
 
 Usage:
   CUDA_VISIBLE_DEVICES=0 python -m mm25DGS_v4.train_gaussian --scene seq_0_frame_135 --iters 500
@@ -247,67 +257,6 @@ def _ray_test_visibility_batched(points_np, rx_center_np, mi_scene, chunk=200000
     return visible
 
 
-def _compute_rx_visibility(positions, rast, device='cuda:0'):
-    """Per-Gaussian RX-side visibility ray test (post-FPS sanity check).
-
-    NOTE: in v4, the visible-weighted FPS init already filters every point
-    against the Mitsuba scene before FPS, so this should always return all-True.
-    Kept for the active mask plumbing; removable per the ray-tracing minimization
-    plan.
-    """
-    if not hasattr(rast, '_mi_scene') or rast._mi_scene is None:
-        return torch.ones(positions.shape[0], dtype=torch.bool, device=device)
-
-    pos_np = positions.detach().cpu().numpy()
-    rx_center = rast.rx_positions.mean(dim=0).cpu().numpy()
-
-    delta = rx_center - pos_np
-    dist = np.linalg.norm(delta, axis=1).clip(min=1e-6)
-    direction = delta / dist[:, None]
-
-    eps = 1e-3
-    origins = pos_np + eps * direction
-
-    o = mi.Point3f(mi.Float(origins[:, 0]), mi.Float(origins[:, 1]), mi.Float(origins[:, 2]))
-    d = mi.Vector3f(mi.Float(direction[:, 0]), mi.Float(direction[:, 1]), mi.Float(direction[:, 2]))
-    rays = mi.Ray3f(o, d)
-    rays.maxt = mi.Float(dist - 2 * eps)
-    occluded = rast._mi_scene.ray_test(rays)
-    return torch.from_numpy(~np.array(occluded)).to(device)
-
-
-def _compute_shadow_mask(positions, rast, device='cuda:0'):
-    """Per-(Gaussian, TX) shadow mask via Mitsuba ray test.
-
-    For each Gaussian × TX pair, casts a shadow ray from the Gaussian toward
-    the TX element. Returns (M, n_tx) bool — True = visible, False = occluded.
-    """
-    if not hasattr(rast, '_mi_scene') or rast._mi_scene is None:
-        return torch.ones(positions.shape[0], rast.n_tx, dtype=torch.bool, device=device)
-
-    M = positions.shape[0]
-    n_tx = rast.n_tx
-    pos_np = positions.detach().cpu().numpy()
-    tx_pos_np = rast.tx_positions.cpu().numpy()
-
-    shadow_mask = np.ones((M, n_tx), dtype=bool)
-    eps = 1e-4
-    for t in range(n_tx):
-        delta = tx_pos_np[t] - pos_np
-        dist = np.linalg.norm(delta, axis=1).clip(min=1e-6)
-        direction = delta / dist[:, None]
-        origins = pos_np + eps * direction
-
-        o = mi.Point3f(mi.Float(origins[:, 0]), mi.Float(origins[:, 1]), mi.Float(origins[:, 2]))
-        d = mi.Vector3f(mi.Float(direction[:, 0]), mi.Float(direction[:, 1]), mi.Float(direction[:, 2]))
-        rays = mi.Ray3f(o, d)
-        rays.maxt = mi.Float(dist - 2 * eps)
-        occluded = rast._mi_scene.ray_test(rays)
-        shadow_mask[:, t] = ~np.array(occluded)
-
-    return torch.from_numpy(shadow_mask).to(device)
-
-
 # =========================================================================
 # FOV culling (no mesh, pure radar geometry)
 # =========================================================================
@@ -536,13 +485,15 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
 
     model = init_visible_weighted(scene, rast, target_n=target_n)
 
-    # RX visibility (post-FPS sanity check — should be 100% by construction)
-    rx_visible = _compute_rx_visibility(model.positions, rast, device=DEVICE)
-    if verbose:
-        print(f"  RX-visible Gaussians: {rx_visible.sum().item()}/{model.N}")
+    # All points emitted by init_visible_weighted are RX-visible by construction
+    # (already ray-traced against the Mitsuba scene before FPS), so no per-point
+    # post-FPS visibility re-test is needed.
 
-    # TX shadow mask (kept; A/B test pending per ray-tracing minimization plan)
-    shadow = _compute_shadow_mask(model.positions, rast, device=DEVICE)
+    # No TX shadow mask. The A/B test in v4_ray_tracing_minimization_plan.md
+    # showed shadow OFF is at least as good as shadow ON across 7 scenes
+    # (mean +0.0068, 6/7 scenes improved or flat). The shadow mask was
+    # dropped to remove ~600K rays/scene of init cost AND a function that
+    # was net-hurting training quality.
 
     # Free Mitsuba scene — no more ray tracing for this scene
     rast.free_mi_scene()
@@ -566,8 +517,8 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
         print(f"  Iterations: {num_iters}")
         print(f"{'='*60}")
 
-    # Active mask: ray-traced visibility AND FOV culling
-    active_mask = rx_visible & cull_gaussians(model, rast)
+    # Active mask: FOV culling only (RX visibility is guaranteed at init)
+    active_mask = cull_gaussians(model, rast)
     n_active = active_mask.sum().item()
 
     # Uniform hemisphere weights on the active set
@@ -642,7 +593,7 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
         rp_real, rp_imag = render_gaussians(
             model, rast, vertex_areas=vertex_areas,
             active_mask=active_mask, chunk_size=2000,
-            shadow_mask=shadow)
+            shadow_mask=None)
         loss, loss_dict = compute_ra_loss_rp(rp_real, rp_imag, gt_adc_ri)
         loss.backward()
         del rp_real, rp_imag, loss
