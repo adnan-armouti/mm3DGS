@@ -923,18 +923,15 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
             active_mask = cull_gaussians(model, rast)
     n_active = active_mask.sum().item()
 
-    # C6: precompute density-ratio hemisphere weights on the clean visible set
+    # C6: uniform hemisphere weights on the clean visible set
+    # The cosine bias is encoded in the visible-weighted FPS placement,
+    # so each visible Gaussian gets w = 1.0 (no per-Gaussian density correction).
     if use_hemisphere:
-        active_positions = model.positions[active_mask].detach()
-        hemisphere_w = _compute_density_ratio_weights(active_positions, rast, k=20)
-        # Store per-model weights (expand back to full N for active_mask indexing)
         hemisphere_weights_full = torch.zeros(model.N, device=DEVICE)
-        hemisphere_weights_full[active_mask] = hemisphere_w
+        hemisphere_weights_full[active_mask] = 1.0
         vertex_areas = hemisphere_weights_full
         if verbose:
-            hw = hemisphere_w.cpu().numpy()
-            print(f"  Hemisphere weights (p/q): mean={hw.mean():.4e}, "
-                  f"min={hw.min():.4e}, max={hw.max():.4e}")
+            print(f"  Hemisphere weights: uniform = 1.0")
 
     if verbose:
         print(f"  Active after culling: {n_active}/{model.N}")
