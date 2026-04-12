@@ -739,13 +739,28 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
             rast.rx_antenna.E = rx_E
             rast.rx_antenna.H = rx_H
 
+        # ONE forward pass per iter, used for BOTH backward and the metric.
+        # We compute rp_real, rp_imag with grad enabled for the loss path,
+        # and then compute the metric on the same tensors detached from the
+        # autograd graph (no second render call).
         rp_real, rp_imag = render_gaussians(
             model, rast, vertex_areas=vertex_areas,
             active_mask=active_mask,
             shadow_mask=None)
+
         loss, loss_dict = compute_ra_loss_rp(rp_real, rp_imag, gt_adc_ri)
+
+        # Per-iter cart_corr metric, computed on the same forward pass.
+        # We detach from the autograd graph since the metric is logging-only.
+        with torch.no_grad():
+            ra_polar_t = range_profile_to_ra_mag(
+                rp_real.detach(), rp_imag.detach())
+            ra_cart_gpu = polar_to_cart_torch(ra_polar_t, sample_grid)
+            cart_corr_t = cart_corr_torch(ra_cart_gpu, gt_cart_gpu_norm)
+            cart_corr = cart_corr_t.item()
+
         loss.backward()
-        del rp_real, rp_imag, loss
+        del loss, ra_polar_t
 
         for group in optimizer.param_groups:
             clip = clip_vals.get(group["name"], 1.0)
@@ -764,44 +779,34 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
 
         optimizer.step()
 
+        # Best-state tracking. Now happens every iter (no longer rounded
+        # to multiples of 50) since the metric is computed every iter.
+        if cart_corr > best_corr:
+            best_corr = cart_corr
+            best_iter = it
+            best_state = {
+                'model': {k: v.data.clone() for k, v in model.state_dict().items()},
+            }
+            if LEARN_PATTERNS:
+                best_state['tx_E'] = tx_E.data.clone()
+                best_state['tx_H'] = tx_H.data.clone()
+                best_state['rx_E'] = rx_E.data.clone()
+                best_state['rx_H'] = rx_H.data.clone()
+            # Save the cart image only when the best improves (5-15 times
+            # per scene typically). This is the only per-iter CPU touchpoint
+            # in the training loop and it's bounded by the number of
+            # improvements, not the iter count.
+            best_ra_rend_cart = ra_cart_gpu.cpu().numpy()
+            best_ra_gt_cart = ra_gt_cart_cached
+
+        del rp_real, rp_imag, ra_cart_gpu
+
+        # Logging cadence stays at every 50 iters to avoid flooding stdout.
         if it % 50 == 0 or it == num_iters - 1:
-            with torch.no_grad():
-                eval_r, eval_i = render_gaussians(
-                    model, rast, vertex_areas=vertex_areas,
-                    active_mask=active_mask,
-                    shadow_mask=None)
-                ra_polar_t = range_profile_to_ra_mag(eval_r, eval_i)
-                del eval_r, eval_i
-
-                # GPU eval pipeline: polar→cart via grid_sample, corr in torch.
-                # Tracks the historical CPU cart_corr to within ~0.005 at
-                # converged values (the irreducible difference between
-                # bilinear-on-grid (this) and linear-on-Delaunay (scipy)).
-                ra_cart_gpu = polar_to_cart_torch(ra_polar_t, sample_grid)
-                cart_corr_t = cart_corr_torch(ra_cart_gpu, gt_cart_gpu_norm)
-                cart_corr = cart_corr_t.item()
-
-                if cart_corr > best_corr:
-                    best_corr = cart_corr
-                    best_iter = it
-                    best_state = {
-                        'model': {k: v.data.clone() for k, v in model.state_dict().items()},
-                    }
-                    if LEARN_PATTERNS:
-                        best_state['tx_E'] = tx_E.data.clone()
-                        best_state['tx_H'] = tx_H.data.clone()
-                        best_state['rx_E'] = rx_E.data.clone()
-                        best_state['rx_H'] = rx_H.data.clone()
-                    # Save the rendered cart image (numpy) for the final PNG.
-                    # This is the only place we touch the CPU per eval; it
-                    # only happens when the corr improves.
-                    best_ra_rend_cart = ra_cart_gpu.cpu().numpy()
-                    best_ra_gt_cart = ra_gt_cart_cached
-
-                if verbose:
-                    elapsed = time.time() - t0
-                    print(f"  iter {it:4d}: loss={loss_dict['ra_mse']:.6f}, "
-                          f"cart_corr={cart_corr:.4f} (best={best_corr:.4f}@{best_iter}) "
+            if verbose:
+                elapsed = time.time() - t0
+                print(f"  iter {it:4d}: loss={loss_dict['ra_mse']:.6f}, "
+                      f"cart_corr={cart_corr:.4f} (best={best_corr:.4f}@{best_iter}) "
                           f"[{elapsed:.1f}s, N={model.N}]")
 
     if verbose:
