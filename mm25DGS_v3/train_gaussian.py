@@ -478,6 +478,41 @@ def _compute_shadow_mask(positions, rast, device='cuda:0'):
     return torch.from_numpy(shadow_mask).to(device)
 
 
+def _compute_rx_visibility(positions, rast, device='cuda:0'):
+    """Test RX-side visibility for each Gaussian using Mitsuba ray tracing.
+
+    Casts a ray from each Gaussian toward the RX array center. If the ray
+    hits another surface before reaching the RX, the Gaussian is occluded.
+
+    Returns:
+        (M,) bool tensor — True = visible from RX, False = occluded
+    """
+    import mitsuba as mi
+    import drjit as dr
+
+    if not hasattr(rast, '_mi_scene') or rast._mi_scene is None:
+        return torch.ones(positions.shape[0], dtype=torch.bool, device=device)
+
+    pos_np = positions.detach().cpu().numpy()
+    rx_center = rast.rx_positions.mean(dim=0).cpu().numpy()
+
+    delta = rx_center - pos_np                                     # (M, 3)
+    dist = np.linalg.norm(delta, axis=1).clip(min=1e-6)           # (M,)
+    direction = delta / dist[:, None]                               # (M, 3)
+
+    eps = 1e-3
+    origins = pos_np + eps * direction
+
+    o = mi.Point3f(mi.Float(origins[:, 0]), mi.Float(origins[:, 1]), mi.Float(origins[:, 2]))
+    d = mi.Vector3f(mi.Float(direction[:, 0]), mi.Float(direction[:, 1]), mi.Float(direction[:, 2]))
+    rays = mi.Ray3f(o, d)
+    rays.maxt = mi.Float(dist - 2 * eps)
+
+    occluded = rast._mi_scene.ray_test(rays)
+    visible = ~np.array(occluded)
+    return torch.from_numpy(visible).to(device)
+
+
 def cull_gaussians(model, rast, cos_threshold=0.05):
     """Pre-filter Gaussians to only those visible to the radar.
 
@@ -518,6 +553,46 @@ def cull_gaussians(model, rast, cos_threshold=0.05):
         return active
 
 
+def _compute_density_ratio_weights(positions, rast, k=8):
+    """Compute hemisphere MC weight via density-ratio reweighting.
+
+    For each Gaussian, computes: w = p(ω) / q(ω)
+    where p = cos_bore/π (cosine hemisphere prior, mmIR's target distribution)
+    and q = local angular density of FPS points on the RX sphere (from k-NN).
+
+    This converts FPS samples into effective cosine-hemisphere samples,
+    matching mmIR's MC weight chain without ray tracing.
+    """
+    from scipy.spatial import cKDTree
+
+    rx_center = rast.rx_positions.mean(dim=0).cpu().numpy()
+    pos_np = positions.detach().cpu().numpy()
+    bore_np = rast.rx_boresights.mean(dim=0).cpu().numpy()  # average boresight
+    bore_np = bore_np / max(np.linalg.norm(bore_np), 1e-8)
+
+    # Project onto unit sphere around RX center
+    diff = pos_np - rx_center
+    dist = np.linalg.norm(diff, axis=-1, keepdims=True).clip(min=1e-6)
+    omega = diff / dist  # (M, 3) unit directions
+
+    # cos_bore for each Gaussian
+    cos_bore = (omega * bore_np).sum(axis=-1).clip(min=0.1)  # (M,)
+
+    # Estimate actual angular density q(ω) via k-NN on the unit sphere
+    M = len(omega)
+    k_use = min(k, M - 1)
+    tree = cKDTree(omega)
+    dists_knn, _ = tree.query(omega, k=k_use + 1)
+    theta_k = dists_knn[:, k_use]  # chord distance to k-th neighbor ≈ angle
+
+    # q(ω_i) ≈ k / (M × π × θ_k²)
+    # p(ω_i) = cos_bore_i / π
+    # w_i = p/q = cos_bore_i × M × θ_k² / k
+    w = cos_bore * M * theta_k ** 2 / k_use
+
+    return torch.from_numpy(w.astype(np.float32)).to(positions.device)
+
+
 def render_gaussians_factorized(model, rast, vertex_areas=None,
                                 detach_phase=True, active_mask=None,
                                 chunk_size=2000, importance_weights=None,
@@ -530,6 +605,7 @@ def render_gaussians_factorized(model, rast, vertex_areas=None,
     Args:
         importance_weights: (N,) per-Gaussian importance (Option 2B). Currently unused.
         shadow_mask: (N, n_tx) bool — pre-computed TX shadow visibility (F7).
+        hemisphere_weights: If True, use density-ratio MC weights instead of areas.
     """
     from mm25DGS_v3.rasterizer_factorized import render_factorized
     from mm25DGS_v2.rasterizer_torch import reparameterize_torch
@@ -539,6 +615,8 @@ def render_gaussians_factorized(model, rast, vertex_areas=None,
     opacities = model.get_opacities()
     raw_materials = model.raw_materials
 
+    # vertex_areas carries either surface areas (c4) or precomputed
+    # hemisphere density-ratio weights (c6). Both get multiplied by opacity.
     if vertex_areas is not None:
         areas = vertex_areas * opacities
     else:
@@ -583,10 +661,12 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
     # Initialize
     if mode in ('c2', 'c3'):
         model, config, pattern_data, vertex_areas = init_from_mesh(scene)
-    elif mode in ('c4', 'c5'):
+    elif mode in ('c4', 'c5', 'c6'):
         model, config, pattern_data, vertex_areas = init_from_lidar(scene, target_n=target_n)
     else:
         raise ValueError(f"Unknown mode: {mode}")
+
+    use_hemisphere = (mode == 'c6')
 
     # Create rasterizer
     rast = RasterizerTorch(
@@ -610,6 +690,14 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
 
     # Option 2B: Compute per-Gaussian importance weights (currently disabled).
     hit_importance = None
+
+    # C6 hemisphere: compute RX-side visibility + density-ratio weights
+    # (must be done before freeing Mitsuba scene)
+    rx_visible = None
+    if use_hemisphere:
+        rx_visible = _compute_rx_visibility(model.positions, rast, device=DEVICE)
+        if verbose:
+            print(f"  RX-visible Gaussians: {rx_visible.sum().item()}/{model.N}")
 
     # F7: Pre-compute shadow mask using Mitsuba scene (before freeing it).
     # For each (Gaussian, TX) pair, test if the line-of-sight is occluded.
@@ -643,18 +731,29 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
     # Gaussian and keep those within a distance threshold.
     if mode in ('c2', 'c3'):
         active_mask = visible_mask
+    elif use_hemisphere:
+        # C6: RX-side ray-traced visibility + FOV culling (no occluded Gaussians)
+        active_mask = rx_visible & cull_gaussians(model, rast)
     else:
-        # For C4/C5: if Gaussian count matches mesh vertex count, positions
-        # are at mesh vertices so visible_mask applies directly.
-        # Otherwise, fall back to FOV culling.
+        # C4/C5: mesh-vertex visible_mask if applicable, else FOV culling only
         if model.N == len(rast.vertices_np) and model.N == len(visible_mask):
             active_mask = visible_mask & cull_gaussians(model, rast)
         else:
             active_mask = cull_gaussians(model, rast)
     n_active = active_mask.sum().item()
 
-    # F1: No active cap — v3 range splat handles large M without OOM
-    # (BSDF tensor is (M, 12, 16) = ~37 MB at M=50K, PSF splat is scatter-based)
+    # C6: precompute density-ratio hemisphere weights on the clean visible set
+    if use_hemisphere:
+        active_positions = model.positions[active_mask].detach()
+        hemisphere_w = _compute_density_ratio_weights(active_positions, rast, k=20)
+        # Store per-model weights (expand back to full N for active_mask indexing)
+        hemisphere_weights_full = torch.zeros(model.N, device=DEVICE)
+        hemisphere_weights_full[active_mask] = hemisphere_w
+        vertex_areas = hemisphere_weights_full
+        if verbose:
+            hw = hemisphere_w.cpu().numpy()
+            print(f"  Hemisphere weights (p/q): mean={hw.mean():.4e}, "
+                  f"min={hw.min():.4e}, max={hw.max():.4e}")
 
     if verbose:
         print(f"  Active after culling: {n_active}/{model.N}")
@@ -717,7 +816,7 @@ def train_gaussians(scene, mode='c3', num_iters=500, target_n=None, verbose=True
         optimizer.zero_grad()
 
         # Recompute culling mask periodically for C4/C5 (positions may move)
-        if mode in ('c4', 'c5') and it % 50 == 0 and it > 0:
+        if mode in ('c4', 'c5', 'c6') and it % 50 == 0 and it > 0:
             active_mask = cull_gaussians(model, rast)
 
         # Option E: inject learnable patterns into rasterizer
@@ -933,7 +1032,7 @@ if __name__ == '__main__':
     parser.add_argument('--scene', type=str, default=None)
     parser.add_argument('--all', action='store_true')
     parser.add_argument('--mode', type=str, default='c3',
-                        choices=['c2', 'c3', 'c4', 'c5'])
+                        choices=['c2', 'c3', 'c4', 'c5', 'c6'])
     parser.add_argument('--iters', type=int, default=500)
     parser.add_argument('--n-gaussians', type=int, default=None,
                         help='Target Gaussian count for C4')

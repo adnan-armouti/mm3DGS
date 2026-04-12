@@ -192,13 +192,13 @@ def render_factorized(
     dir_hit_to_rx = -diff_rx / d_rx.unsqueeze(-1)                      # (M, n_rx, 3) hit->RX
     dir_rx_to_hit = diff_rx / d_rx.unsqueeze(-1)                       # (M, n_rx, 3) RX->hit
 
-    # cos(theta_rx) for RX-sphere projection (use mean normal for double-sided)
-    # We need this per-RX. Use the raw normals (not flipped per-TX).
+    # cos(theta_o) for BSDF (Smith masking, Cook-Torrance denominator, back-face culling)
     cos_o_raw = (dir_hit_to_rx * normals[:, None, :]).sum(-1)          # (M, n_rx)
     cos_o = cos_o_raw.abs().clamp(min=1e-6)                            # (M, n_rx) double-sided
 
-    # RX-sphere solid angle: dΩ = A × |cos(θ_rx)| / d_rx²
-    dOmega = areas[:, None] * cos_o / (d_rx.clamp(min=1e-4) ** 2)     # (M, n_rx)
+    # Hemisphere solid angle: density-ratio MC weight (p/q × opacity)
+    # or surface integral weight (A × cos_o / d_rx²) — areas carries either
+    dOmega = areas[:, None]                                            # (M, n_rx) broadcast
 
     # Smith G1 for observation (KA)
     tan_sq_o = (1.0 / cos_o.clamp(min=1e-6) ** 2) - 1.0
