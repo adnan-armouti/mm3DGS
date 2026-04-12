@@ -1,4 +1,4 @@
-"""mm25DGS_v4 — c6 hemisphere integral training (cleaned-up v3 c6 path).
+"""mm25DGS_v4 — c6 hemisphere integral training (point-based primitive).
 
 Single training mode: visible-weighted FPS init + uniform hemisphere weights.
 
@@ -8,8 +8,14 @@ Pipeline:
   3. RX-side ray-traced visibility against the Mitsuba scene (the only mesh use).
   4. Cosine-hemisphere importance resample (prob ∝ cos_bore).
   5. FPS to target_n.
-  6. Train per-Gaussian materials + positions + rotations + scales + opacities
-     and learnable antenna patterns. Renderer is the c6 hemisphere formulation.
+  6. Train per-point quaternions (→ surface normals) + 6 material params
+     + global TX/RX antenna E/H planes. Each parameter group is gated by
+     a LEARN_* flag (matches mmIR's convention). Positions are FROZEN by
+     default — they come from the LiDAR pcl and stay fixed.
+
+Primitive: a POINT, not a Gaussian. There is no scale and no opacity in
+the model. The renderer reads only position, normal, and material per
+point; the hemisphere weight on the active set is uniform = 1.0.
 
 Usage:
   CUDA_VISIBLE_DEVICES=0 python -m mm25DGS_v4.train_gaussian --scene seq_0_frame_135 --iters 1500
@@ -47,7 +53,18 @@ from mm25DGS_v4.load_pretrained import (
 
 DEVICE = "cuda:0"
 
-# Default starting per-Gaussian material (ITU concrete)
+# =========================================================================
+# Learnable parameter toggles (matches mmIR's LEARN_* pattern in train.py)
+# =========================================================================
+# Each flag controls (a) whether the underlying parameter has requires_grad
+# and (b) whether it appears in the optimizer's param_groups. Flip a flag,
+# and the parameter is frozen / unfrozen uniformly.
+LEARN_POSITIONS = False    # frozen — pcl positions are treated as fixed reference
+LEARN_NORMALS   = True     # quaternion → surface normal; refines noisy pcl normals
+LEARN_MATERIALS = True     # 6 ITU/Cook-Torrance params per point
+LEARN_PATTERNS  = True     # TX/RX antenna E/H planes (361 samples each)
+
+# Default starting per-point material (ITU concrete)
 ITU_CONCRETE = np.array([5.31, 0.0326, 1e-4, 5e-3, 0.5, 0.15], dtype=np.float32)
 
 
@@ -96,22 +113,30 @@ def compute_ra_loss_rp(rp_real, rp_imag, gt_adc_ri):
 
 
 # =========================================================================
-# Gaussian Surfel model
+# Point primitive model
 # =========================================================================
 
-class GaussianSurfels(torch.nn.Module):
-    """Per-Gaussian state: position(3) + quaternion(4) + log_scales(2)
-    + logit_opacity(1) + raw_materials(6). Total: 16 params per Gaussian.
+class PointPrimitives(torch.nn.Module):
+    """Point-based primitives for radar rendering.
+
+    Per-point state: position(3) + quaternion(4) + raw_materials(6) = 13 floats.
+    Each parameter's `requires_grad` is set from the LEARN_* flags above so that
+    flipping a flag uniformly freezes/unfreezes the parameter for both autograd
+    and the optimizer (matches mmIR's LEARN_* convention).
+
+    Plus 1444 global antenna pattern values (TX/RX × E/H × 361 samples), gated
+    by LEARN_PATTERNS in the training loop.
     """
 
     def __init__(self, N, device=DEVICE):
         super().__init__()
         self.device = device
-        self.positions = torch.nn.Parameter(torch.zeros(N, 3, device=device))
-        self.rotations = torch.nn.Parameter(torch.zeros(N, 4, device=device))
-        self.log_scales = torch.nn.Parameter(torch.zeros(N, 2, device=device))
-        self.logit_opacities = torch.nn.Parameter(torch.zeros(N, 1, device=device))
-        self.raw_materials = torch.nn.Parameter(torch.zeros(N, 6, device=device))
+        self.positions = torch.nn.Parameter(
+            torch.zeros(N, 3, device=device), requires_grad=LEARN_POSITIONS)
+        self.rotations = torch.nn.Parameter(
+            torch.zeros(N, 4, device=device), requires_grad=LEARN_NORMALS)
+        self.raw_materials = torch.nn.Parameter(
+            torch.zeros(N, 6, device=device), requires_grad=LEARN_MATERIALS)
 
         with torch.no_grad():
             self.rotations[:, 0] = 1.0  # identity quaternion [w,x,y,z]
@@ -128,12 +153,6 @@ class GaussianSurfels(torch.nn.Module):
         ny = 2 * (y * z - w * x)
         nz = 1 - 2 * (x * x + y * y)
         return torch.stack([nx, ny, nz], dim=-1)
-
-    def get_opacities(self):
-        return torch.sigmoid(self.logit_opacities.squeeze(-1))
-
-    def get_scales(self):
-        return torch.exp(self.log_scales)
 
 
 # =========================================================================
@@ -339,9 +358,9 @@ def init_visible_weighted(scene, rast, target_n=50000,
       3. RX-side visibility ray test (the ONLY mesh use in v4 init).
       4. Cosine-hemisphere importance resample (prob ∝ cos_bore).
       5. FPS to target_n.
-      6. Build the GaussianSurfels model with normals from the pcl.
+      6. Build the PointPrimitives model with normals from the pcl.
 
-    Returns the GaussianSurfels model. The caller is responsible for
+    Returns the PointPrimitives model. The caller is responsible for
     config/pattern_data loading.
     """
     pcl_path = rast._mesh_file.replace('scene/mesh.ply', 'scene/pcl.npy')
@@ -419,7 +438,7 @@ def init_visible_weighted(scene, rast, target_n=50000,
     N = len(xyz)
 
     # --- Step 5: Build the model ---
-    model = GaussianSurfels(N, device=device)
+    model = PointPrimitives(N, device=device)
     with torch.no_grad():
         model.positions.copy_(torch.from_numpy(xyz).to(device))
 
@@ -429,24 +448,6 @@ def init_visible_weighted(scene, rast, target_n=50000,
 
         quats = _normals_to_quaternions(normals)
         model.rotations.copy_(torch.from_numpy(quats).to(device))
-
-        # Per-Gaussian scales from k-NN PCA on the FPS positions
-        tree = KDTree(xyz)
-        k_nn = min(20, N - 1)
-        _, knn_idx = tree.query(xyz, k=k_nn + 1)
-        knn_idx = knn_idx[:, 1:]
-        neighbors = xyz[knn_idx] - xyz[:, None, :]
-        n_exp = normals[:, None, :]
-        dot_n = (neighbors * n_exp).sum(axis=-1, keepdims=True)
-        proj = neighbors - dot_n * n_exp
-        cov = np.einsum('nki,nkj->nij', proj, proj) / k_nn
-        eigvals = np.linalg.eigvalsh(cov)
-        scales = np.zeros((N, 2), dtype=np.float32)
-        scales[:, 0] = np.clip(np.sqrt(np.maximum(eigvals[:, 2], 1e-12)), 0.01, 0.5)
-        scales[:, 1] = np.clip(np.sqrt(np.maximum(eigvals[:, 1], 1e-12)), 0.01, 0.5)
-        model.log_scales.copy_(torch.from_numpy(np.log(scales)).to(device))
-
-        model.logit_opacities.fill_(0.0)
 
     return model
 
@@ -467,10 +468,11 @@ def render_gaussians(model, rast, vertex_areas, active_mask=None,
 
     positions = model.positions
     normals = model.get_normals()
-    opacities = model.get_opacities()
     raw_materials = model.raw_materials
 
-    areas = vertex_areas * opacities
+    # Point-based primitive: no opacity multiply. vertex_areas is already
+    # the binary 1.0/0.0 active mask for the hemisphere weight.
+    areas = vertex_areas
 
     sm = None
     if shadow_mask is not None and active_mask is not None:
@@ -577,26 +579,47 @@ def train_gaussians(scene, num_iters=1500, target_n=50000, verbose=True):
         print(f"  Active after culling: {n_active}/{model.N}")
         print(f"  Hemisphere weights: uniform = 1.0")
 
-    # Learnable antenna patterns
-    tx_E = torch.nn.Parameter(rast.tx_antenna.E.clone())
-    tx_H = torch.nn.Parameter(rast.tx_antenna.H.clone())
-    rx_E = torch.nn.Parameter(rast.rx_antenna.E.clone())
-    rx_H = torch.nn.Parameter(rast.rx_antenna.H.clone())
+    # Antenna patterns are wrapped as Parameters only if learnable
+    if LEARN_PATTERNS:
+        tx_E = torch.nn.Parameter(rast.tx_antenna.E.clone())
+        tx_H = torch.nn.Parameter(rast.tx_antenna.H.clone())
+        rx_E = torch.nn.Parameter(rast.rx_antenna.E.clone())
+        rx_H = torch.nn.Parameter(rast.rx_antenna.H.clone())
+    else:
+        tx_E = tx_H = rx_E = rx_H = None
 
-    param_groups = [
-        {"params": [model.raw_materials], "lr": 0.5, "name": "materials"},
-        {"params": [model.positions], "lr": 1.6e-4, "name": "positions"},
-        {"params": [model.rotations], "lr": 1e-3, "name": "rotations"},
-        {"params": [model.log_scales], "lr": 5e-3, "name": "scales"},
-        {"params": [model.logit_opacities], "lr": 5e-2, "name": "opacities"},
-        {"params": [tx_E, tx_H, rx_E, rx_H], "lr": 0.05, "name": "patterns"},
-    ]
-    clip_vals = {
-        "materials": 1.0, "positions": 1.0, "rotations": 0.5,
-        "scales": 1.0, "opacities": 1.0, "patterns": 1.0,
-    }
+    # Optimizer groups gated by LEARN_* flags
+    param_groups = []
+    clip_vals = {}
+    if LEARN_MATERIALS:
+        param_groups.append(
+            {"params": [model.raw_materials], "lr": 0.5, "name": "materials"})
+        clip_vals["materials"] = 1.0
+    if LEARN_POSITIONS:
+        param_groups.append(
+            {"params": [model.positions], "lr": 1.6e-4, "name": "positions"})
+        clip_vals["positions"] = 1.0
+    if LEARN_NORMALS:
+        param_groups.append(
+            {"params": [model.rotations], "lr": 1e-3, "name": "rotations"})
+        clip_vals["rotations"] = 0.5
+    if LEARN_PATTERNS:
+        param_groups.append(
+            {"params": [tx_E, tx_H, rx_E, rx_H], "lr": 0.05, "name": "patterns"})
+        clip_vals["patterns"] = 1.0
+
+    if not param_groups:
+        raise RuntimeError(
+            "All LEARN_* flags are False — nothing to optimize. "
+            "Enable at least one of: LEARN_POSITIONS, LEARN_NORMALS, "
+            "LEARN_MATERIALS, LEARN_PATTERNS.")
+
     base_lrs = {g["name"]: g["lr"] for g in param_groups}
     optimizer = torch.optim.Adam(param_groups, betas=(0.9, 0.999), eps=1e-8)
+
+    if verbose:
+        active_groups = [g["name"] for g in param_groups]
+        print(f"  Learnable groups: {active_groups}")
 
     best_corr = -1.0
     best_iter = 0
@@ -608,15 +631,13 @@ def train_gaussians(scene, num_iters=1500, target_n=50000, verbose=True):
     for it in range(num_iters):
         optimizer.zero_grad()
 
-        # Recompute culling periodically as positions move during training
-        if it % 50 == 0 and it > 0:
-            active_mask = cull_gaussians(model, rast)
-
-        # Inject learnable antenna patterns
-        rast.tx_antenna.E = tx_E
-        rast.tx_antenna.H = tx_H
-        rast.rx_antenna.E = rx_E
-        rast.rx_antenna.H = rx_H
+        # Inject learnable antenna patterns (only when LEARN_PATTERNS=True;
+        # otherwise the rasterizer keeps its original tensors set at init).
+        if LEARN_PATTERNS:
+            rast.tx_antenna.E = tx_E
+            rast.tx_antenna.H = tx_H
+            rast.rx_antenna.E = rx_E
+            rast.rx_antenna.H = rx_H
 
         rp_real, rp_imag = render_gaussians(
             model, rast, vertex_areas=vertex_areas,
@@ -658,11 +679,12 @@ def train_gaussians(scene, num_iters=1500, target_n=50000, verbose=True):
                     best_iter = it
                     best_state = {
                         'model': {k: v.data.clone() for k, v in model.state_dict().items()},
-                        'tx_E': tx_E.data.clone(),
-                        'tx_H': tx_H.data.clone(),
-                        'rx_E': rx_E.data.clone(),
-                        'rx_H': rx_H.data.clone(),
                     }
+                    if LEARN_PATTERNS:
+                        best_state['tx_E'] = tx_E.data.clone()
+                        best_state['tx_H'] = tx_H.data.clone()
+                        best_state['rx_E'] = rx_E.data.clone()
+                        best_state['rx_H'] = rx_H.data.clone()
                     best_ra_rend_cart = ra_cart.copy()
                     best_ra_gt_cart = ra_gt_cart.copy()
 
