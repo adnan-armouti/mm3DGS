@@ -18,8 +18,8 @@ the model. The renderer reads only position, normal, and material per
 point; the hemisphere weight on the active set is uniform = 1.0.
 
 Usage:
-  CUDA_VISIBLE_DEVICES=0 python -m mm25DGS_v4.train_gaussian --scene seq_0_frame_135 --iters 1500
-  CUDA_VISIBLE_DEVICES=0 python -m mm25DGS_v4.train_gaussian --all --iters 1500
+  CUDA_VISIBLE_DEVICES=0 python -m mm25DGS_v4.train_gaussian --scene seq_0_frame_135 --iters 500
+  CUDA_VISIBLE_DEVICES=0 python -m mm25DGS_v4.train_gaussian --all --iters 500
 """
 
 import os
@@ -520,7 +520,7 @@ def rms_clip_grad(param, max_rms):
     param.grad.data = g
 
 
-def train_gaussians(scene, num_iters=1500, target_n=50000, verbose=True):
+def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
     """Train v4 c6 hemisphere Gaussians for one scene."""
     config = load_trained_config(scene)
     pattern_data = load_pattern_data(scene)
@@ -652,7 +652,13 @@ def train_gaussians(scene, num_iters=1500, target_n=50000, verbose=True):
             for p in group["params"]:
                 rms_clip_grad(p, clip)
 
-        lr_scale = get_lr_scale(it, total_iters=num_iters, decay_start=100)
+        # Compressed schedule for 500-iter training (Option C):
+        # warmup_iters=0 (skip), decay_start=200 (more iters at full LR
+        # before cosine decay kicks in).
+        lr_scale = get_lr_scale(
+            it, total_iters=num_iters,
+            warmup_iters=0, warmup_factor=1.0,
+            decay_start=200)
         for group in optimizer.param_groups:
             group["lr"] = base_lrs[group["name"]] * lr_scale
 
@@ -757,7 +763,7 @@ def train_gaussians(scene, num_iters=1500, target_n=50000, verbose=True):
     return best_corr, best_iter
 
 
-def run_all_scenes(num_iters=1500, target_n=50000):
+def run_all_scenes(num_iters=500, target_n=50000):
     """Run v4 c6 training on all 7 benchmark scenes."""
     results = {}
     for scene in SCENES:
@@ -790,7 +796,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--scene', type=str, default=None)
     parser.add_argument('--all', action='store_true')
-    parser.add_argument('--iters', type=int, default=1500)
+    parser.add_argument('--iters', type=int, default=500)
     parser.add_argument('--target_n', type=int, default=50000,
                         help='Target Gaussian count after FPS')
     args = parser.parse_args()
