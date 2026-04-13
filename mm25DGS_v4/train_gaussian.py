@@ -255,29 +255,36 @@ def cart_corr_torch(rend_cart, gt_cart_normalized):
     return num / den
 
 
-def precompute_gt_loss_norm(gt_adc_ri):
-    """One-shot computation of the GT min-max-normalized RA magnitude for the loss.
+def precompute_gt_loss_norm(gt_adc_ri, loss_type='mse'):
+    """One-shot computation of the GT tensor for the loss path.
 
-    The GT does not change during training; the loss recomputed it every
-    iter for no reason (~5 ms wasted per iter). Call this once before the
-    training loop and pass the result into compute_ra_loss_rp.
+    The GT does not change during training; the loss used to recompute it
+    every iter (~5 ms wasted/iter). Call this once before the training loop
+    and pass the result into compute_ra_loss_rp.
+
+    For loss_type='mse'    : returns GT min-max normalized RA magnitude.
+    For loss_type='pearson': same (Pearson is scale/shift invariant, so
+                             normalization doesn't affect the result).
+    For loss_type='mse_raw': returns raw GT RA magnitude (no normalization).
     """
     with torch.no_grad():
         ra_gt = adc_to_ra_complex(gt_adc_ri)
         ra_gt_mag = torch.abs(ra_gt)
+        if loss_type == 'mse_raw':
+            return ra_gt_mag.detach()
         mn, mx = ra_gt_mag.min(), ra_gt_mag.max()
         return ((ra_gt_mag - mn) / (mx - mn).clamp(min=1e-30)).detach()
 
 
-def compute_ra_loss_rp(rp_real, rp_imag, gt_norm_cached, loss_type='mse'):
+def compute_ra_loss_rp(rp_real, rp_imag, gt_cached, loss_type='mse'):
     """RA loss between rendered range profiles and the cached GT.
 
     loss_type:
-      'mse'     — min-max-normalized MSE on RA magnitude (default, current)
-      'pearson' — 1 - Pearson(rendered_flat, gt_norm_cached_flat); uses
-                  standard deviation normalization + dot product, i.e. the
-                  same structural metric we evaluate with (cart_corr),
-                  applied in polar space.
+      'mse'     — min-max-normalized MSE on RA magnitude (legacy)
+      'pearson' — 1 - Pearson(rendered_flat, gt_flat); scale/shift invariant
+      'mse_raw' — MSE on raw |RA| magnitude, no normalization. Requires the
+                  forward-model scale to match GT scale (see the 100x C_radar
+                  boost); otherwise the loss is dominated by the mismatch.
     """
     ra_rendered = range_profile_to_ra(rp_real, rp_imag)
     ra_rend_mag = torch.abs(ra_rendered)
@@ -286,11 +293,11 @@ def compute_ra_loss_rp(rp_real, rp_imag, gt_norm_cached, loss_type='mse'):
         mn = ra_rend_mag.min()
         mx = ra_rend_mag.max()
         rend_norm = (ra_rend_mag - mn) / (mx - mn).clamp(min=1e-30)
-        loss = torch.mean((rend_norm - gt_norm_cached) ** 2)
+        loss = torch.mean((rend_norm - gt_cached) ** 2)
         return loss, {"ra_mse": loss.item()}
     elif loss_type == 'pearson':
         r_flat = ra_rend_mag.reshape(-1)
-        g_flat = gt_norm_cached.reshape(-1)
+        g_flat = gt_cached.reshape(-1)
         r_mean = r_flat.mean()
         g_mean = g_flat.mean()
         r_c = r_flat - r_mean
@@ -300,6 +307,14 @@ def compute_ra_loss_rp(rp_real, rp_imag, gt_norm_cached, loss_type='mse'):
         corr = num / den
         loss = 1.0 - corr
         return loss, {"pearson_loss": loss.item()}
+    elif loss_type == 'mse_raw':
+        # Raw MSE on |RA| magnitude — depends on rendered scale matching GT
+        # scale. Divide by the square of GT mean to bring the loss into an
+        # O(1) range regardless of absolute scale (helps LR tuning) without
+        # introducing any scale invariance into the gradient path.
+        gt_scale = gt_cached.mean().detach().clamp(min=1e-30) ** 2
+        loss = ((ra_rend_mag - gt_cached) ** 2).mean() / gt_scale
+        return loss, {"ra_mse_raw": loss.item()}
     else:
         raise ValueError(f"Unknown loss_type {loss_type}")
 
@@ -840,7 +855,7 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
     # path. The GT does not change between iters; the previous code was
     # recomputing adc_to_ra_complex(gt_adc_ri) inside compute_ra_loss_rp every
     # iter (~5 ms wasted/iter). Now computed once and reused on every backward.
-    gt_loss_norm_cached = precompute_gt_loss_norm(gt_adc_ri)
+    gt_loss_norm_cached = precompute_gt_loss_norm(gt_adc_ri, loss_type=loss_type)
 
     if verbose:
         print(f"\n{'='*60}")
