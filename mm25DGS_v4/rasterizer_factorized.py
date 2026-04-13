@@ -92,22 +92,6 @@ def render_factorized(
     eps_contrast = torch.abs(eps_real - 1.0) + eps_imag
     eps_factor = (eps_contrast / 5.0).clamp(0.2, 1.0)
 
-    # vMF parameters for directive lobe
-    kappa_base_dir = torch.sqrt(l_c_lam.clamp(min=0.0))
-    broadening = 1.0 + 5.0 * roughness_slope
-    kappa_dir = (kappa_base_dir / broadening).clamp(0.3, 5.0)
-    kappa_dir_c = kappa_dir.clamp(max=50.0)
-    sinh_dir = (torch.exp(kappa_dir_c) - torch.exp(-kappa_dir_c)) / 2.0
-    norm_dir = kappa_dir / (4.0 * math.pi * sinh_dir.clamp(min=1e-10))
-
-    # Blend factors that depend on materials only
-    roughness_ratio = sh / WAVELENGTH
-    gamma = _sigmoid((0.05 - roughness_ratio) * 50.0).clamp(0.1, 0.9)  # (M,)
-
-    # CBS mean (materials only)
-    cbs_alpha = K_WAVE * lc
-    cbs_mean = (1.0 + 1.0 / (1.0 + cbs_alpha)).clamp(min=1.0)
-
     # Radar constant
     C_radar = rast.radar_constant * rast.rx_dBFS_scale * rast.adc_scale
 
@@ -130,9 +114,6 @@ def render_factorized(
     # Specular reflection of wi about n_eff: wi_r = 2(wi·n)n - wi
     wi_dot_n = (wi * n_eff).sum(-1, keepdim=True)                     # (M, n_tx, 1)
     wi_r = 2.0 * wi_dot_n * n_eff - wi                               # (M, n_tx, 3)
-
-    # Retroreflection direction for CBS
-    retro = -wi_r                                                      # (M, n_tx, 3)
 
     # Smith G1 for incidence (KA)
     tan_sq_i = (1.0 / cos_i.clamp(min=1e-6) ** 2) - 1.0
@@ -167,9 +148,6 @@ def render_factorized(
     E_p_out = r_p * tx_p.to(torch.complex64)                          # (M, n_tx) complex
 
     # Blend factors that depend on cos_theta_i (M, n_tx)
-    g_coh = (2.0 * K_WAVE * sh[:, None] * cos_i) ** 2
-    eta = torch.exp(-g_coh).clamp(0.01, 0.99)                         # (M, n_tx)
-
     tau_angle = _sigmoid((cos_i - 0.94) * 20.0)
     kl = K_WAVE * lc
     v_KA = _sigmoid((kl - 6.0) * 2.0)
@@ -246,12 +224,11 @@ def render_factorized(
     wo = dir_hit_to_rx  # (M, n_rx, 3)
 
     # We need f_bsdf(t,r) for each (M, n_tx, n_rx).
-    # Precomputed per-TX: wi_r (M, n_tx, 3), retro (M, n_tx, 3),
-    #   E_s_out (M, n_tx), E_p_out (M, n_tx), eta (M, n_tx), tau_eff (M, n_tx),
-    #   lambda_i (M, n_tx), s_in (M, n_tx, 3), cos_i (M, n_tx)
+    # Precomputed per-TX: wi_r (M, n_tx, 3), E_s_out/E_p_out (M, n_tx) complex,
+    #   tau_eff (M, n_tx), lambda_i (M, n_tx), s_in (M, n_tx, 3), cos_i (M, n_tx)
     # Precomputed per-RX: cos_o (M, n_rx), lambda_o (M, n_rx), wo (M, n_rx, 3)
-    # Precomputed per-Gaussian: alpha_sq (M,), kappa_SPM/dir (M,), norm_SPM/dir (M,),
-    #   eps_factor (M,), gamma (M,), cbs_mean (M,)
+    # Precomputed per-Gaussian: alpha_sq (M,), kappa_SPM (M,), norm_SPM (M,),
+    #   eps_factor (M,)
 
     # --- KA lobe: need half vector h = norm(wo + wi), then h·n ---
     # wi: (M, n_tx, 3), wo: (M, n_rx, 3)
@@ -299,37 +276,10 @@ def render_factorized(
     if 'spm' in disabled:
         f_SPM = torch.zeros_like(f_SPM)
 
-    # --- Directive lobe: same cos_dev ---
-    f_dir = norm_dir[:, None, None] * torch.exp(kappa_dir[:, None, None] * (cos_dev - 1.0))
-    if 'directive' in disabled:
-        f_dir = torch.zeros_like(f_dir)
-
-    # --- Broad lobe ---
-    f_broad = 0.0 if 'broad' in disabled else INV_PI  # scalar constant
-
-    # --- CBS factor ---
-    cos_bs = torch.einsum('mrj,mtj->mtr', wo, retro)                  # (M, n_tx, n_rx)
-    cos_bs = cos_bs.clamp(-1.0, 1.0)
-    sin_bs = torch.sqrt((1.0 - cos_bs ** 2).clamp(min=1e-20))
-    x_cbs = K_WAVE * lc[:, None, None] * sin_bs
-    sinc_x = torch.where(x_cbs.abs() > 1e-6, torch.sin(x_cbs) / x_cbs, torch.ones_like(x_cbs))
-    cbs = 1.0 + sinc_x ** 2
-    if 'cbs' in disabled:
-        # Replace CBS factor with 1.0 so the cbs/cbs_mean ratio = 1.0
-        cbs = torch.ones_like(cbs)
-
-    # --- Coherent + incoherent blend ---
-    f_coh = tau_eff.unsqueeze(-1) * f_KA + (1.0 - tau_eff.unsqueeze(-1)) * f_SPM
-    f_inc_raw = gamma[:, None, None] * f_dir + (1.0 - gamma[:, None, None]) * f_broad
-    if 'cbs' in disabled:
-        f_inc = f_inc_raw  # cbs_mean factor cancels with cbs=1
-    else:
-        f_inc = f_inc_raw * cbs / cbs_mean[:, None, None]
-    if 'blend' in disabled:
-        # Force eta=1 → f_lobe = f_coh, no incoherent contribution
-        f_lobe = f_coh
-    else:
-        f_lobe = eta.unsqueeze(-1) * f_coh + (1.0 - eta.unsqueeze(-1)) * f_inc  # (M, n_tx, n_rx)
+    # --- BSDF lobe = tau_eff-weighted blend of KA and SPM ---
+    # (CBS, directive, broad, and eta coherence-blend removed 2026-04-13
+    # per the raw-MSE ablation — all four contributed < noise.)
+    f_lobe = tau_eff.unsqueeze(-1) * f_KA + (1.0 - tau_eff.unsqueeze(-1)) * f_SPM
 
     # --- Jones Fresnel power per (TX, RX) ---
     # E_s_out: (M, n_tx) complex — from TX
