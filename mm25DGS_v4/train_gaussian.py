@@ -579,7 +579,8 @@ def init_visible_weighted(scene, rast, target_n=50000,
 # =========================================================================
 
 def render_gaussians(model, rast, vertex_areas, active_mask=None,
-                     shadow_mask=None, detach_phase=True, bsdf_mode='full'):
+                     shadow_mask=None, detach_phase=True, bsdf_mode='full',
+                     disabled_components=None):
     """Range-profile splatting renderer wrapper.
 
     `vertex_areas` carries the precomputed per-point hemisphere weight
@@ -615,7 +616,8 @@ def render_gaussians(model, rast, vertex_areas, active_mask=None,
     return render_factorized(
         positions, normals, areas, raw_materials, rast,
         reparameterize_torch, detach_phase=detach_phase,
-        shadow_mask=sm, bsdf_mode=bsdf_mode)
+        shadow_mask=sm, bsdf_mode=bsdf_mode,
+        disabled_components=disabled_components)
 
 
 # =========================================================================
@@ -648,7 +650,8 @@ def rms_clip_grad(param, max_rms):
 
 def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
                     diagnostics_dir=None, run_name=None,
-                    freeze_mat_cols=None, mat_mode='per_point'):
+                    freeze_mat_cols=None, mat_mode='per_point',
+                    disabled_components=None):
     """Train v4 c6 hemisphere Gaussians for one scene.
 
     If `diagnostics_dir` is provided, captures material parameter trajectories,
@@ -870,7 +873,8 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
             model, rast, vertex_areas=vertex_areas,
             active_mask=active_mask,
             shadow_mask=None,
-            bsdf_mode=bsdf_mode)
+            bsdf_mode=bsdf_mode,
+            disabled_components=disabled_components)
 
         loss, loss_dict = compute_ra_loss_rp(rp_real, rp_imag, gt_loss_norm_cached)
 
@@ -952,10 +956,16 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
     drift = diagnostics.compute_drift()
     fisher = np.zeros(6, dtype=np.float32)
     if diagnostics_dir is not None and model.raw_materials.requires_grad:
+        def _fisher_render(model, rast, vertex_areas, active_mask, shadow_mask):
+            return render_gaussians(
+                model, rast, vertex_areas=vertex_areas,
+                active_mask=active_mask, shadow_mask=shadow_mask,
+                bsdf_mode=bsdf_mode,
+                disabled_components=disabled_components)
         fisher = diagnostics.compute_fisher(
             model, rast, vertex_areas, active_mask,
             gt_loss_norm_cached,
-            render_gaussians_fn=render_gaussians,
+            render_gaussians_fn=_fisher_render,
             compute_ra_loss_rp_fn=compute_ra_loss_rp)
     if diagnostics_dir is not None:
         diagnostics.save(

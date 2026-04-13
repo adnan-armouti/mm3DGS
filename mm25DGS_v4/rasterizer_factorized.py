@@ -35,6 +35,7 @@ def render_factorized(
     detach_phase=True,
     shadow_mask=None,   # (M, n_tx) bool — False = occluded, zero weight
     bsdf_mode='full',   # 'full' (default), or 'scalar' (B1 baseline)
+    disabled_components=None,  # Phase 1.5: set of {'cbs','directive','broad','spm','ka','blend','jones','slab'}
 ):
     """Range-profile splatting renderer. Returns (rp_real, rp_imag).
 
@@ -53,6 +54,8 @@ def render_factorized(
         return (torch.zeros(n_tx, n_rx, K, device=device),
                 torch.zeros(n_tx, n_rx, K, device=device))
 
+    disabled = set(disabled_components) if disabled_components else set()
+
     # ================================================================
     # Step 1: Per-Gaussian material prep (M evaluations)
     # ================================================================
@@ -63,6 +66,12 @@ def render_factorized(
     l_c = physics[:, 3]
     tau_base = physics[:, 4]
     thickness = physics[:, 5]
+
+    # C8: slab disable → collapse multi-layer Fresnel to single-layer by
+    # forcing thickness to a tiny value. The slab phase q ≈ (2π/λ)·d·... → 0
+    # so the multi-layer reflection coefficient reduces to first-surface only.
+    if 'slab' in disabled:
+        thickness = torch.full_like(thickness, 1e-9)
 
     sh, lc = enforce_spm_validity(sigma_h, l_c)
 
@@ -279,18 +288,24 @@ def render_factorized(
 
     # Cook-Torrance: f_KA = D × G / (4 cos_i cos_o)
     f_KA = D_KA * G_KA / (4.0 * cos_i.unsqueeze(-1) * cos_o.unsqueeze(-2)).clamp(min=1e-10)
+    if 'ka' in disabled:
+        f_KA = torch.zeros_like(f_KA)
 
     # --- SPM lobe: cos_dev = wo · wi_r ---
     cos_dev = torch.einsum('mrj,mtj->mtr', wo, wi_r)                  # (M, n_tx, n_rx)
     cos_dev = cos_dev.clamp(-1.0, 1.0)
     f_SPM = norm_SPM[:, None, None] * torch.exp(kappa_SPM[:, None, None] * (cos_dev - 1.0))
     f_SPM = f_SPM * eps_factor[:, None, None]
+    if 'spm' in disabled:
+        f_SPM = torch.zeros_like(f_SPM)
 
     # --- Directive lobe: same cos_dev ---
     f_dir = norm_dir[:, None, None] * torch.exp(kappa_dir[:, None, None] * (cos_dev - 1.0))
+    if 'directive' in disabled:
+        f_dir = torch.zeros_like(f_dir)
 
     # --- Broad lobe ---
-    f_broad = INV_PI  # scalar constant
+    f_broad = 0.0 if 'broad' in disabled else INV_PI  # scalar constant
 
     # --- CBS factor ---
     cos_bs = torch.einsum('mrj,mtj->mtr', wo, retro)                  # (M, n_tx, n_rx)
@@ -299,12 +314,22 @@ def render_factorized(
     x_cbs = K_WAVE * lc[:, None, None] * sin_bs
     sinc_x = torch.where(x_cbs.abs() > 1e-6, torch.sin(x_cbs) / x_cbs, torch.ones_like(x_cbs))
     cbs = 1.0 + sinc_x ** 2
+    if 'cbs' in disabled:
+        # Replace CBS factor with 1.0 so the cbs/cbs_mean ratio = 1.0
+        cbs = torch.ones_like(cbs)
 
     # --- Coherent + incoherent blend ---
     f_coh = tau_eff.unsqueeze(-1) * f_KA + (1.0 - tau_eff.unsqueeze(-1)) * f_SPM
     f_inc_raw = gamma[:, None, None] * f_dir + (1.0 - gamma[:, None, None]) * f_broad
-    f_inc = f_inc_raw * cbs / cbs_mean[:, None, None]
-    f_lobe = eta.unsqueeze(-1) * f_coh + (1.0 - eta.unsqueeze(-1)) * f_inc  # (M, n_tx, n_rx)
+    if 'cbs' in disabled:
+        f_inc = f_inc_raw  # cbs_mean factor cancels with cbs=1
+    else:
+        f_inc = f_inc_raw * cbs / cbs_mean[:, None, None]
+    if 'blend' in disabled:
+        # Force eta=1 → f_lobe = f_coh, no incoherent contribution
+        f_lobe = f_coh
+    else:
+        f_lobe = eta.unsqueeze(-1) * f_coh + (1.0 - eta.unsqueeze(-1)) * f_inc  # (M, n_tx, n_rx)
 
     # --- Jones Fresnel power per (TX, RX) ---
     # E_s_out: (M, n_tx) complex — from TX
@@ -335,6 +360,13 @@ def render_factorized(
     E_rx = E_s_out.unsqueeze(-1) * rx_s.unsqueeze(-1).to(torch.complex64) \
          + E_p_out.unsqueeze(-1) * rx_p.to(torch.complex64)           # (M, n_tx, n_rx) complex
     R_jones = _cpx_abs_sq(E_rx).clamp(0.0, 1.0)                       # (M, n_tx, n_rx)
+    if 'jones' in disabled:
+        # C7: scalar Fresnel — replace polarized power with magnitude-only
+        # |r_s|² + |r_p|² average. Uses E_s_out / E_p_out only via abs².
+        Rs_sq = _cpx_abs_sq(E_s_out).clamp(0.0, 1.0)                  # (M, n_tx)
+        Rp_sq = _cpx_abs_sq(E_p_out).clamp(0.0, 1.0)                  # (M, n_tx)
+        R_scalar = 0.5 * (Rs_sq + Rp_sq)                              # (M, n_tx)
+        R_jones = R_scalar.unsqueeze(-1).expand(-1, -1, n_rx)         # (M, n_tx, n_rx)
 
     # --- Final BSDF: f_cos = R_jones × f_lobe × cos_theta_i ---
     if bsdf_mode == 'scalar':
