@@ -698,7 +698,9 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
                     capture_grad_stats=False,
                     symmetry_break_std=0.0,
                     material_clusters=0,
-                    loss_type='mse_raw'):
+                    loss_type='mse_raw',
+                    random_init_width=0.0,
+                    random_init_seed=42):
     """Train v4 c6 hemisphere Gaussians for one scene.
 
     If `diagnostics_dir` is provided, captures material parameter trajectories,
@@ -763,6 +765,23 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
             model.raw_materials.add_(noise)
         if verbose:
             print(f"  T1 symmetry break: +N(0, {symmetry_break_std}) on raw_materials")
+
+    # Random material init: overwrite raw_materials with per-point uniform
+    # samples centered on the ITU concrete value ± random_init_width in raw
+    # space. Width=2 covers a wide physically-reasonable range (eps_real in
+    # ~[2.3, 8.8], sigma_h in ~[7e-6, 4e-4], l_c in ~[7e-4, 4e-2], etc.).
+    # width=0 (default) leaves raw_materials at its constructor value.
+    if random_init_width > 0.0:
+        with torch.no_grad():
+            g = torch.Generator(device=DEVICE).manual_seed(int(random_init_seed))
+            concrete_raw_np = inverse_reparameterize_torch(ITU_CONCRETE)   # (6,)
+            concrete_raw = torch.from_numpy(concrete_raw_np).to(DEVICE)
+            noise = (torch.rand(model.raw_materials.shape, device=DEVICE,
+                                generator=g) * 2.0 - 1.0) * random_init_width
+            model.raw_materials.copy_(concrete_raw.unsqueeze(0) + noise)
+        if verbose:
+            print(f"  Random material init: concrete ± U(-{random_init_width}, +{random_init_width}) "
+                  f"per-point, seed={random_init_seed}")
 
     # T3: k-means clustering on (positions, normals) at init.
     # Material params of all points in the same cluster are tied together.
