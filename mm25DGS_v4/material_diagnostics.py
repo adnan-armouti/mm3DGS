@@ -21,10 +21,16 @@ import torch
 
 
 class MaterialDiagnostics:
-    def __init__(self, raw_materials, checkpoint_every=50, enabled=True):
-        """Capture init state. Call once before the training loop."""
+    def __init__(self, raw_materials, checkpoint_every=50, enabled=True,
+                 capture_grad_stats=False):
+        """Capture init state. Call once before the training loop.
+
+        If `capture_grad_stats=True`, also records per-iter gradient
+        mean and std over points (D2 — gauge-variant decomposition).
+        """
         self.enabled = enabled
         self.checkpoint_every = checkpoint_every
+        self.capture_grad_stats = capture_grad_stats
         if not enabled:
             return
         # (M, 6) snapshot — copy to CPU to avoid holding extra GPU memory
@@ -32,6 +38,12 @@ class MaterialDiagnostics:
         self.checkpoints = [self.init]   # T grows over training
         self.checkpoint_iters = [0]
         self.final = None
+        # D2: per-iter gradient statistics
+        # grad_mean[t, k] = mean over M of raw_materials.grad[:, k] at iter t
+        # grad_std[t, k]  = std  over M of raw_materials.grad[:, k] at iter t
+        self.grad_mean = []
+        self.grad_std = []
+        self.grad_iters = []
 
     def maybe_checkpoint(self, raw_materials, it):
         if not self.enabled:
@@ -39,6 +51,19 @@ class MaterialDiagnostics:
         if (it + 1) % self.checkpoint_every == 0:
             self.checkpoints.append(raw_materials.detach().cpu().clone())
             self.checkpoint_iters.append(it + 1)
+
+    def record_grad(self, raw_materials, it):
+        """D2: record per-column grad mean and std across points. Call
+        AFTER loss.backward() and BEFORE gradient clipping / zeroing.
+        """
+        if not self.enabled or not self.capture_grad_stats:
+            return
+        if raw_materials.grad is None:
+            return
+        g = raw_materials.grad.detach()
+        self.grad_mean.append(g.mean(dim=0).cpu().numpy())
+        self.grad_std.append(g.std(dim=0).cpu().numpy())
+        self.grad_iters.append(it)
 
     def finalize(self, raw_materials):
         if not self.enabled:
@@ -108,6 +133,10 @@ class MaterialDiagnostics:
         }
         if extra:
             payload.update(extra)
+        if self.capture_grad_stats and len(self.grad_mean) > 0:
+            payload['grad_mean'] = np.stack(self.grad_mean, axis=0).astype(np.float32)  # (T, 6)
+            payload['grad_std'] = np.stack(self.grad_std, axis=0).astype(np.float32)   # (T, 6)
+            payload['grad_iters'] = np.array(self.grad_iters, dtype=np.int32)
         np.savez_compressed(path, **payload)
         return path
 

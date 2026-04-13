@@ -75,8 +75,12 @@ LEARN_NORMALS   = True     # quaternion → surface normal; refines noisy pcl no
 LEARN_MATERIALS = True     # 6 ITU/Cook-Torrance params per point
 LEARN_PATTERNS  = True     # TX/RX antenna E/H planes (361 samples each)
 
-# Default starting per-point material (ITU concrete)
-ITU_CONCRETE = np.array([5.31, 0.0326, 1e-4, 5e-3, 0.5, 0.15], dtype=np.float32)
+# Default starting per-point material (ITU concrete).
+# sigma_h lowered from 1e-4 (100 μm) to 5e-5 (50 μm) to stay inside the SPM
+# validity regime (h_max_1 = 0.1/k ≈ 62 μm at 77 GHz). At 100 μm the
+# enforce_spm_validity clamp routes grad through a constant, making sigma_h
+# dead in backward — confirmed via gradient/drift/Fisher diagnostics.
+ITU_CONCRETE = np.array([5.31, 0.0326, 5e-5, 5e-3, 0.5, 0.15], dtype=np.float32)
 
 
 # =========================================================================
@@ -652,7 +656,8 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
                     diagnostics_dir=None, run_name=None,
                     freeze_mat_cols=None, mat_mode='per_point',
                     disabled_components=None,
-                    learn_normals=None, learn_materials=None, learn_patterns=None):
+                    learn_normals=None, learn_materials=None, learn_patterns=None,
+                    capture_grad_stats=False):
     """Train v4 c6 hemisphere Gaussians for one scene.
 
     If `diagnostics_dir` is provided, captures material parameter trajectories,
@@ -886,7 +891,8 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
     diagnostics = MaterialDiagnostics(
         model.raw_materials,
         checkpoint_every=50,
-        enabled=(diagnostics_dir is not None))
+        enabled=(diagnostics_dir is not None),
+        capture_grad_stats=capture_grad_stats)
 
     for it in range(num_iters):
         optimizer.zero_grad(set_to_none=True)
@@ -922,6 +928,11 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
             cart_corr = cart_corr_t.item()
 
         loss.backward()
+
+        # D2: record per-iter material gradient mean/std (across points)
+        # BEFORE gradient clipping and optimizer step.
+        diagnostics.record_grad(model.raw_materials, it)
+
         del loss, ra_polar_t
 
         for group in optimizer.param_groups:
