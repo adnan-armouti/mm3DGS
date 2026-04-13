@@ -34,6 +34,7 @@ def render_factorized(
     reparameterize_fn,  # reparameterize_torch function
     detach_phase=True,
     shadow_mask=None,   # (M, n_tx) bool — False = occluded, zero weight
+    bsdf_mode='full',   # 'full' (default), or 'scalar' (B1 baseline)
 ):
     """Range-profile splatting renderer. Returns (rp_real, rp_imag).
 
@@ -336,7 +337,16 @@ def render_factorized(
     R_jones = _cpx_abs_sq(E_rx).clamp(0.0, 1.0)                       # (M, n_tx, n_rx)
 
     # --- Final BSDF: f_cos = R_jones × f_lobe × cos_theta_i ---
-    f_cos = R_jones * f_lobe * cos_i.unsqueeze(-1)                    # (M, n_tx, n_rx)
+    if bsdf_mode == 'scalar':
+        # B1 baseline: f_cos = sigmoid(reflectivity) × cos_i, ignoring all
+        # of Step 4. raw_materials[:, 0] is reused as the per-point scalar
+        # reflectivity. Wastes Step 4 forward time but autograd won't
+        # backward through R_jones / f_lobe since they aren't referenced here.
+        rho = torch.sigmoid(raw_materials[:, 0])                        # (M,)
+        f_cos = rho[:, None, None] * cos_i.unsqueeze(-1)                # (M, n_tx, 1) → broadcasts to (M, n_tx, n_rx) below
+        f_cos = f_cos.expand(-1, -1, n_rx).contiguous()
+    else:
+        f_cos = R_jones * f_lobe * cos_i.unsqueeze(-1)                  # (M, n_tx, n_rx)
 
     # ================================================================
     # Step 5: Range-profile splatting

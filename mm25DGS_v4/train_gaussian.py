@@ -579,7 +579,7 @@ def init_visible_weighted(scene, rast, target_n=50000,
 # =========================================================================
 
 def render_gaussians(model, rast, vertex_areas, active_mask=None,
-                     shadow_mask=None, detach_phase=True):
+                     shadow_mask=None, detach_phase=True, bsdf_mode='full'):
     """Range-profile splatting renderer wrapper.
 
     `vertex_areas` carries the precomputed per-point hemisphere weight
@@ -615,7 +615,7 @@ def render_gaussians(model, rast, vertex_areas, active_mask=None,
     return render_factorized(
         positions, normals, areas, raw_materials, rast,
         reparameterize_torch, detach_phase=detach_phase,
-        shadow_mask=sm)
+        shadow_mask=sm, bsdf_mode=bsdf_mode)
 
 
 # =========================================================================
@@ -648,7 +648,7 @@ def rms_clip_grad(param, max_rms):
 
 def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
                     diagnostics_dir=None, run_name=None,
-                    freeze_mat_cols=None):
+                    freeze_mat_cols=None, mat_mode='per_point'):
     """Train v4 c6 hemisphere Gaussians for one scene.
 
     If `diagnostics_dir` is provided, captures material parameter trajectories,
@@ -658,7 +658,25 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
     those columns of `raw_materials` are frozen at their init values via a
     gradient mask. Adam state for frozen columns stays zero. This is the
     Phase 2 LOO/TOO mechanism.
+
+    `mat_mode` controls Phase 1 baselines:
+      'per_point' (default): full (M, 6) per-point materials, full BSDF
+      'global':              all rows of (M, 6) constrained to share one
+                             material vector via grad averaging + post-step
+                             broadcast
+      'scalar':              BSDF replaced with sigmoid(rho) * cos_i,
+                             rho = raw_materials[:, 0]; columns 1..5 frozen
+      'fixed':               equivalent to freeze_mat_cols=[0,1,2,3,4,5]
+                             (B0 baseline)
     """
+    if mat_mode not in ('per_point', 'global', 'scalar', 'fixed'):
+        raise ValueError(f"mat_mode must be one of per_point/global/scalar/fixed, got {mat_mode}")
+    if mat_mode == 'fixed':
+        freeze_mat_cols = list(range(6))
+    elif mat_mode == 'scalar':
+        # Only column 0 is the learnable reflectivity; freeze 1..5
+        freeze_mat_cols = [1, 2, 3, 4, 5]
+    bsdf_mode = 'scalar' if mat_mode == 'scalar' else 'full'
     config = load_trained_config(scene)
     pattern_data = load_pattern_data(scene)
 
@@ -787,6 +805,17 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
     base_lrs = {g["name"]: g["lr"] for g in param_groups}
     optimizer = torch.optim.Adam(param_groups, betas=(0.9, 0.999), eps=1e-8)
 
+    # mat_mode='global': all rows of raw_materials share one (6,) vector.
+    # Backward hook averages gradients across rows so the update is identical
+    # for every row. Post-step copy of row 0 → all rows keeps them in sync
+    # against float drift. The (M, 6) tensor itself is unchanged.
+    if mat_mode == 'global':
+        def _global_grad_hook(grad):
+            return grad.mean(dim=0, keepdim=True).expand_as(grad)
+        model.raw_materials.register_hook(_global_grad_hook)
+        if verbose:
+            print(f"  mat_mode=global: rows are tied (grad averaged + post-step broadcast)")
+
     # Material column freeze: zero gradient columns listed in freeze_mat_cols.
     # Hook fires inside backward; must return the modified grad. Stays
     # zero in Adam state too because Adam moments init to zero and the
@@ -840,7 +869,8 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
         rp_real, rp_imag = render_gaussians(
             model, rast, vertex_areas=vertex_areas,
             active_mask=active_mask,
-            shadow_mask=None)
+            shadow_mask=None,
+            bsdf_mode=bsdf_mode)
 
         loss, loss_dict = compute_ra_loss_rp(rp_real, rp_imag, gt_loss_norm_cached)
 
@@ -872,6 +902,12 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
             group["lr"] = base_lrs[group["name"]] * lr_scale
 
         optimizer.step()
+
+        # Global mode: enforce identical rows after the optimizer step
+        if mat_mode == 'global':
+            with torch.no_grad():
+                model.raw_materials.copy_(
+                    model.raw_materials[0:1].expand_as(model.raw_materials))
 
         diagnostics.maybe_checkpoint(model.raw_materials, it)
 
