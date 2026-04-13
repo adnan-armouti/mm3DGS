@@ -647,12 +647,17 @@ def rms_clip_grad(param, max_rms):
 
 
 def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
-                    diagnostics_dir=None, run_name=None):
+                    diagnostics_dir=None, run_name=None,
+                    freeze_mat_cols=None):
     """Train v4 c6 hemisphere Gaussians for one scene.
 
     If `diagnostics_dir` is provided, captures material parameter trajectories,
     drift, and Fisher diagonal at end and dumps a `<scene>.npz` under that dir.
-    Returns a dict with `best_cart_corr`, `ms_per_iter`, `drift`, `fisher`.
+
+    If `freeze_mat_cols` is provided (an iterable of column indices in 0..5),
+    those columns of `raw_materials` are frozen at their init values via a
+    gradient mask. Adam state for frozen columns stays zero. This is the
+    Phase 2 LOO/TOO mechanism.
     """
     config = load_trained_config(scene)
     pattern_data = load_pattern_data(scene)
@@ -781,6 +786,25 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
 
     base_lrs = {g["name"]: g["lr"] for g in param_groups}
     optimizer = torch.optim.Adam(param_groups, betas=(0.9, 0.999), eps=1e-8)
+
+    # Material column freeze: zero gradient columns listed in freeze_mat_cols.
+    # Hook fires inside backward; must return the modified grad. Stays
+    # zero in Adam state too because Adam moments init to zero and the
+    # masked column never receives a non-zero update.
+    if freeze_mat_cols is not None and len(freeze_mat_cols) > 0:
+        cols = sorted(set(int(c) for c in freeze_mat_cols))
+        if any(c < 0 or c > 5 for c in cols):
+            raise ValueError(f"freeze_mat_cols must be in 0..5, got {cols}")
+        mask = torch.ones(6, device=DEVICE)
+        for c in cols:
+            mask[c] = 0.0
+        def _freeze_hook(grad):
+            return grad * mask
+        model.raw_materials.register_hook(_freeze_hook)
+        if verbose:
+            from mm25DGS_v4.material_diagnostics import PARAM_NAMES
+            frozen_names = [PARAM_NAMES[c] for c in cols]
+            print(f"  Frozen material columns: {cols} ({frozen_names})")
 
     if verbose:
         active_groups = [g["name"] for g in param_groups]
