@@ -169,3 +169,42 @@ If these four predictions hold, we have mechanistic confirmation that the loss c
 
 - **If Phase α reveals a pathological mismatch** (e.g., scale varies 10³× across scenes or is wildly non-uniform within a scene), the clean path is β3 (learnable global gain) — it trades theoretical rigor for a clean empirical fix that unblocks Phase γ.
 - **If Phase γ's M1_N0_raw doesn't improve**, we should not spend more time on "fix the material model" and instead return to the Phase 1.5 reduced-BSDF recommendation from the earlier ablation (Jones + slab + KA, drop SPM/CBS/broad/blend/directive).
+
+---
+
+## Results (Phases α, β, γ complete)
+
+### Phase α (factory patterns, no C_radar boost)
+- mmIR-trained patterns carried per-scene amplitude bias (scene 390 was 2–3× louder).
+- Factory patterns collapsed cross-scene log10 spread from **1.42 → 0.22 decades**.
+- Residual: rendered was uniformly ~**100× dimmer** than GT.
+
+### Phase β (100× C_radar boost)
+- Applied `C_radar_gt_match = 100` in the rasterizer.
+- All 7 scenes now within **1.3×** of GT at ITU-concrete init.
+- `USE_FACTORY_PATTERNS = True` default, `LEARN_PATTERNS = False` permanent.
+
+### Phase γ (2² × 3 losses)
+
+| config | mse | pearson | mse_raw |
+|---|---|---|---|
+| M0_N0 (floor) | 0.3348 | 0.3348 | 0.3348 |
+| M1_N0 (materials only) | 0.8396 | 0.8689 | 0.8686 |
+| M0_N1 (normals only) | 0.9158 | **0.9389** | 0.9040 |
+| **M1_N1 (both)** | 0.9205 | **0.9425** | 0.9324 |
+
+Marginal contribution of each knob on top of the other:
+
+| loss | materials-on-top-of-normals | normals-on-top-of-materials |
+|---|---|---|
+| mse | +0.0047 | +0.0809 |
+| pearson | +0.0036 | +0.0736 |
+| **mse_raw** | **+0.0284** | +0.0638 |
+
+**Hypothesis confirmed**: under raw MSE, materials contribute **+0.028 on top of normals** — 6× more than under min-max MSE, 8× more than under Pearson. The previous "materials are structurally limited" finding was an artifact of the min-max normalization loss.
+
+**But**: Pearson is still the best *total* cart_corr (0.9425) because normals are weaker under mse_raw (M0_N1_raw = 0.9040 vs 0.9389). Normals want a structural loss; materials want a raw-amplitude loss.
+
+### Natural follow-up
+
+A **hybrid loss** `α·mse_raw + (1−α)·pearson` should let both knobs play to their strengths simultaneously. If materials can retain their +0.028 under mse_raw and normals retain their +0.074 under Pearson, the hybrid could reach cart_corr > 0.95. This is the next experiment.
