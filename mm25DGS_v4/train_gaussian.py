@@ -262,23 +262,39 @@ def precompute_gt_loss_norm(gt_adc_ri):
         return ((ra_gt_mag - mn) / (mx - mn).clamp(min=1e-30)).detach()
 
 
-def compute_ra_loss_rp(rp_real, rp_imag, gt_norm_cached):
-    """RA-MSE loss between rendered range profiles and the cached GT.
+def compute_ra_loss_rp(rp_real, rp_imag, gt_norm_cached, loss_type='mse'):
+    """RA loss between rendered range profiles and the cached GT.
 
-    Args:
-        rp_real, rp_imag: rendered complex range profiles (with grad)
-        gt_norm_cached:   GT min-max-normalized RA magnitude tensor,
-                          precomputed by precompute_gt_loss_norm() at init.
+    loss_type:
+      'mse'     — min-max-normalized MSE on RA magnitude (default, current)
+      'pearson' — 1 - Pearson(rendered_flat, gt_norm_cached_flat); uses
+                  standard deviation normalization + dot product, i.e. the
+                  same structural metric we evaluate with (cart_corr),
+                  applied in polar space.
     """
     ra_rendered = range_profile_to_ra(rp_real, rp_imag)
     ra_rend_mag = torch.abs(ra_rendered)
 
-    mn = ra_rend_mag.min()
-    mx = ra_rend_mag.max()
-    rend_norm = (ra_rend_mag - mn) / (mx - mn).clamp(min=1e-30)
-
-    loss = torch.mean((rend_norm - gt_norm_cached) ** 2)
-    return loss, {"ra_mse": loss.item()}
+    if loss_type == 'mse':
+        mn = ra_rend_mag.min()
+        mx = ra_rend_mag.max()
+        rend_norm = (ra_rend_mag - mn) / (mx - mn).clamp(min=1e-30)
+        loss = torch.mean((rend_norm - gt_norm_cached) ** 2)
+        return loss, {"ra_mse": loss.item()}
+    elif loss_type == 'pearson':
+        r_flat = ra_rend_mag.reshape(-1)
+        g_flat = gt_norm_cached.reshape(-1)
+        r_mean = r_flat.mean()
+        g_mean = g_flat.mean()
+        r_c = r_flat - r_mean
+        g_c = g_flat - g_mean
+        num = (r_c * g_c).sum()
+        den = torch.sqrt((r_c * r_c).sum() * (g_c * g_c).sum()).clamp(min=1e-30)
+        corr = num / den
+        loss = 1.0 - corr
+        return loss, {"pearson_loss": loss.item()}
+    else:
+        raise ValueError(f"Unknown loss_type {loss_type}")
 
 
 # =========================================================================
@@ -657,7 +673,10 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
                     freeze_mat_cols=None, mat_mode='per_point',
                     disabled_components=None,
                     learn_normals=None, learn_materials=None, learn_patterns=None,
-                    capture_grad_stats=False):
+                    capture_grad_stats=False,
+                    symmetry_break_std=0.0,
+                    material_clusters=0,
+                    loss_type='mse'):
     """Train v4 c6 hemisphere Gaussians for one scene.
 
     If `diagnostics_dir` is provided, captures material parameter trajectories,
@@ -710,6 +729,54 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
     # we may need to flip them off for the LEARN-flag matrix runs.
     model.rotations.requires_grad_(_learn_normals)
     model.raw_materials.requires_grad_(_learn_materials)
+
+    # T1: symmetry-breaking noise on raw_materials at init. Gives per-point
+    # material diversity from iter 0 so the optimizer has gauge-variant
+    # gradient signal before normals absorb the improvement. std is in the
+    # same (raw) space as raw_materials, i.e. the learnable space post-reparam.
+    if symmetry_break_std > 0.0:
+        with torch.no_grad():
+            noise = torch.randn_like(model.raw_materials) * symmetry_break_std
+            model.raw_materials.add_(noise)
+        if verbose:
+            print(f"  T1 symmetry break: +N(0, {symmetry_break_std}) on raw_materials")
+
+    # T3: k-means clustering on (positions, normals) at init.
+    # Material params of all points in the same cluster are tied together.
+    # Implemented as a backward hook that averages gradient within each
+    # cluster + a post-step copy that broadcasts cluster centroids back.
+    cluster_assignment = None
+    cluster_idx_long = None
+    if material_clusters > 0:
+        with torch.no_grad():
+            feat_pos = model.positions.detach().cpu().numpy()         # (N, 3)
+            feat_nrm = model.get_normals().detach().cpu().numpy()     # (N, 3)
+            # Scale position by 0.1 so normals and positions contribute
+            # roughly equally to the k-means distance
+            feats = np.concatenate([feat_pos * 0.1, feat_nrm], axis=1)  # (N, 6)
+            from sklearn.cluster import KMeans
+            km = KMeans(n_clusters=material_clusters, n_init=5,
+                        random_state=42, max_iter=100)
+            labels = km.fit_predict(feats)
+            cluster_assignment = torch.from_numpy(labels.astype(np.int64)).to(DEVICE)
+            cluster_idx_long = cluster_assignment  # (N,)
+        if verbose:
+            unique, counts = np.unique(labels, return_counts=True)
+            print(f"  T3 clusters: {material_clusters} groups, sizes min={counts.min()} "
+                  f"max={counts.max()} mean={counts.mean():.0f}")
+
+        # Backward hook: replace each row's grad with the mean grad of its cluster
+        counts_t = torch.zeros(material_clusters, device=DEVICE)
+        counts_t.scatter_add_(0, cluster_idx_long,
+                              torch.ones_like(cluster_idx_long, dtype=torch.float32))
+        counts_t = counts_t.clamp(min=1.0)
+        def _cluster_grad_hook(grad):
+            # grad: (M, 6); we need cluster-averaged grad[i] = mean over cluster of grad[j]
+            sum_per_cluster = torch.zeros(material_clusters, 6, device=DEVICE, dtype=grad.dtype)
+            sum_per_cluster.index_add_(0, cluster_idx_long, grad)
+            mean_per_cluster = sum_per_cluster / counts_t.unsqueeze(-1)
+            return mean_per_cluster[cluster_idx_long]
+        model.raw_materials.register_hook(_cluster_grad_hook)
 
     # All points emitted by init_visible_weighted are RX-visible by construction
     # (already ray-traced against the Mitsuba scene before FPS), so no per-point
@@ -916,7 +983,7 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
             bsdf_mode=bsdf_mode,
             disabled_components=disabled_components)
 
-        loss, loss_dict = compute_ra_loss_rp(rp_real, rp_imag, gt_loss_norm_cached)
+        loss, loss_dict = compute_ra_loss_rp(rp_real, rp_imag, gt_loss_norm_cached, loss_type=loss_type)
 
         # Per-iter cart_corr metric, computed on the same forward pass.
         # We detach from the autograd graph since the metric is logging-only.
@@ -957,6 +1024,16 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
             with torch.no_grad():
                 model.raw_materials.copy_(
                     model.raw_materials[0:1].expand_as(model.raw_materials))
+
+        # T3: post-step cluster tying — overwrite each row with its
+        # cluster's centroid (mean over cluster of raw_materials)
+        if cluster_idx_long is not None:
+            with torch.no_grad():
+                sum_per_cluster = torch.zeros(
+                    material_clusters, 6, device=DEVICE, dtype=model.raw_materials.dtype)
+                sum_per_cluster.index_add_(0, cluster_idx_long, model.raw_materials)
+                mean_per_cluster = sum_per_cluster / counts_t.unsqueeze(-1)
+                model.raw_materials.copy_(mean_per_cluster[cluster_idx_long])
 
         diagnostics.maybe_checkpoint(model.raw_materials, it)
 
@@ -1011,7 +1088,7 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
             model, rast, vertex_areas, active_mask,
             gt_loss_norm_cached,
             render_gaussians_fn=_fisher_render,
-            compute_ra_loss_rp_fn=compute_ra_loss_rp)
+            compute_ra_loss_rp_fn=lambda r, i, g: compute_ra_loss_rp(r, i, g, loss_type=loss_type))
     if diagnostics_dir is not None:
         diagnostics.save(
             output_dir=diagnostics_dir,
