@@ -701,7 +701,10 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
                     material_clusters=0,
                     loss_type='mse_raw',
                     random_init_width=0.0,
-                    random_init_seed=42):
+                    random_init_seed=42,
+                    mat_lr=0.01,
+                    mat_grad_mode='none',
+                    mat_per_col_lr=None):
     """Train v4 c6 hemisphere Gaussians for one scene.
 
     If `diagnostics_dir` is provided, captures material parameter trajectories,
@@ -911,7 +914,7 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
     clip_vals = {}
     if _learn_materials:
         param_groups.append(
-            {"params": [model.raw_materials], "lr": 0.7, "name": "materials"})
+            {"params": [model.raw_materials], "lr": mat_lr, "name": "materials"})
         clip_vals["materials"] = 1.0
     if LEARN_POSITIONS:
         param_groups.append(
@@ -1040,6 +1043,33 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
 
         loss.backward()
 
+        # Material gradient transform (Options B/C/D from the optimizer
+        # dynamics investigation). Applied BEFORE gradient clipping and
+        # optimizer step, so the (pre-existing) rms_clip + Adam step
+        # operate on the transformed gradient.
+        if _learn_materials and model.raw_materials.grad is not None:
+            g = model.raw_materials.grad
+            if mat_grad_mode == 'sign':
+                # Option B: replace grad with sign(grad). Removes magnitude
+                # imbalance entirely; every column carries unit magnitude
+                # per-point.
+                model.raw_materials.grad = torch.sign(g)
+            elif mat_grad_mode == 'colnorm':
+                # Option C: normalize each column to unit L2 norm. Preserves
+                # per-point relative weights within a column but equalizes
+                # cross-column magnitudes (eps_real/thickness no longer
+                # dominate by ~700x).
+                col_l2 = torch.linalg.norm(g, dim=0, keepdim=True).clamp(min=1e-10)
+                model.raw_materials.grad = g / col_l2
+            elif mat_grad_mode == 'per_col_lr':
+                # Option D: per-column LR scaling. Multiply each column's
+                # gradient by its per-column LR scale factor (relative to
+                # mat_lr). Under Adam's v-normalization this doesn't quite
+                # give per-column LR; see _per_col_lr_post_step below for
+                # the post-step correction.
+                pass
+            # 'none' mode: no transform
+
         # D2: record per-iter material gradient mean/std (across points)
         # BEFORE gradient clipping and optimizer step.
         diagnostics.record_grad(model.raw_materials, it)
@@ -1061,7 +1091,19 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
         for group in optimizer.param_groups:
             group["lr"] = base_lrs[group["name"]] * lr_scale
 
+        # Option D: per-column LR scaling. Cache pre-step raw_materials,
+        # let Adam step as normal, then rescale the per-column update by
+        # mat_per_col_lr[k] / mat_lr.
+        if mat_grad_mode == 'per_col_lr' and mat_per_col_lr is not None and _learn_materials:
+            _mat_pre_step = model.raw_materials.data.clone()
         optimizer.step()
+        if mat_grad_mode == 'per_col_lr' and mat_per_col_lr is not None and _learn_materials:
+            with torch.no_grad():
+                delta = model.raw_materials.data - _mat_pre_step
+                scale = torch.tensor(
+                    [mat_per_col_lr[k] / mat_lr for k in range(6)],
+                    device=DEVICE, dtype=delta.dtype)
+                model.raw_materials.data = _mat_pre_step + delta * scale.unsqueeze(0)
 
         # Global mode: enforce identical rows after the optimizer step
         if mat_mode == 'global':
