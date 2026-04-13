@@ -15,7 +15,7 @@ import torch.nn.functional as F
 from torch import Tensor
 
 from mm25DGS.bsdf_torch import (
-    enforce_spm_validity, permittivity_to_ior,
+    permittivity_to_ior,
     itu_slab_fresnel, compute_sp_basis,
     _get_default_pol, _cpx_abs_sq,
     K_WAVE, WAVELENGTH, INV_PI, TWO_PI,
@@ -73,7 +73,17 @@ def render_factorized(
     if 'slab' in disabled:
         thickness = torch.full_like(thickness, 1e-9)
 
-    sh, lc = enforce_spm_validity(sigma_h, l_c)
+    # Fix 2 (2026-04-13): removed enforce_spm_validity. The SPM validity
+    # clamps from CSVBSDF paper Eq. 19 (kh << 1, k³h²l << 1, √2 h/l < 0.3)
+    # constrain sigma_h ≤ 62 μm at 77 GHz, which is "smoother than glass" —
+    # too restrictive for any real automotive scene material (asphalt,
+    # concrete, brick, foliage all have σ_h ≫ 62 μm). P5 audit showed 74%
+    # of sigma_h points were dead-clamped under random init. Letting the
+    # optimizer use sigma_h and l_c directly, even outside theoretical SPM
+    # validity — the loss will tell us if the resulting scattering
+    # coefficient is useful regardless of its physical interpretation.
+    sh = sigma_h
+    lc = l_c
 
     # GGX alpha for KA lobe
     alpha_raw = 4.0 * math.pi * sh / WAVELENGTH
