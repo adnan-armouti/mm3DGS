@@ -696,6 +696,7 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
                     disabled_components=None,
                     learn_normals=None, learn_materials=None, learn_patterns=None,
                     capture_grad_stats=False,
+                    capture_full_grad_iters=None,
                     symmetry_break_std=0.0,
                     material_clusters=0,
                     loss_type='mse_raw',
@@ -1001,7 +1002,8 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
         model.raw_materials,
         checkpoint_every=50,
         enabled=(diagnostics_dir is not None),
-        capture_grad_stats=capture_grad_stats)
+        capture_grad_stats=capture_grad_stats,
+        capture_full_grad_iters=capture_full_grad_iters)
 
     for it in range(num_iters):
         optimizer.zero_grad(set_to_none=True)

@@ -22,15 +22,20 @@ import torch
 
 class MaterialDiagnostics:
     def __init__(self, raw_materials, checkpoint_every=50, enabled=True,
-                 capture_grad_stats=False):
+                 capture_grad_stats=False, capture_full_grad_iters=None):
         """Capture init state. Call once before the training loop.
 
         If `capture_grad_stats=True`, also records per-iter gradient
-        mean and std over points (D2 — gauge-variant decomposition).
+        mean and std over points (gauge-variant decomposition).
+
+        If `capture_full_grad_iters` is a list of iteration indices,
+        snapshots the full (M, 6) gradient tensor at those iters. Used
+        for rank-check analyses (e.g., 6x6 covariance eigenspectrum).
         """
         self.enabled = enabled
         self.checkpoint_every = checkpoint_every
         self.capture_grad_stats = capture_grad_stats
+        self.capture_full_grad_iters = set(capture_full_grad_iters or [])
         if not enabled:
             return
         # (M, 6) snapshot — copy to CPU to avoid holding extra GPU memory
@@ -38,12 +43,12 @@ class MaterialDiagnostics:
         self.checkpoints = [self.init]   # T grows over training
         self.checkpoint_iters = [0]
         self.final = None
-        # D2: per-iter gradient statistics
-        # grad_mean[t, k] = mean over M of raw_materials.grad[:, k] at iter t
-        # grad_std[t, k]  = std  over M of raw_materials.grad[:, k] at iter t
+        # Per-iter gradient statistics
         self.grad_mean = []
         self.grad_std = []
         self.grad_iters = []
+        # Full per-point gradient snapshots: list of (iter_idx, (M, 6) ndarray)
+        self.grad_snapshots = []
 
     def maybe_checkpoint(self, raw_materials, it):
         if not self.enabled:
@@ -53,17 +58,21 @@ class MaterialDiagnostics:
             self.checkpoint_iters.append(it + 1)
 
     def record_grad(self, raw_materials, it):
-        """D2: record per-column grad mean and std across points. Call
-        AFTER loss.backward() and BEFORE gradient clipping / zeroing.
+        """Record per-column grad mean and std across points, and
+        optionally the full (M, 6) gradient tensor at selected iters.
+        Call AFTER loss.backward() and BEFORE gradient clipping.
         """
-        if not self.enabled or not self.capture_grad_stats:
+        if not self.enabled:
             return
         if raw_materials.grad is None:
             return
         g = raw_materials.grad.detach()
-        self.grad_mean.append(g.mean(dim=0).cpu().numpy())
-        self.grad_std.append(g.std(dim=0).cpu().numpy())
-        self.grad_iters.append(it)
+        if self.capture_grad_stats:
+            self.grad_mean.append(g.mean(dim=0).cpu().numpy())
+            self.grad_std.append(g.std(dim=0).cpu().numpy())
+            self.grad_iters.append(it)
+        if it in self.capture_full_grad_iters:
+            self.grad_snapshots.append((int(it), g.cpu().numpy().copy()))
 
     def finalize(self, raw_materials):
         if not self.enabled:
@@ -137,6 +146,10 @@ class MaterialDiagnostics:
             payload['grad_mean'] = np.stack(self.grad_mean, axis=0).astype(np.float32)  # (T, 6)
             payload['grad_std'] = np.stack(self.grad_std, axis=0).astype(np.float32)   # (T, 6)
             payload['grad_iters'] = np.array(self.grad_iters, dtype=np.int32)
+        if self.grad_snapshots:
+            for it, g in self.grad_snapshots:
+                payload[f'grad_full_iter_{it}'] = g.astype(np.float32)
+            payload['grad_full_iters'] = np.array([it for it, _ in self.grad_snapshots], dtype=np.int32)
         np.savez_compressed(path, **payload)
         return path
 
