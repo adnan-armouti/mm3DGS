@@ -52,9 +52,17 @@ def reparameterize_torch(raw: Tensor) -> Tensor:
     lengths at mmWave-scale roughness span anywhere from tens of μm
     (fine textures) to meters (large-scale structures), well beyond the
     original bound.
+
+    Post-2026-04-13 Fix 4: eps_real sigmoid → softplus. Old reparam
+    `1.5 + 8.5*sigmoid(x)` mapped to [1.5, 10] with hard saturation at
+    ±5 in raw space (45% of points saturated under random init). New
+    reparam `1.0 + softplus(x)` is monotonic, min=1.0 (vacuum), with
+    no upper saturation. softplus(0)≈0.69 so default eps_real≈1.69 at
+    raw=0 (reasonable low-dielectric starting point). Gradient never
+    dies.
     """
     out = torch.empty_like(raw)
-    out[..., 0] = 1.5 + 8.5 * torch.sigmoid(raw[..., 0])
+    out[..., 0] = 1.0 + torch.nn.functional.softplus(raw[..., 0])
     out[..., 1] = torch.exp(torch.clamp(raw[..., 1], -7.0, 16.0))
     out[..., 2] = torch.exp(torch.clamp(raw[..., 2], -16.0, -7.0))
     out[..., 3] = torch.exp(torch.clamp(raw[..., 3], -10.0, 2.0))
@@ -71,7 +79,11 @@ def inverse_reparameterize_torch(physics: np.ndarray) -> np.ndarray:
         x = np.clip(x, 1e-6, 1.0 - 1e-6)
         return np.log(x / (1.0 - x))
 
-    raw[..., 0] = _logit((physics[..., 0] - 1.5) / 8.5)
+    def _softplus_inv(y):
+        # softplus^-1(y) = log(exp(y) - 1). Clip y > 0.
+        return np.log(np.expm1(np.clip(y, 1e-6, None)))
+
+    raw[..., 0] = _softplus_inv(physics[..., 0] - 1.0)
     raw[..., 1] = np.log(np.clip(physics[..., 1], np.exp(-7.0), np.exp(16.0)))
     raw[..., 2] = np.log(np.clip(physics[..., 2], np.exp(-16.0), np.exp(-7.0)))
     raw[..., 3] = np.log(np.clip(physics[..., 3], np.exp(-10.0), np.exp(2.0)))
