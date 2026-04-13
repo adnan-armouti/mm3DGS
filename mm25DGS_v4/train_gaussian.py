@@ -255,7 +255,7 @@ def cart_corr_torch(rend_cart, gt_cart_normalized):
     return num / den
 
 
-def precompute_gt_loss_norm(gt_adc_ri, loss_type='mse'):
+def precompute_gt_loss_norm(gt_adc_ri, loss_type='mse_raw'):
     """One-shot computation of the GT tensor for the loss path.
 
     The GT does not change during training; the loss used to recompute it
@@ -276,7 +276,7 @@ def precompute_gt_loss_norm(gt_adc_ri, loss_type='mse'):
         return ((ra_gt_mag - mn) / (mx - mn).clamp(min=1e-30)).detach()
 
 
-def compute_ra_loss_rp(rp_real, rp_imag, gt_cached, loss_type='mse'):
+def compute_ra_loss_rp(rp_real, rp_imag, gt_cached, loss_type='mse_raw'):
     """RA loss between rendered range profiles and the cached GT.
 
     loss_type:
@@ -698,7 +698,7 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
                     capture_grad_stats=False,
                     symmetry_break_std=0.0,
                     material_clusters=0,
-                    loss_type='mse'):
+                    loss_type='mse_raw'):
     """Train v4 c6 hemisphere Gaussians for one scene.
 
     If `diagnostics_dir` is provided, captures material parameter trajectories,

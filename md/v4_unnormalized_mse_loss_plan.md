@@ -205,6 +205,42 @@ Marginal contribution of each knob on top of the other:
 
 **But**: Pearson is still the best *total* cart_corr (0.9425) because normals are weaker under mse_raw (M0_N1_raw = 0.9040 vs 0.9389). Normals want a structural loss; materials want a raw-amplitude loss.
 
-### Natural follow-up
+### Phase δ — mechanistic confirmation
 
-A **hybrid loss** `α·mse_raw + (1−α)·pearson` should let both knobs play to their strengths simultaneously. If materials can retain their +0.028 under mse_raw and normals retain their +0.074 under Pearson, the hybrid could reach cart_corr > 0.95. This is the next experiment.
+Diagnostics run on scene 135, 500 iters, comparing min-max MSE vs raw MSE.
+
+**D2 — per-iter material gradient std (across points, averaged over training):**
+
+| param | mse | mse_raw | ratio |
+|---|---|---|---|
+| eps_real | 2.00e-6 | 4.58e-4 | **229×** |
+| eps_imag | 9.65e-9 | 2.02e-6 | **209×** |
+| sigma_h | 1.67e-8 | 1.13e-6 | 67× |
+| l_c | 4.30e-9 | 5.73e-6 | **1,332×** |
+| tau_base | 8.65e-9 | 5.02e-7 | 58× |
+| thickness | 1.78e-6 | 5.70e-4 | **320×** |
+
+Material gradients are 58×–1332× larger under raw MSE (geometric mean ≈ 230×).
+
+**D3 — Fisher diagonal at converged state:**
+
+| param | fisher(mse) | fisher(mse_raw) | ratio |
+|---|---|---|---|
+| eps_real | 1.29e-12 | 1.83e-6 | **1,416,957×** |
+| eps_imag | 8.58e-15 | 5.29e-9 | **616,935×** |
+| sigma_h | 8.54e-15 | 1.50e-11 | 1,753× |
+| l_c | 3.00e-16 | 1.67e-9 | **5,576,206×** |
+| tau_base | 6.98e-16 | 3.28e-11 | 46,951× |
+| thickness | 2.16e-12 | 5.25e-7 | **243,319×** |
+
+The material directions now carry **1,000× to 5,000,000× more loss curvature**. The loss landscape is completely transformed.
+
+**Drift**: materials move 1.1×–3.5× more under raw MSE — the larger gradient is actually being used, not just flowing into saturated regions.
+
+Scene 135 trained cart_corr: **mse = 0.8631, mse_raw = 0.9186** (+0.055).
+
+### Decision taken (2026-04-13)
+
+- **`mse_raw` is the new default loss** for v4 (user direction: materials matter more than Pearson's 0.010 total advantage).
+- **Hybrid loss not pursued** (user called it "over-engineered hack").
+- **Phase 1.5 (BSDF component ablation) and Phase 2 (per-parameter LOO/TOO) re-run under raw MSE** to identify which BSDF components and parameters are now redundant with the new loss landscape. See **`md/v4_material_ablation_raw_mse_results.md`** for the follow-up run results.
