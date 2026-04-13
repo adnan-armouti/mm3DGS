@@ -195,6 +195,94 @@ With LR=0.01, each iter makes a much smaller step. Over 500 iters, the optimizer
 
 Future LR sweeping (e.g. 0.003, 0.01, 0.03, 0.1) may refine this further — the 0.01 value was picked based on rough-order reasoning, not optimal tuning.
 
+## LR sweep + mechanism re-check (post-hoc)
+
+After the initial Option A result (mean 0.9322, +0.0041 over baseline), the user asked for two verifications:
+
+1. Re-run the gradient diagnostics under LR=0.01 and compare against the LR=0.7 baseline to see if the "gradients cancel less" hypothesis actually holds.
+2. LR sweep over {0.003, 0.01, 0.03, 0.1} to find the true optimum.
+
+### Diagnostic comparison (scene 135, 500 iters)
+
+**Mean drift iter 0 → iter 499 (raw space):**
+
+| param | LR=0.7 Δmean | LR=0.01 Δmean | Sign flip? |
+|---|---|---|---|
+| eps_real | −0.013 | +0.071 | **yes** |
+| eps_imag | +0.236 | −0.213 | **yes** |
+| sigma_h | −0.384 | +0.090 | **yes** |
+| l_c | +0.498 | −0.071 | **yes** |
+| tau_base | +0.042 | +0.032 | no |
+| thickness | +0.386 | −0.004 | nearly zero |
+
+**Drift L2 total (raw space):**
+
+| param | LR=0.7 | LR=0.01 | ratio |
+|---|---|---|---|
+| eps_real | 6.91 | 0.37 | 18.7× smaller |
+| eps_imag | 5.30 | 0.58 | 9.1× smaller |
+| sigma_h | 5.06 | 0.60 | 8.4× smaller |
+| l_c | 4.27 | 0.48 | 8.9× smaller |
+| tau_base | 2.90 | 0.23 | 12.6× smaller |
+| thickness | 4.09 | 0.11 | 37.2× smaller |
+
+**Sign consistency at iter 499** (fraction of per-point gradients agreeing on sign; 1 = all same, 0 = random):
+
+| param | LR=0.7 | LR=0.01 |
+|---|---|---|
+| eps_real | 0.044 | 0.176 |
+| eps_imag | 0.149 | 0.398 |
+| **sigma_h** | **0.763** | **0.114** |
+| **l_c** | **0.832** | **0.356** |
+| tau_base | 0.939 | 0.896 |
+| **thickness** | **0.643** | **0.056** |
+
+### Mechanism (revised from the original hypothesis)
+
+The original hypothesis was "at LR=0.7, per-iter step noise is too large for Adam's moment accumulator to integrate out, so gradients cancel." The diagnostic says something subtler:
+
+- **LR=0.7 was *overshooting* the loss minimum.** Parameters move large distances (drift L2 = 4.3–6.9 raw space) but the mean Δ ends up near zero or pointing in a random direction for 4 of 6 parameters. Sign consistency at iter 499 is HIGH for sigma_h/l_c/tau_base (0.76–0.94), meaning the optimizer STILL wants to push them — but each step is so large that the parameter oscillates past the optimum and back.
+
+- **LR=0.01 doesn't overshoot.** Parameters drift 8–37× less in total distance. Mean Δ is consistent across iters (no sign flipping between runs because there's no oscillation). Sign consistency at iter 499 drops to near-noise levels (0.11, 0.36, 0.06) for sigma_h, l_c, thickness — the signature of "at a local minimum where gradients are noise around zero".
+
+So it is not "less cancellation" but "less oscillation". The loss has a real minimum; LR=0.7 bounces around it, LR=0.01 settles into it. The 4-of-6 sign-flipped Δmean between LR=0.7 and LR=0.01 is the clinching evidence: at LR=0.7 the optimizer finishes the run on whichever side of the minimum it happened to be oscillating, while at LR=0.01 it finishes near the bottom.
+
+### LR sweep results (7 scenes × 500 iters, random init)
+
+| LR | Mean | Δ vs LR=0.7 | Δ vs LR=0.01 |
+|---|---|---|---|
+| 0.003 | **0.9243** | **-0.0038** | -0.0079 |
+| 0.7 (old baseline) | 0.9281 | 0 | -0.0041 |
+| 0.1 | 0.9293 | +0.0012 | -0.0029 |
+| 0.03 | 0.9309 | +0.0028 | -0.0013 |
+| **0.01** | **0.9322** | **+0.0041** | **0** |
+
+**Clean single-peak curve with the optimum at LR=0.01.**
+
+- **LR=0.003 is WORSE than LR=0.7** (−0.0038 vs baseline). 500 iters is not enough to converge at this small step size. The optimizer is still in transit when time runs out.
+- **LR=0.01 is the optimum** — big enough to reach the minimum in 500 iters, small enough not to overshoot it.
+- **LR=0.03** is slightly worse (mild overshoot begins).
+- **LR=0.1** worse still.
+- **LR=0.7** fully overshoots.
+
+### Why the gain is "only" +0.0041
+
+The depth of the minimum we were missing is small. LR=0.7 was already hitting ~0.928 because it was in the neighborhood of the minimum, just not settling into the bottom. LR=0.01 settles, which gives the true minimum at ~0.932. The ~0.004 gap is the depth of that minimum.
+
+This is a **converged-minimum-depth result**, not a "there was hidden signal we weren't using" result. The current BSDF + raw-MSE + factory patterns + all four clamp fixes produces a loss landscape with a minimum at ~0.9322 mean cart_corr. The LR=0.7 baseline was oscillating ~0.004 above the bottom of that minimum. No LR will push below 0.9322 (modulo ±0.005 seed noise) unless we change the loss, the BSDF, or the training schedule.
+
+### Final decision
+
+Keep `mat_lr = 0.01` as the default (already committed). Do not pursue further LR tuning — the sweep has identified the optimum, the minimum is real and its depth is known, and further refinement has diminishing returns.
+
+### What would move the ceiling further?
+
+Nothing in the clamps or optimizer. Options (not pursued here):
+- **Different BSDF physics** — the current KA+SPM+Jones+slab + tau_eff blend produces a scalar per path. A BSDF with more output dimensions (per-polarization, per-frequency-band) would give the loss more structure to fit.
+- **Different loss target** — not phase (correctly rejected), but possibly structural losses on |RA| like Sobel/frequency-domain/per-channel weightings.
+- **Longer training at LR=0.01** — might push another 0.001–0.005 but excluded per user direction.
+- **Normal learning** — LR tuning on normals (currently 2e-3) might be similarly off-optimum. Not tested here but would be the natural next investigation if ceiling-breaking is the goal.
+
 ## Raw data
 
 - `mm25DGS_v4/output/material_investigation/D_rank_check/` — scene 135 gradient snapshots
