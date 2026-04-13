@@ -45,12 +45,19 @@ def reparameterize_torch(raw: Tensor) -> Tensor:
     so the optimizer was pushing thickness past the clamp. The new bound
     gives effectively unbounded upward movement (7 m covers "infinite-
     thickness" interferometric averaging without losing physics sense).
+
+    Post-2026-04-13 Fix 3: l_c reparam range widened from [-7.6, -2.3]
+    (0.5 mm – 100 mm) to [-10, 2] (45 μm – 7.39 m). P5 showed 64% of
+    points hit the old clamp under random init. Physical correlation
+    lengths at mmWave-scale roughness span anywhere from tens of μm
+    (fine textures) to meters (large-scale structures), well beyond the
+    original bound.
     """
     out = torch.empty_like(raw)
     out[..., 0] = 1.5 + 8.5 * torch.sigmoid(raw[..., 0])
     out[..., 1] = torch.exp(torch.clamp(raw[..., 1], -7.0, 16.0))
     out[..., 2] = torch.exp(torch.clamp(raw[..., 2], -16.0, -7.0))
-    out[..., 3] = torch.exp(torch.clamp(raw[..., 3], -7.6, -2.3))
+    out[..., 3] = torch.exp(torch.clamp(raw[..., 3], -10.0, 2.0))
     out[..., 4] = 0.05 + 0.9 * torch.sigmoid(raw[..., 4])
     out[..., 5] = torch.exp(torch.clamp(raw[..., 5], -7.0, 2.0))
     return out
@@ -67,7 +74,7 @@ def inverse_reparameterize_torch(physics: np.ndarray) -> np.ndarray:
     raw[..., 0] = _logit((physics[..., 0] - 1.5) / 8.5)
     raw[..., 1] = np.log(np.clip(physics[..., 1], np.exp(-7.0), np.exp(16.0)))
     raw[..., 2] = np.log(np.clip(physics[..., 2], np.exp(-16.0), np.exp(-7.0)))
-    raw[..., 3] = np.log(np.clip(physics[..., 3], np.exp(-7.6), np.exp(-2.3)))
+    raw[..., 3] = np.log(np.clip(physics[..., 3], np.exp(-10.0), np.exp(2.0)))
     raw[..., 4] = _logit((physics[..., 4] - 0.05) / 0.9)
     raw[..., 5] = np.log(np.clip(physics[..., 5], np.exp(-7.0), np.exp(2.0)))
     return raw.astype(np.float32)
