@@ -60,6 +60,7 @@ from mm25DGS_v4.rasterizer import (
 from mm25DGS_v4.load_pretrained import (
     load_trained_config, load_pattern_data, TRAIN_OUTPUT_DIR, SCENES,
 )
+from mm25DGS_v4.material_diagnostics import MaterialDiagnostics
 
 DEVICE = "cuda:0"
 
@@ -645,8 +646,14 @@ def rms_clip_grad(param, max_rms):
     param.grad.data = g
 
 
-def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
-    """Train v4 c6 hemisphere Gaussians for one scene."""
+def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
+                    diagnostics_dir=None, run_name=None):
+    """Train v4 c6 hemisphere Gaussians for one scene.
+
+    If `diagnostics_dir` is provided, captures material parameter trajectories,
+    drift, and Fisher diagonal at end and dumps a `<scene>.npz` under that dir.
+    Returns a dict with `best_cart_corr`, `ms_per_iter`, `drift`, `fisher`.
+    """
     config = load_trained_config(scene)
     pattern_data = load_pattern_data(scene)
 
@@ -786,6 +793,11 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
     best_ra_gt_cart = None
     t0 = time.time()
 
+    diagnostics = MaterialDiagnostics(
+        model.raw_materials,
+        checkpoint_every=50,
+        enabled=(diagnostics_dir is not None))
+
     for it in range(num_iters):
         optimizer.zero_grad(set_to_none=True)
 
@@ -837,6 +849,8 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
 
         optimizer.step()
 
+        diagnostics.maybe_checkpoint(model.raw_materials, it)
+
         # Best-state tracking. Now happens every iter (no longer rounded
         # to multiples of 50) since the metric is computed every iter.
         if cart_corr > best_corr:
@@ -867,8 +881,31 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True):
                       f"cart_corr={cart_corr:.4f} (best={best_corr:.4f}@{best_iter}) "
                           f"[{elapsed:.1f}s, N={model.N}]")
 
+    train_elapsed = time.time() - t0
+    ms_per_iter = train_elapsed * 1000.0 / max(num_iters, 1)
+
     if verbose:
         print(f"\n  Best cart_corr: {best_corr:.4f} at iter {best_iter}")
+
+    # Diagnostics: drift + Fisher + dump
+    diagnostics.finalize(model.raw_materials)
+    drift = diagnostics.compute_drift()
+    fisher = np.zeros(6, dtype=np.float32)
+    if diagnostics_dir is not None and model.raw_materials.requires_grad:
+        fisher = diagnostics.compute_fisher(
+            model, rast, vertex_areas, active_mask,
+            gt_loss_norm_cached,
+            render_gaussians_fn=render_gaussians,
+            compute_ra_loss_rp_fn=compute_ra_loss_rp)
+    if diagnostics_dir is not None:
+        diagnostics.save(
+            output_dir=diagnostics_dir,
+            run_name=f'{run_name or "run"}__{scene}',
+            mean_cart_corr=best_corr,
+            per_scene_corr=[best_corr],
+            ms_per_iter=ms_per_iter,
+            drift=drift,
+            fisher=fisher)
 
     # Save outputs
     output_dir = os.path.join(PROJECT_ROOT, 'mm25DGS_v4', 'output', scene)
