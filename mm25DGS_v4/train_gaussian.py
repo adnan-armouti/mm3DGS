@@ -651,7 +651,8 @@ def rms_clip_grad(param, max_rms):
 def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
                     diagnostics_dir=None, run_name=None,
                     freeze_mat_cols=None, mat_mode='per_point',
-                    disabled_components=None):
+                    disabled_components=None,
+                    learn_normals=None, learn_materials=None, learn_patterns=None):
     """Train v4 c6 hemisphere Gaussians for one scene.
 
     If `diagnostics_dir` is provided, captures material parameter trajectories,
@@ -674,6 +675,11 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
     """
     if mat_mode not in ('per_point', 'global', 'scalar', 'fixed'):
         raise ValueError(f"mat_mode must be one of per_point/global/scalar/fixed, got {mat_mode}")
+
+    # Per-call LEARN_* overrides (None → use module-level constant)
+    _learn_normals = LEARN_NORMALS if learn_normals is None else learn_normals
+    _learn_materials = LEARN_MATERIALS if learn_materials is None else learn_materials
+    _learn_patterns = LEARN_PATTERNS if learn_patterns is None else learn_patterns
     if mat_mode == 'fixed':
         freeze_mat_cols = list(range(6))
     elif mat_mode == 'scalar':
@@ -693,6 +699,12 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
     rast.inject_trained_params(pattern_data=pattern_data)
 
     model = init_visible_weighted(scene, rast, target_n=target_n)
+
+    # Per-call LEARN_* override: set requires_grad on the model parameters.
+    # The PointPrimitives constructor uses module-level constants by default;
+    # we may need to flip them off for the LEARN-flag matrix runs.
+    model.rotations.requires_grad_(_learn_normals)
+    model.raw_materials.requires_grad_(_learn_materials)
 
     # All points emitted by init_visible_weighted are RX-visible by construction
     # (already ray-traced against the Mitsuba scene before FPS), so no per-point
@@ -771,7 +783,7 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
         print(f"  Hemisphere weights: uniform = 1.0")
 
     # Antenna patterns are wrapped as Parameters only if learnable
-    if LEARN_PATTERNS:
+    if _learn_patterns:
         tx_E = torch.nn.Parameter(rast.tx_antenna.E.clone())
         tx_H = torch.nn.Parameter(rast.tx_antenna.H.clone())
         rx_E = torch.nn.Parameter(rast.rx_antenna.E.clone())
@@ -779,10 +791,10 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
     else:
         tx_E = tx_H = rx_E = rx_H = None
 
-    # Optimizer groups gated by LEARN_* flags
+    # Optimizer groups gated by LEARN_* flags (per-call overrides)
     param_groups = []
     clip_vals = {}
-    if LEARN_MATERIALS:
+    if _learn_materials:
         param_groups.append(
             {"params": [model.raw_materials], "lr": 0.7, "name": "materials"})
         clip_vals["materials"] = 1.0
@@ -790,20 +802,42 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
         param_groups.append(
             {"params": [model.positions], "lr": 1.6e-4, "name": "positions"})
         clip_vals["positions"] = 1.0
-    if LEARN_NORMALS:
+    if _learn_normals:
         param_groups.append(
             {"params": [model.rotations], "lr": 2e-3, "name": "rotations"})
         clip_vals["rotations"] = 0.5
-    if LEARN_PATTERNS:
+    if _learn_patterns:
         param_groups.append(
             {"params": [tx_E, tx_H, rx_E, rx_H], "lr": 0.05, "name": "patterns"})
         clip_vals["patterns"] = 1.0
 
     if not param_groups:
-        raise RuntimeError(
-            "All LEARN_* flags are False — nothing to optimize. "
-            "Enable at least one of: LEARN_POSITIONS, LEARN_NORMALS, "
-            "LEARN_MATERIALS, LEARN_PATTERNS.")
+        # All LEARN_* flags off — pure inference, no optimization. Just do
+        # one forward pass to measure cart_corr at init. This is the B0_zero
+        # baseline / the (0,0,0) corner of the LEARN-flag matrix.
+        with torch.no_grad():
+            rp_real, rp_imag = render_gaussians(
+                model, rast, vertex_areas=vertex_areas,
+                active_mask=active_mask, shadow_mask=None,
+                bsdf_mode=bsdf_mode,
+                disabled_components=disabled_components)
+            ra_polar_t = range_profile_to_ra_mag(rp_real, rp_imag)
+            ra_cart_gpu = polar_to_cart_torch(ra_polar_t, sample_grid)
+            cart_corr_zero = cart_corr_torch(ra_cart_gpu, gt_cart_gpu_norm).item()
+        if verbose:
+            print(f"  All learnable groups disabled — pure inference. cart_corr={cart_corr_zero:.4f}")
+        if diagnostics_dir is not None:
+            diag = MaterialDiagnostics(model.raw_materials, enabled=True)
+            diag.finalize(model.raw_materials)
+            diag.save(
+                output_dir=diagnostics_dir,
+                run_name=f'{run_name or "run"}__{scene}',
+                mean_cart_corr=cart_corr_zero,
+                per_scene_corr=[cart_corr_zero],
+                ms_per_iter=0.0,
+                drift=np.zeros(6, dtype=np.float32),
+                fisher=np.zeros(6, dtype=np.float32))
+        return cart_corr_zero, 0
 
     base_lrs = {g["name"]: g["lr"] for g in param_groups}
     optimizer = torch.optim.Adam(param_groups, betas=(0.9, 0.999), eps=1e-8)
@@ -857,9 +891,9 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
     for it in range(num_iters):
         optimizer.zero_grad(set_to_none=True)
 
-        # Inject learnable antenna patterns (only when LEARN_PATTERNS=True;
+        # Inject learnable antenna patterns (only when learn_patterns=True;
         # otherwise the rasterizer keeps its original tensors set at init).
-        if LEARN_PATTERNS:
+        if _learn_patterns:
             rast.tx_antenna.E = tx_E
             rast.tx_antenna.H = tx_H
             rast.rx_antenna.E = rx_E
@@ -923,7 +957,7 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
             best_state = {
                 'model': {k: v.data.clone() for k, v in model.state_dict().items()},
             }
-            if LEARN_PATTERNS:
+            if _learn_patterns:
                 best_state['tx_E'] = tx_E.data.clone()
                 best_state['tx_H'] = tx_H.data.clone()
                 best_state['rx_E'] = rx_E.data.clone()

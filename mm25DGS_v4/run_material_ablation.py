@@ -218,10 +218,87 @@ PHASE15_RUNS = [
     ('K8_no_slab',      'slab',      'Collapse multi-layer slab Fresnel to first-surface'),
 ]
 
+# 2^3 LEARN-flag matrix. Tuples are (run_name, M_on, N_on, P_on, description).
+# B0_fixed_concrete (M=0,N=1,P=1) and B3_per_point_6param (M=1,N=1,P=1) are
+# already done from Phase 1; the driver skips them when their aggregate.json
+# already exists.
+LEARN_MATRIX_RUNS = [
+    ('M0_N0_P0', False, False, False, '(B0_zero) everything frozen at init'),
+    ('M1_N0_P0', True,  False, False, 'Materials only — rotations and patterns frozen'),
+    ('M0_N1_P0', False, True,  False, 'Normals only — materials and patterns frozen'),
+    ('M0_N0_P1', False, False, True,  'Patterns only — materials and normals frozen'),
+    ('M1_N1_P0', True,  True,  False, 'Materials + normals, patterns frozen'),
+    ('M1_N0_P1', True,  False, True,  'Materials + patterns, normals frozen'),
+    ('M0_N1_P1', False, True,  True,  '(B0_fixed_concrete) normals + patterns, materials frozen — already done'),
+    ('M1_N1_P1', True,  True,  True,  '(B3_per_point) all three trained — already done'),
+]
+
 
 # =========================================================================
 # Phase runners
 # =========================================================================
+
+def run_learn_matrix(num_iters=500):
+    """Run the 2^3 LEARN-flag ablation matrix.
+
+    Skips runs whose aggregate.json already exists (B0_fixed_concrete = M0_N1_P1,
+    B3_per_point = M1_N1_P1 from Phase 1) and aliases them to the matrix names.
+    """
+    print("\n" + "="*70)
+    print("LEARN MATRIX — 2^3 ablation on (materials, normals, patterns)")
+    print("="*70)
+    results = {}
+
+    # Reuse existing Phase 1 results for the two corners that overlap
+    aliases = {
+        'M0_N1_P1': 'B0_fixed_concrete',
+        'M1_N1_P1': 'B3_per_point_6param',
+    }
+    for new_name, old_name in aliases.items():
+        old_p = os.path.join(OUTPUT_ROOT, old_name, 'aggregate.json')
+        if os.path.exists(old_p):
+            with open(old_p) as f:
+                r = json.load(f)
+            r['run_name'] = new_name
+            results[new_name] = r
+            print(f"  REUSE {new_name} ← {old_name}: mean = {r['mean_cart_corr']:.4f}")
+            append_learn_matrix_row(r, new_name)
+
+    for run_name, m_on, n_on, p_on, desc in LEARN_MATRIX_RUNS:
+        if run_name in results:
+            continue   # already aliased
+        r = run_one(run_name, desc, num_iters=num_iters,
+                    learn_materials=m_on, learn_normals=n_on, learn_patterns=p_on)
+        results[run_name] = r
+        append_learn_matrix_row(r, run_name)
+
+    # Print 2x2x2 summary
+    print(f"\n{'Run':<12} {'M':>3} {'N':>3} {'P':>3} {'mean':>8} {'Δ vs B3':>10}")
+    b3 = results.get('M1_N1_P1', {}).get('mean_cart_corr', BASELINE_CART_CORR)
+    for name, m, n, p, _ in LEARN_MATRIX_RUNS:
+        r = results[name]
+        flags = (int(m), int(n), int(p))
+        delta_b3 = r['mean_cart_corr'] - b3
+        print(f"  {name:<10} {flags[0]:>3} {flags[1]:>3} {flags[2]:>3} "
+              f"{r['mean_cart_corr']:>8.4f} {delta_b3:>+10.4f}")
+
+    summary = (
+        f"True floor (everything frozen, M0_N0_P0): {results['M0_N0_P0']['mean_cart_corr']:.4f}. "
+        f"Patterns-only: {results['M0_N0_P1']['mean_cart_corr']:.4f}. "
+        f"Normals-only: {results['M0_N1_P0']['mean_cart_corr']:.4f}. "
+        f"Materials-only: {results['M1_N0_P0']['mean_cart_corr']:.4f}. "
+        f"Full (M1_N1_P1): {results['M1_N1_P1']['mean_cart_corr']:.4f}.")
+    append_phase_summary('LEARN matrix', summary, "see learn matrix table")
+    return results
+
+
+def append_learn_matrix_row(result, name):
+    line = (f"| {name} | {result['description']} | "
+            f"{result['mean_cart_corr']:.4f} | "
+            f"{result['delta_vs_baseline']:+.4f} | "
+            f"{result['ms_per_iter']:.1f} |\n")
+    _insert_row('## LEARN matrix', line)
+
 
 def run_phase1(num_iters=500):
     print("\n" + "="*70)
@@ -330,11 +407,25 @@ def run_phase2(reduced_disabled, num_iters=500):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--phase', choices=['1', '1.5', '2', 'all'], default='all')
+    parser.add_argument('--phase', choices=['1', '1.5', '2', 'learn', 'learn+1.5', 'all'], default='all')
     parser.add_argument('--iters', type=int, default=500)
     args = parser.parse_args()
 
     os.makedirs(OUTPUT_ROOT, exist_ok=True)
+
+    if args.phase == 'learn':
+        run_learn_matrix(num_iters=args.iters)
+        return
+    if args.phase == 'learn+1.5':
+        run_learn_matrix(num_iters=args.iters)
+        # Phase 1.5 needs the B3 ms/iter for delta-ms; load from disk
+        phase1_results = {}
+        b3_p = os.path.join(OUTPUT_ROOT, 'B3_per_point_6param', 'aggregate.json')
+        if os.path.exists(b3_p):
+            with open(b3_p) as f:
+                phase1_results['B3_per_point_6param'] = json.load(f)
+        run_phase15(phase1_results, num_iters=args.iters)
+        return
 
     if args.phase in ('1', 'all'):
         phase1_results, proceed = run_phase1(num_iters=args.iters)

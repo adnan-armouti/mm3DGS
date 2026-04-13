@@ -12,11 +12,25 @@ This file is updated incrementally by `mm25DGS_v4/run_material_ablation.py` as r
 
 | run_name | description | mean_cart_corr | Δ vs baseline | ms/iter | verdict |
 |---|---|---|---|---|---|
-| _pending_ | | | | | |
+| B3_per_point_6param | Full per-point (M, 6) material model with full BSDF (Tier A baseline) | 0.9301 | -0.0050 | 113.4 | _pending_ |
 
-**Phase 1 summary**: _pending — written after all 4 baseline runs complete._
+**Phase 1 summary**: B0=0.9244, B1=0.9044, B2=0.9225, B3=0.9301. Per-point margin over global: +0.0076. Per-point margin over scalar: +0.0256. Per-point margin over fixed: +0.0057.
 
-**Phase 1 decision**: _pending._
+**Phase 1 decision**: STOP. Nothing being learned — debug first.
+
+---
+
+## LEARN matrix — 2^3 ablation on (materials, normals, patterns)
+
+Three learnable parameter groups, all 8 corners. Two corners (M0_N1_P1, M1_N1_P1) are reused from Phase 1.
+
+| run_name | description | mean_cart_corr | Δ vs baseline | ms/iter |
+|---|---|---|---|---|
+| _pending_ | | | | |
+
+**Phase LEARN matrix summary**: _pending._
+
+**Phase LEARN matrix decision**: _pending._
 
 ---
 
