@@ -29,15 +29,22 @@ C_LIGHT = 299_792_458.0
 # ---------------------------------------------------------------------------
 
 def reparameterize_torch(raw: Tensor) -> Tensor:
-    """Map raw params -> physics params, matching DrJit bounds exactly.
+    """Map raw params -> physics params.
 
-    DrJit bounds (mmir/renderer/bsdf/reparameterization.py L109-114):
+    Original DrJit bounds (mmir/renderer/bsdf/reparameterization.py L109-114):
       eps_real:  1.5 + 8.5 * sigmoid(x)        -> [1.5, 10]
       eps_imag:  exp(clamp(x, -7.0, 16.0))     -> [~1e-3, ~9e6]
       sigma_h:   exp(clamp(x, -16.0, -7.0))    -> [~1e-7, ~1e-3]
       l_c:       exp(clamp(x, -7.6, -2.3))     -> [~5e-4, 0.1]
       tau:       0.05 + 0.9 * sigmoid(x)       -> [0.05, 0.95]
       thickness: exp(clamp(x, -7.0, -1.2))     -> [~1e-3, 0.3]
+
+    Post-2026-04-13 Fix 1: thickness upper bound widened from -1.2 to 2.0
+    (exp(-1.2)=0.3 m → exp(2.0)=7.39 m). Phase P5 audit showed 78% of
+    points under random init were saturating at the 300 mm upper bound,
+    so the optimizer was pushing thickness past the clamp. The new bound
+    gives effectively unbounded upward movement (7 m covers "infinite-
+    thickness" interferometric averaging without losing physics sense).
     """
     out = torch.empty_like(raw)
     out[..., 0] = 1.5 + 8.5 * torch.sigmoid(raw[..., 0])
@@ -45,7 +52,7 @@ def reparameterize_torch(raw: Tensor) -> Tensor:
     out[..., 2] = torch.exp(torch.clamp(raw[..., 2], -16.0, -7.0))
     out[..., 3] = torch.exp(torch.clamp(raw[..., 3], -7.6, -2.3))
     out[..., 4] = 0.05 + 0.9 * torch.sigmoid(raw[..., 4])
-    out[..., 5] = torch.exp(torch.clamp(raw[..., 5], -7.0, -1.2))
+    out[..., 5] = torch.exp(torch.clamp(raw[..., 5], -7.0, 2.0))
     return out
 
 
@@ -62,7 +69,7 @@ def inverse_reparameterize_torch(physics: np.ndarray) -> np.ndarray:
     raw[..., 2] = np.log(np.clip(physics[..., 2], np.exp(-16.0), np.exp(-7.0)))
     raw[..., 3] = np.log(np.clip(physics[..., 3], np.exp(-7.6), np.exp(-2.3)))
     raw[..., 4] = _logit((physics[..., 4] - 0.05) / 0.9)
-    raw[..., 5] = np.log(np.clip(physics[..., 5], np.exp(-7.0), np.exp(-1.2)))
+    raw[..., 5] = np.log(np.clip(physics[..., 5], np.exp(-7.0), np.exp(2.0)))
     return raw.astype(np.float32)
 
 
