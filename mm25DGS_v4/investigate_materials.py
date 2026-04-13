@@ -75,7 +75,6 @@ def d1_loss_invariance(scene, epsilons=None, verbose=True):
 
     # Rebuild the scene exactly as a fresh training run would
     config = load_trained_config(scene)
-    pattern_data = load_pattern_data(scene)
     rast = Rasterizer(
         config_file=config.config_file,
         mesh_file=config.scene_file,
@@ -83,7 +82,10 @@ def d1_loss_invariance(scene, epsilons=None, verbose=True):
         rx_pattern_file=config.rx_pattern_file,
         device=DEVICE,
     )
-    rast.inject_trained_params(pattern_data=pattern_data)
+    # Must match the train_gaussians setting (USE_FACTORY_PATTERNS=True by default)
+    if not tg.USE_FACTORY_PATTERNS:
+        pattern_data = load_pattern_data(scene)
+        rast.inject_trained_params(pattern_data=pattern_data)
     model = init_visible_weighted(scene, rast, target_n=50000)
     rast.free_mi_scene()
 
@@ -302,17 +304,19 @@ def main():
     parser.add_argument('--scene', default='seq_0_frame_135')
     parser.add_argument('--iters', type=int, default=500)
     parser.add_argument('--run-name', default='D_scene_135')
+    parser.add_argument('--loss-type', default='mse',
+                        choices=['mse', 'pearson', 'mse_raw'])
     args = parser.parse_args()
 
     run_dir = os.path.join(OUTPUT_ROOT, args.run_name)
     os.makedirs(run_dir, exist_ok=True)
 
     # Step 1: Train with grad stats enabled
-    print(f"\n=== Step 1: Training {args.scene} for {args.iters} iters with grad stats ===")
+    print(f"\n=== Step 1: Training {args.scene} for {args.iters} iters with grad stats (loss={args.loss_type}) ===")
     corr, _ = tg.train_gaussians(
         args.scene, num_iters=args.iters, verbose=True,
         diagnostics_dir=run_dir, run_name=args.run_name,
-        capture_grad_stats=True)
+        capture_grad_stats=True, loss_type=args.loss_type)
     print(f"  cart_corr = {corr:.4f}")
 
     # Step 2: Analyze the dump (D2 + D3)

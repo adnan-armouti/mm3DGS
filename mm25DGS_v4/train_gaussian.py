@@ -1086,7 +1086,8 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
         if it % 50 == 0 or it == num_iters - 1:
             if verbose:
                 elapsed = time.time() - t0
-                print(f"  iter {it:4d}: loss={loss_dict['ra_mse']:.6f}, "
+                loss_val = next(iter(loss_dict.values()))
+                print(f"  iter {it:4d}: loss={loss_val:.6f}, "
                       f"cart_corr={cart_corr:.4f} (best={best_corr:.4f}@{best_iter}) "
                           f"[{elapsed:.1f}s, N={model.N}]")
 
