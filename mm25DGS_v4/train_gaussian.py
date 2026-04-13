@@ -73,7 +73,14 @@ DEVICE = "cuda:0"
 LEARN_POSITIONS = False    # frozen — pcl positions are treated as fixed reference
 LEARN_NORMALS   = True     # quaternion → surface normal; refines noisy pcl normals
 LEARN_MATERIALS = True     # 6 ITU/Cook-Torrance params per point
-LEARN_PATTERNS  = True     # TX/RX antenna E/H planes (361 samples each)
+LEARN_PATTERNS  = False    # TX/RX antenna E/H planes — PERMANENT False per user direction (2026-04-13)
+
+# When True (default after the raw-MSE plan), skip mmIR-trained antenna
+# pattern injection at init and use factory patterns from the MMWCAS .npy
+# files instead. mmIR-trained patterns absorb per-scene amplitude bias and
+# break the cross-scene scale uniformity required for raw MSE. See
+# md/v4_unnormalized_mse_loss_plan.md Phase α findings.
+USE_FACTORY_PATTERNS = True
 
 # Default starting per-point material (ITU concrete).
 # sigma_h lowered from 1e-4 (100 μm) to 5e-5 (50 μm) to stay inside the SPM
@@ -711,7 +718,6 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
         freeze_mat_cols = [1, 2, 3, 4, 5]
     bsdf_mode = 'scalar' if mat_mode == 'scalar' else 'full'
     config = load_trained_config(scene)
-    pattern_data = load_pattern_data(scene)
 
     rast = Rasterizer(
         config_file=config.config_file,
@@ -720,7 +726,9 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
         rx_pattern_file=config.rx_pattern_file,
         device=DEVICE,
     )
-    rast.inject_trained_params(pattern_data=pattern_data)
+    if not USE_FACTORY_PATTERNS:
+        pattern_data = load_pattern_data(scene)
+        rast.inject_trained_params(pattern_data=pattern_data)
 
     model = init_visible_weighted(scene, rast, target_n=target_n)
 

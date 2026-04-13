@@ -183,9 +183,16 @@ class Rasterizer:
         four_pi_squared = (4 * np.pi) ** 2
         self.rx_dBFS_scale = 10 ** ((30.0 - 13.0) / 20)
         self.adc_scale = np.sqrt(50.0) * 32768.0
+        # Empirical GT-match factor. The physical constants above yield
+        # C_radar ≈ 45.33, but at factory antenna patterns + ITU concrete init,
+        # rendered |RA| is ~100× dimmer than GT across all 7 scenes (0.22 decades
+        # residual spread). Multiplying radar_constant by 100 brings rendered
+        # within factor ~1.5 of GT at init, which is the regime where raw MSE
+        # loss can work. See md/v4_unnormalized_mse_loss_plan.md, Phase α.
+        self.C_radar_gt_match = 100.0
         self.radar_constant = float(np.sqrt(
             Pt_watts * antenna_loss_linear * self.lambda_squared
-            / four_pi_squared))
+            / four_pi_squared)) * self.C_radar_gt_match
 
         # Antenna patterns (PyTorch)
         self.tx_antenna = AntennaPatternTorch(tx_pattern_file, device)
