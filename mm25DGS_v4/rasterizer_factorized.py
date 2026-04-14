@@ -286,59 +286,85 @@ def render_factorized(
     if 'spm' in disabled:
         f_SPM = torch.zeros_like(f_SPM)
 
-    # --- BSDF lobe = tau_eff-weighted blend of KA and SPM ---
-    # (CBS, directive, broad, and eta coherence-blend removed 2026-04-13
-    # per the raw-MSE ablation — all four contributed < noise.)
-    f_lobe = tau_eff.unsqueeze(-1) * f_KA + (1.0 - tau_eff.unsqueeze(-1)) * f_SPM
-
     # --- Jones Fresnel power per (TX, RX) ---
-    # E_s_out: (M, n_tx) complex — from TX
-    # rx_s: rx_pol · s_in — s_in varies per TX: (M, n_tx, 3)
+    # Macro-normal RX projection basis (shared by KA and SPM). See note on
+    # the half-vector refinement below.
     rx_s = (rx_pol * s_in).sum(-1)                                     # (M, n_tx) -- same for all RX
 
     # p_out = cross(s_in, wo) -- varies per (TX, RX)
-    # s_in: (M, n_tx, 3), wo: (M, n_rx, 3)
-    # p_out: (M, n_tx, n_rx, 3) — this is the 192× expansion but just for a cross product
-    # rx_p = rx_pol · p_out = rx_pol · cross(s_in, wo)
-    # Using triple product: rx_pol · (s_in × wo) = wo · (rx_pol × s_in)
+    # Triple product: rx_pol · (s_in × wo) = wo · (rx_pol × s_in)
     rx_pol_cross_s = torch.cross(
         rx_pol.expand_as(s_in), s_in, dim=-1)                          # (M, n_tx, 3)
-    # rx_p = wo · (rx_pol × s_in) for each (M, n_tx, n_rx)
     rx_p = torch.einsum('mrj,mtj->mtr', wo, rx_pol_cross_s)           # (M, n_tx, n_rx)
-    # Normalize p_out: |cross(s_in, wo)| — but rx_p should use normalized p_out
-    # |s_in × wo| = sin(angle between s_in and wo)
-    p_out_len = torch.einsum('mrj,mtj->mtr', wo, wo).unsqueeze(-1)    # dummy
-    # Actually: cross(s, wo) has magnitude |s||wo|sin(θ) = sin(θ) (unit vecs)
-    # We need rx_p / |cross(s_in, wo)|
-    s_cross_wo_sq = 1.0 - torch.einsum('mrj,mtj->mtr', wo, s_in) ** 2  # sin²(θ)
+    # Normalize by |cross(s_in, wo)| = sin(angle)
+    s_cross_wo_sq = 1.0 - torch.einsum('mrj,mtj->mtr', wo, s_in) ** 2
     p_out_norm = torch.sqrt(s_cross_wo_sq.clamp(min=1e-12))
     rx_p = rx_p / p_out_norm                                           # (M, n_tx, n_rx)
 
-    # R_jones = |E_s_out × rx_s + E_p_out × rx_p|²
-    # E_s_out: (M, n_tx) complex, rx_s: (M, n_tx) real -> broadcast to (M, n_tx, 1)
-    # E_p_out: (M, n_tx) complex, rx_p: (M, n_tx, n_rx) real
+    # --- R_jones_macro: macro-normal Fresnel, used for SPM lobe ---
+    # E_s_out / E_p_out are from Fresnel at cos_i = wi · n (macro-normal).
     E_rx = E_s_out.unsqueeze(-1) * rx_s.unsqueeze(-1).to(torch.complex64) \
          + E_p_out.unsqueeze(-1) * rx_p.to(torch.complex64)           # (M, n_tx, n_rx) complex
-    R_jones = _cpx_abs_sq(E_rx).clamp(0.0, 1.0)                       # (M, n_tx, n_rx)
-    if 'jones' in disabled:
-        # C7: scalar Fresnel — replace polarized power with magnitude-only
-        # |r_s|² + |r_p|² average. Uses E_s_out / E_p_out only via abs².
-        Rs_sq = _cpx_abs_sq(E_s_out).clamp(0.0, 1.0)                  # (M, n_tx)
-        Rp_sq = _cpx_abs_sq(E_p_out).clamp(0.0, 1.0)                  # (M, n_tx)
-        R_scalar = 0.5 * (Rs_sq + Rp_sq)                              # (M, n_tx)
-        R_jones = R_scalar.unsqueeze(-1).expand(-1, -1, n_rx)         # (M, n_tx, n_rx)
+    R_jones_macro = _cpx_abs_sq(E_rx).clamp(0.0, 1.0)                 # (M, n_tx, n_rx)
 
-    # --- Final BSDF: f_cos = R_jones × f_lobe × cos_theta_i ---
+    # --- R_jones_h: half-vector Fresnel, used for KA lobe (1A' refinement) ---
+    # For a microfacet BSDF (GGX), the physically-correct Fresnel term should
+    # be evaluated at the microfacet's local incidence angle, which is the
+    # angle between wi and the half-vector h = normalize(wi + wo), not the
+    # macro-normal angle. See Walter et al. 2007 "Microfacet Models for
+    # Refraction through Rough Surfaces".
+    #
+    # We re-run the slab Fresnel with cos_h per path and recombine through
+    # the same s/p basis. The s/p basis stays macro (wi × n) rather than
+    # micro (wi × h) — a simplification that is exact at the flat-surface
+    # limit (α → 0) and a small-angle approximation for rough surfaces.
+    # Fully microfacet-correct polarization basis is a follow-up refinement
+    # but for small-α GGX and compact TX/RX geometry it's not worth the
+    # added complexity.
+    wi_exp = wi.unsqueeze(2)                                           # (M, n_tx, 1, 3)
+    wo_exp = wo.unsqueeze(1)                                           # (M, 1, n_rx, 3)
+    h_vec = wi_exp + wo_exp                                            # (M, n_tx, n_rx, 3)
+    h_vec = h_vec / h_vec.norm(dim=-1, keepdim=True).clamp(min=1e-6)
+    cos_h = (wi_exp * h_vec).sum(-1).clamp(min=1e-6)                  # (M, n_tx, n_rx)
+
+    cos_h_flat = cos_h.reshape(-1)
+    eps_r_flat_h = eps_real[:, None, None].expand(-1, n_tx, n_rx).reshape(-1)
+    eps_i_flat_h = eps_imag[:, None, None].expand(-1, n_tx, n_rx).reshape(-1)
+    thick_flat_h = thickness[:, None, None].expand(-1, n_tx, n_rx).reshape(-1)
+    R_TE_h, R_TM_h, _, _ = itu_slab_fresnel(
+        eps_r_flat_h, eps_i_flat_h, cos_h_flat, thick_flat_h)
+    r_s_h = R_TE_h.reshape(M, n_tx, n_rx)                              # (M, n_tx, n_rx) complex
+    r_p_h = R_TM_h.reshape(M, n_tx, n_rx)                              # (M, n_tx, n_rx) complex
+
+    # Per-path reflected field: r_s_h × (tx_pol · s_in) with tx_s broadcast
+    E_s_out_h = r_s_h * tx_s.unsqueeze(-1).to(torch.complex64)        # (M, n_tx, n_rx) complex
+    E_p_out_h = r_p_h * tx_p.unsqueeze(-1).to(torch.complex64)        # (M, n_tx, n_rx) complex
+
+    # Per-path RX recombination (rx_s is per-TX, rx_p is already per-path)
+    E_rx_h = E_s_out_h * rx_s.unsqueeze(-1).to(torch.complex64) \
+           + E_p_out_h * rx_p.to(torch.complex64)                     # (M, n_tx, n_rx) complex
+    R_jones_h = _cpx_abs_sq(E_rx_h).clamp(0.0, 1.0)                   # (M, n_tx, n_rx)
+
+    # Jones disable path: replace BOTH Fresnel versions with scalar |r|²
+    if 'jones' in disabled:
+        Rs_sq = _cpx_abs_sq(E_s_out).clamp(0.0, 1.0)
+        Rp_sq = _cpx_abs_sq(E_p_out).clamp(0.0, 1.0)
+        R_scalar = 0.5 * (Rs_sq + Rp_sq)
+        R_jones_macro = R_scalar.unsqueeze(-1).expand(-1, -1, n_rx)
+        R_jones_h = R_jones_macro
+
+    # --- Final BSDF: per-lobe Fresnel ---
+    # KA uses half-vector Fresnel (microfacet-correct).
+    # SPM uses macro-normal Fresnel (incoherent average over microfacets).
     if bsdf_mode == 'scalar':
-        # B1 baseline: f_cos = sigmoid(reflectivity) × cos_i, ignoring all
-        # of Step 4. raw_materials[:, 0] is reused as the per-point scalar
-        # reflectivity. Wastes Step 4 forward time but autograd won't
-        # backward through R_jones / f_lobe since they aren't referenced here.
-        rho = torch.sigmoid(raw_materials[:, 0])                        # (M,)
-        f_cos = rho[:, None, None] * cos_i.unsqueeze(-1)                # (M, n_tx, 1) → broadcasts to (M, n_tx, n_rx) below
+        # B1 baseline: f_cos = sigmoid(reflectivity) × cos_i
+        rho = torch.sigmoid(raw_materials[:, 0])
+        f_cos = rho[:, None, None] * cos_i.unsqueeze(-1)
         f_cos = f_cos.expand(-1, -1, n_rx).contiguous()
     else:
-        f_cos = R_jones * f_lobe * cos_i.unsqueeze(-1)                  # (M, n_tx, n_rx)
+        tau_eff_ext = tau_eff.unsqueeze(-1)                            # (M, n_tx, 1)
+        f_coh = tau_eff_ext * R_jones_h * f_KA + (1.0 - tau_eff_ext) * R_jones_macro * f_SPM
+        f_cos = f_coh * cos_i.unsqueeze(-1)                            # (M, n_tx, n_rx)
 
     # ================================================================
     # Step 5: Range-profile splatting
