@@ -704,7 +704,8 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
                     random_init_seed=42,
                     mat_lr=0.01,
                     mat_grad_mode='none',
-                    mat_per_col_lr=None):
+                    mat_per_col_lr=None,
+                    rot_lr=5e-3):
     """Train v4 c6 hemisphere Gaussians for one scene.
 
     If `diagnostics_dir` is provided, captures material parameter trajectories,
@@ -922,7 +923,7 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
         clip_vals["positions"] = 1.0
     if _learn_normals:
         param_groups.append(
-            {"params": [model.rotations], "lr": 2e-3, "name": "rotations"})
+            {"params": [model.rotations], "lr": rot_lr, "name": "rotations"})
         clip_vals["rotations"] = 0.5
     if _learn_patterns:
         param_groups.append(
