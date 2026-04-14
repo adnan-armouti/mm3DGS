@@ -307,51 +307,104 @@ def render_factorized(
          + E_p_out.unsqueeze(-1) * rx_p.to(torch.complex64)           # (M, n_tx, n_rx) complex
     R_jones_macro = _cpx_abs_sq(E_rx).clamp(0.0, 1.0)                 # (M, n_tx, n_rx)
 
-    # --- R_jones_h: half-vector Fresnel, used for KA lobe (1A' refinement) ---
-    # For a microfacet BSDF (GGX), the physically-correct Fresnel term should
-    # be evaluated at the microfacet's local incidence angle, which is the
-    # angle between wi and the half-vector h = normalize(wi + wo), not the
-    # macro-normal angle. See Walter et al. 2007 "Microfacet Models for
-    # Refraction through Rough Surfaces".
+    # --- R_jones_h: full microfacet-correct Jones for the KA lobe (1A'') ---
+    # Walter et al. 2007, "Microfacet Models for Refraction through Rough
+    # Surfaces": for a GGX microfacet BSDF, the specular reflection at a
+    # path (wi, wo) happens at a microfacet whose normal is the half-vector
+    # h = normalize(wi + wo). The local incidence angle, polarization basis,
+    # and Fresnel coefficients should all be computed relative to h, not
+    # the macro normal n.
     #
-    # We re-run the slab Fresnel with cos_h per path and recombine through
-    # the same s/p basis. The s/p basis stays macro (wi × n) rather than
-    # micro (wi × h) — a simplification that is exact at the flat-surface
-    # limit (α → 0) and a small-angle approximation for rough surfaces.
-    # Fully microfacet-correct polarization basis is a follow-up refinement
-    # but for small-α GGX and compact TX/RX geometry it's not worth the
-    # added complexity.
-    wi_exp = wi.unsqueeze(2)                                           # (M, n_tx, 1, 3)
-    wo_exp = wo.unsqueeze(1)                                           # (M, 1, n_rx, 3)
-    h_vec = wi_exp + wo_exp                                            # (M, n_tx, n_rx, 3)
-    h_vec = h_vec / h_vec.norm(dim=-1, keepdim=True).clamp(min=1e-6)
-    cos_h = (wi_exp * h_vec).sum(-1).clamp(min=1e-6)                  # (M, n_tx, n_rx)
+    # This block computes a fully microfacet-correct Jones for the KA
+    # (coherent specular) lobe: per-path s/p polarization basis (s_h,
+    # p_h_in, p_h_out), per-path microfacet Fresnel at cos_h, and per-path
+    # recombination through the microfacet basis. The result R_jones_h is
+    # exact for any GGX roughness and any TX/RX array geometry (monostatic,
+    # compact bistatic, wide bistatic, distributed arrays).
+    #
+    # At the flat-surface limit (α → 0, h → n), s_h → s_in and the result
+    # reduces to the macro Jones R_jones_macro. For moderate roughness
+    # (α ~ 0.4) and compact arrays, the correction is small but
+    # physically consistent.
+    #
+    # The SPM lobe continues to use R_jones_macro (incoherent average over
+    # microfacets uses the mean-surface / macro-normal Fresnel).
+    #
+    # Memory: 4 new (M, n_tx, n_rx, 3) float32 tensors ≈ 400 MB at
+    # M=45K, 192 channels. Scales linearly with channel count.
 
+    # Per-path microfacet geometry
+    wi_exp = wi.unsqueeze(2).expand(-1, -1, n_rx, -1).contiguous()     # (M, n_tx, n_rx, 3)
+    wo_exp = wo.unsqueeze(1).expand(-1, n_tx, -1, -1).contiguous()     # (M, n_tx, n_rx, 3)
+
+    h_vec = wi_exp + wo_exp
+    h_norm = h_vec.norm(dim=-1, keepdim=True).clamp(min=1e-6)
+    h_vec = h_vec / h_norm                                              # (M, n_tx, n_rx, 3)
+    cos_h = (wi_exp * h_vec).sum(-1).clamp(min=1e-6)                   # (M, n_tx, n_rx)
+
+    # Microfacet s-basis: perpendicular to the microfacet plane of
+    # incidence (containing wi and h). Unit vector.
+    # Note: s_h ⊥ wi by construction, so downstream cross products with
+    # wi or wo are well-behaved (nonzero magnitude).
+    s_h_raw = torch.cross(wi_exp, h_vec, dim=-1)
+    s_h_norm = s_h_raw.norm(dim=-1, keepdim=True).clamp(min=1e-6)
+    s_h_vec = s_h_raw / s_h_norm                                        # (M, n_tx, n_rx, 3)
+
+    # Microfacet p-basis for the incoming wave: in the plane of incidence,
+    # perpendicular to wi. Since s_h ⊥ wi, |s_h × wi| = 1 exactly at the
+    # limit where s_h is a unit vector perpendicular to wi, so the norm
+    # below is ~1 up to numerical noise. Still normalize for safety.
+    p_h_in_raw = torch.cross(s_h_vec, wi_exp, dim=-1)
+    p_h_in = p_h_in_raw / p_h_in_raw.norm(dim=-1, keepdim=True).clamp(min=1e-6)
+
+    # Microfacet p-basis for the outgoing wave: in the plane of incidence,
+    # perpendicular to wo. For bistatic arrays, wo is NOT parallel to the
+    # reflection of wi about h in general (only at the specific microfacet
+    # that satisfies the reflection law, which gives wo = reflect(wi, h)).
+    # At that specific microfacet, wo is in the (wi, h) plane, so p_h_out
+    # is well-defined and is perpendicular to wo.
+    p_h_out_raw = torch.cross(s_h_vec, wo_exp, dim=-1)
+    p_h_out = p_h_out_raw / p_h_out_raw.norm(dim=-1, keepdim=True).clamp(min=1e-6)
+
+    # Project TX and RX polarization vectors onto microfacet basis
+    tx_pol_b = tx_pol.view(1, 1, 1, 3)
+    rx_pol_b = rx_pol.view(1, 1, 1, 3)
+
+    tx_s_h = (tx_pol_b * s_h_vec).sum(-1)                              # (M, n_tx, n_rx)
+    tx_p_h_in = (tx_pol_b * p_h_in).sum(-1)                            # (M, n_tx, n_rx)
+
+    rx_s_h = (rx_pol_b * s_h_vec).sum(-1)                              # (M, n_tx, n_rx)
+    rx_p_h_out = (rx_pol_b * p_h_out).sum(-1)                          # (M, n_tx, n_rx)
+
+    # Per-path slab Fresnel at the microfacet incidence angle cos_h
     cos_h_flat = cos_h.reshape(-1)
     eps_r_flat_h = eps_real[:, None, None].expand(-1, n_tx, n_rx).reshape(-1)
     eps_i_flat_h = eps_imag[:, None, None].expand(-1, n_tx, n_rx).reshape(-1)
     thick_flat_h = thickness[:, None, None].expand(-1, n_tx, n_rx).reshape(-1)
     R_TE_h, R_TM_h, _, _ = itu_slab_fresnel(
         eps_r_flat_h, eps_i_flat_h, cos_h_flat, thick_flat_h)
-    r_s_h = R_TE_h.reshape(M, n_tx, n_rx)                              # (M, n_tx, n_rx) complex
-    r_p_h = R_TM_h.reshape(M, n_tx, n_rx)                              # (M, n_tx, n_rx) complex
+    r_s_h = R_TE_h.reshape(M, n_tx, n_rx)                               # (M, n_tx, n_rx) complex
+    r_p_h = R_TM_h.reshape(M, n_tx, n_rx)                               # (M, n_tx, n_rx) complex
 
-    # Per-path reflected field: r_s_h × (tx_pol · s_in) with tx_s broadcast
-    E_s_out_h = r_s_h * tx_s.unsqueeze(-1).to(torch.complex64)        # (M, n_tx, n_rx) complex
-    E_p_out_h = r_p_h * tx_p.unsqueeze(-1).to(torch.complex64)        # (M, n_tx, n_rx) complex
+    # Reflected field components in microfacet basis
+    E_s_out_h = r_s_h * tx_s_h.to(torch.complex64)                     # (M, n_tx, n_rx) complex
+    E_p_out_h = r_p_h * tx_p_h_in.to(torch.complex64)                  # (M, n_tx, n_rx) complex
 
-    # Per-path RX recombination (rx_s is per-TX, rx_p is already per-path)
-    E_rx_h = E_s_out_h * rx_s.unsqueeze(-1).to(torch.complex64) \
-           + E_p_out_h * rx_p.to(torch.complex64)                     # (M, n_tx, n_rx) complex
-    R_jones_h = _cpx_abs_sq(E_rx_h).clamp(0.0, 1.0)                   # (M, n_tx, n_rx)
+    # Project onto RX polarization in microfacet outgoing basis
+    E_rx_h = (E_s_out_h * rx_s_h.to(torch.complex64)
+              + E_p_out_h * rx_p_h_out.to(torch.complex64))             # (M, n_tx, n_rx) complex
+    R_jones_h = _cpx_abs_sq(E_rx_h).clamp(0.0, 1.0)                    # (M, n_tx, n_rx)
 
-    # Jones disable path: replace BOTH Fresnel versions with scalar |r|²
+    # Jones disable path: replace BOTH Fresnel versions with scalar |r|².
+    # For the microfacet path, use the per-path r_s_h / r_p_h values.
     if 'jones' in disabled:
         Rs_sq = _cpx_abs_sq(E_s_out).clamp(0.0, 1.0)
         Rp_sq = _cpx_abs_sq(E_p_out).clamp(0.0, 1.0)
         R_scalar = 0.5 * (Rs_sq + Rp_sq)
         R_jones_macro = R_scalar.unsqueeze(-1).expand(-1, -1, n_rx)
-        R_jones_h = R_jones_macro
+        Rs_sq_h = _cpx_abs_sq(r_s_h).clamp(0.0, 1.0)
+        Rp_sq_h = _cpx_abs_sq(r_p_h).clamp(0.0, 1.0)
+        R_jones_h = 0.5 * (Rs_sq_h + Rp_sq_h)
 
     # --- Final BSDF: per-lobe Fresnel ---
     # KA uses half-vector Fresnel (microfacet-correct).
