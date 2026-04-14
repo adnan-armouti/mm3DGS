@@ -1,0 +1,72 @@
+[
+  {
+    "target_n": 50000,
+    "status": "ok",
+    "peak_gb": 10.908909320831299,
+    "elapsed": 3.962857723236084,
+    "cart_corr": 0.5257313847541809
+  },
+  {
+    "target_n": 75000,
+    "status": "ok",
+    "peak_gb": 16.26572036743164,
+    "elapsed": 4.620432376861572,
+    "cart_corr": 0.5499833226203918
+  },
+  {
+    "target_n": 100000,
+    "status": "OOM",
+    "peak_gb": NaN,
+    "elapsed": 4.457460403442383,
+    "cart_corr": NaN,
+    "error": "CUDA out of memory. Tried to allocate 1008.00 MiB. GPU 0 has a total capacity of 23.53 GiB of which 766.75 MiB is free. Process 3725995 has 22.76 GiB memory in use. Of the allocated memory 20.70 GiB i"
+  },
+  {
+    "target_n": 150000,
+    "status": "OOM",
+    "peak_gb": NaN,
+    "elapsed": 5.488240718841553,
+    "cart_corr": NaN,
+    "error": "CUDA out of memory. Tried to allocate 1.48 GiB. GPU 0 has a total capacity of 23.53 GiB of which 980.75 MiB is free. Process 3725995 has 22.55 GiB memory in use. Of the allocated memory 21.25 GiB is a"
+  },
+  {
+    "target_n": 200000,
+    "status": "OOM",
+    "peak_gb": NaN,
+    "elapsed": 6.817431449890137,
+    "cart_corr": NaN,
+    "error": "CUDA out of memory. Tried to allocate 268.00 MiB. GPU 0 has a total capacity of 23.53 GiB of which 58.75 MiB is free. Process 3725995 has 23.45 GiB memory in use. Of the allocated memory 22.49 GiB is "
+  },
+  {
+    "target_n": 300000,
+    "status": "OOM",
+    "peak_gb": NaN,
+    "elapsed": 9.919310569763184,
+    "cart_corr": NaN,
+    "error": "CUDA out of memory. Tried to allocate 400.00 MiB. GPU 0 has a total capacity of 23.53 GiB of which 278.75 MiB is free. Process 3725995 has 23.23 GiB memory in use. Of the allocated memory 22.25 GiB is"
+  },
+  {
+    "target_n": 500000,
+    "status": "OOM",
+    "peak_gb": NaN,
+    "elapsed": 16.631906747817993,
+    "cart_corr": NaN,
+    "error": "CUDA out of memory. Tried to allocate 982.00 MiB. GPU 0 has a total capacity of 23.53 GiB of which 72.75 MiB is free. Process 3725995 has 23.43 GiB memory in use. Of the allocated memory 22.10 GiB is "
+  },
+  {
+    "target_n": 750000,
+    "status": "OOM",
+    "peak_gb": NaN,
+    "elapsed": 1.4851746559143066,
+    "cart_corr": NaN,
+    "error": "CUDA out of memory. Tried to allocate 400.00 MiB. GPU 0 has a total capacity of 23.53 GiB of which 318.75 MiB is free. Process 3725995 has 23.19 GiB memory in use. Of the allocated memory 22.19 GiB is"
+  },
+  {
+    "target_n": 1000000,
+    "status": "OOM",
+    "peak_gb": NaN,
+    "elapsed": 1.641861915588379,
+    "cart_corr": NaN,
+    "error": "CUDA out of memory. Tried to allocate 1.21 GiB. GPU 0 has a total capacity of 23.53 GiB of which 718.75 MiB is free. Process 3725995 has 22.80 GiB memory in use. Of the allocated memory 21.36 GiB is a"
+  }
+]

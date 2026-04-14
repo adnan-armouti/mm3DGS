@@ -510,10 +510,15 @@ def cull_gaussians(model, rast, cos_threshold=0.05):
 # Init: visible-weighted FPS from raw point cloud
 # =========================================================================
 
-def init_visible_weighted(scene, rast, target_n=50000,
+def init_visible_weighted(scene, rast, target_n=90000,
                           cos_bore_min=0.1,
-                          n_intermediate=200000,
+                          n_intermediate=None,
                           device=DEVICE):
+    # Default: make the intermediate pool large enough that the cosine
+    # importance resample step doesn't bottleneck FPS selection. The
+    # n_resample = min(n_intermediate, 3*target_n) line then picks 3*target_n.
+    if n_intermediate is None:
+        n_intermediate = max(200000, 3 * target_n)
     """Initialize Gaussians via visible-weighted FPS over the raw point cloud.
 
     Pipeline:
@@ -690,7 +695,7 @@ def rms_clip_grad(param, max_rms):
     param.grad.data = g
 
 
-def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
+def train_gaussians(scene, num_iters=500, target_n=90000, verbose=True,
                     diagnostics_dir=None, run_name=None,
                     freeze_mat_cols=None, mat_mode='per_point',
                     disabled_components=None,
@@ -1247,7 +1252,7 @@ def train_gaussians(scene, num_iters=500, target_n=50000, verbose=True,
     return best_corr, best_iter
 
 
-def run_all_scenes(num_iters=500, target_n=50000):
+def run_all_scenes(num_iters=500, target_n=90000):
     """Run v4 c6 training on all 7 benchmark scenes."""
     results = {}
     for scene in SCENES:
@@ -1281,7 +1286,7 @@ if __name__ == '__main__':
     parser.add_argument('--scene', type=str, default=None)
     parser.add_argument('--all', action='store_true')
     parser.add_argument('--iters', type=int, default=500)
-    parser.add_argument('--target_n', type=int, default=50000,
+    parser.add_argument('--target_n', type=int, default=90000,
                         help='Target Gaussian count after FPS')
     args = parser.parse_args()
 

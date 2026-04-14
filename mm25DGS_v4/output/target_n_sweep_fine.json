@@ -1,0 +1,45 @@
+[
+  {
+    "target_n": 75000,
+    "status": "ok",
+    "peak_gb": 16.265594005584717,
+    "elapsed": 4.802740097045898,
+    "cart_corr": 0.5499833226203918
+  },
+  {
+    "target_n": 80000,
+    "status": "ok",
+    "peak_gb": 17.375053882598877,
+    "elapsed": 4.6832661628723145,
+    "cart_corr": 0.5568116307258606
+  },
+  {
+    "target_n": 85000,
+    "status": "ok",
+    "peak_gb": 18.467711925506592,
+    "elapsed": 4.788569927215576,
+    "cart_corr": 0.5281675457954407
+  },
+  {
+    "target_n": 90000,
+    "status": "ok",
+    "peak_gb": 19.507601261138916,
+    "elapsed": 5.095320701599121,
+    "cart_corr": 0.5313937067985535
+  },
+  {
+    "target_n": 95000,
+    "status": "ok",
+    "peak_gb": 20.60712480545044,
+    "elapsed": 5.357431888580322,
+    "cart_corr": 0.5982359051704407
+  },
+  {
+    "target_n": 100000,
+    "status": "OOM",
+    "peak_gb": NaN,
+    "elapsed": 4.267822027206421,
+    "cart_corr": NaN,
+    "error": "CUDA out of memory. Tried to allocate 1008.00 MiB. GPU 0 has a total capacity of 23.53 GiB of which 714.75 MiB is free. Process 3726488 has 22.81 GiB memory in use. Of the allocated memory 20.70 GiB i"
+  }
+]
