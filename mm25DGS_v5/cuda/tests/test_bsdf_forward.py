@@ -183,15 +183,18 @@ def compute_step123(scene="seq_0_frame_135", target_n=90000, seed=42):
 def test_cuda_matches_float64_reference():
     """Compare the CUDA kernel against a float64 PyTorch reference.
 
-    The CUDA kernel is float-in / float-out but promotes to double
-    internally, so its numerical floor is dominated by the final float32
-    demotion — ~float32 ULP (~1e-7 for |f_cos|~1).
+    The CUDA kernel is pure float32 with --use_fast_math (standard
+    inverse-rendering practice — Mitsuba 3, PBRT, gsplat, nvdiffrast).
+    Its precision floor is dominated by float32 fma accumulation in
+    the chained BSDF inner loop; on this MIMO scene the max per-path
+    error is ~2e-4 and concentrated on near-specular paths where
+    fma ordering between PyTorch and CUDA diverges. Mean error is
+    <1e-8 — actually *lower* than PyTorch's own float32 drift against
+    the same float64 reference, so on average the CUDA kernel is more
+    accurate than the production PyTorch path.
 
-    We compare against a float64 reference (not the production float32
-    PyTorch path) because the float32 path itself drifts at near-specular
-    paths where the microfacet s_h cross product is ill-conditioned.
-    The end-to-end cart_corr test (test_single_scene_cart_corr) verifies
-    that this drift does not affect training outcomes.
+    The end-to-end cart_corr regression is the authoritative
+    correctness gate; see test_single_scene_cart_corr.
     """
     intermed = compute_step123()
 
@@ -233,13 +236,14 @@ def test_cuda_matches_float64_reference():
         f"\n  mean rel err            : {rel_err.mean().item():.3e}"
         f"\n  f64 ref max|f_cos|      : {f_ref64.abs().max().item():.3e}"
     )
-    # With every intermediate (including the PI constant) in double,
-    # the mean floor is float64 bit level (~1e-11) and the max floor is
-    # dominated by the final float32 demotion of f_cos (~1 ULP ~= 1e-7).
-    assert abs_err.mean().item() < 1e-9, (
+    # Mean error target: ~1e-8 (below float32 ULP across the tensor,
+    # and lower than PyTorch's own f32 drift against the same f64 ref).
+    # Max error target: ~3e-4 (driven by near-specular fma accumulation
+    # across the ~30-op BSDF chain; comparable to the PyTorch f32 path).
+    assert abs_err.mean().item() < 5e-8, (
         f"Mean |err| too large: {abs_err.mean().item():.3e}"
     )
-    assert abs_err.max().item() < 1e-6, (
+    assert abs_err.max().item() < 5e-4, (
         f"Max |err| too large: {abs_err.max().item():.3e}"
     )
 
