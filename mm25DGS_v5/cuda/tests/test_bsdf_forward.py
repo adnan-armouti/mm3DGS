@@ -180,11 +180,23 @@ def compute_step123(scene="seq_0_frame_135", target_n=90000, seed=42):
     )
 
 
-def test_cuda_matches_pytorch_reference():
+def test_cuda_matches_float64_reference():
+    """Compare the CUDA kernel against a float64 PyTorch reference.
+
+    The CUDA kernel is float-in / float-out but promotes to double
+    internally, so its numerical floor is dominated by the final float32
+    demotion — ~float32 ULP (~1e-7 for |f_cos|~1).
+
+    We compare against a float64 reference (not the production float32
+    PyTorch path) because the float32 path itself drifts at near-specular
+    paths where the microfacet s_h cross product is ill-conditioned.
+    The end-to-end cart_corr test (test_single_scene_cart_corr) verifies
+    that this drift does not affect training outcomes.
+    """
     intermed = compute_step123()
 
-    # PyTorch reference
-    f_cos_ref = bsdf_step4_reference(
+    # Float64 ground truth
+    f_ref64 = bsdf_step4_reference(
         intermed["wi"], intermed["wi_r"], intermed["wo"],
         intermed["n_eff"], intermed["s_in"],
         intermed["cos_i"], intermed["cos_o"],
@@ -195,10 +207,10 @@ def test_cuda_matches_pytorch_reference():
         intermed["E_s_out_re"], intermed["E_s_out_im"],
         intermed["E_p_out_re"], intermed["E_p_out_im"],
         intermed["tau_eff"],
+        dtype=torch.float64,
     )
 
-    # CUDA kernel
-    f_cos_cuda = v5cuda.ext.bsdf_step4_forward(
+    f_cuda = v5cuda.ext.bsdf_step4_forward(
         intermed["wi"], intermed["wi_r"], intermed["wo"],
         intermed["n_eff"], intermed["s_in"],
         intermed["cos_i"], intermed["cos_o"],
@@ -212,27 +224,62 @@ def test_cuda_matches_pytorch_reference():
     )
     torch.cuda.synchronize()
 
-    abs_err = (f_cos_cuda - f_cos_ref).abs()
-    rel_err = abs_err / f_cos_ref.abs().clamp(min=1e-8)
+    abs_err = (f_cuda.double() - f_ref64).abs()
+    rel_err = abs_err / f_ref64.abs().clamp(min=1e-10)
     print(
-        f"\n  max|cuda - pytorch|     : {abs_err.max().item():.3e}"
-        f"\n  mean|cuda - pytorch|    : {abs_err.mean().item():.3e}"
+        f"\n  max|cuda - f64 ref|     : {abs_err.max().item():.3e}"
+        f"\n  mean|cuda - f64 ref|    : {abs_err.mean().item():.3e}"
         f"\n  max rel err             : {rel_err.max().item():.3e}"
         f"\n  mean rel err            : {rel_err.mean().item():.3e}"
-        f"\n  pytorch ref max|f_cos|  : {f_cos_ref.abs().max().item():.3e}"
-        f"\n  pytorch ref mean|f_cos| : {f_cos_ref.abs().mean().item():.3e}"
+        f"\n  f64 ref max|f_cos|      : {f_ref64.abs().max().item():.3e}"
     )
-    # Tolerances (float32 chain of sqrt/expf/__sincosf with --use_fast_math):
-    # rtol=5e-3, atol=1e-3. Mean abs err is ~1e-5 on a max|f_cos|~2.6 tensor,
-    # so ~20 paths out of 16M hit the near-zero tail where fma ordering
-    # produces visible relative drift. The end-to-end cart_corr regression
-    # (test_single_scene_cart_corr) is the true correctness gate.
-    assert torch.allclose(f_cos_cuda, f_cos_ref, rtol=5e-3, atol=1e-3), (
-        f"CUDA kernel mismatch. max|err|={abs_err.max().item():.3e}, "
-        f"max rel={rel_err.max().item():.3e}"
-    )
-    # Mean abs error is a tighter test that still catches systematic bugs
-    # (not just a single near-specular outlier).
-    assert abs_err.mean().item() < 1e-4, (
+    # With every intermediate (including the PI constant) in double,
+    # the mean floor is float64 bit level (~1e-11) and the max floor is
+    # dominated by the final float32 demotion of f_cos (~1 ULP ~= 1e-7).
+    assert abs_err.mean().item() < 1e-9, (
         f"Mean |err| too large: {abs_err.mean().item():.3e}"
     )
+    assert abs_err.max().item() < 1e-6, (
+        f"Max |err| too large: {abs_err.max().item():.3e}"
+    )
+
+
+def test_cuda_matches_pytorch_float32_reference():
+    """Legacy test: CUDA vs the production float32 PyTorch path.
+
+    Looser tolerances because the float32 reference itself drifts on
+    ill-conditioned paths. Kept for diagnostic continuity with Phase B
+    v1; the float64 test above is the primary correctness gate.
+    """
+    intermed = compute_step123()
+    f_ref32 = bsdf_step4_reference(
+        intermed["wi"], intermed["wi_r"], intermed["wo"],
+        intermed["n_eff"], intermed["s_in"],
+        intermed["cos_i"], intermed["cos_o"],
+        intermed["lambda_i"], intermed["lambda_o"],
+        intermed["alpha_sq"], intermed["kappa_SPM"],
+        intermed["norm_SPM"], intermed["eps_factor"],
+        intermed["eps_real"], intermed["eps_imag"], intermed["thickness"],
+        intermed["E_s_out_re"], intermed["E_s_out_im"],
+        intermed["E_p_out_re"], intermed["E_p_out_im"],
+        intermed["tau_eff"],
+    )
+    f_cuda = v5cuda.ext.bsdf_step4_forward(
+        intermed["wi"], intermed["wi_r"], intermed["wo"],
+        intermed["n_eff"], intermed["s_in"],
+        intermed["cos_i"], intermed["cos_o"],
+        intermed["lambda_i"], intermed["lambda_o"],
+        intermed["alpha_sq"], intermed["kappa_SPM"],
+        intermed["norm_SPM"], intermed["eps_factor"],
+        intermed["eps_real"], intermed["eps_imag"], intermed["thickness"],
+        intermed["E_s_out_re"], intermed["E_s_out_im"],
+        intermed["E_p_out_re"], intermed["E_p_out_im"],
+        intermed["tau_eff"],
+    )
+    torch.cuda.synchronize()
+    err = (f_cuda - f_ref32).abs()
+    print(f"\n  max|cuda - f32 ref|  = {err.max().item():.3e}")
+    print(f"  mean|cuda - f32 ref| = {err.mean().item():.3e}")
+    # This bound is dominated by the f32 reference's own rounding, not CUDA.
+    assert err.mean().item() < 1e-7
+    assert err.max().item() < 1e-3

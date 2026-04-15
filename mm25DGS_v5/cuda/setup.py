@@ -31,7 +31,13 @@ ext = CUDAExtension(
         'cxx': ['-O3', '-std=c++17'],
         'nvcc': [
             '-O3',
-            '--use_fast_math',
+            # --use_fast_math intentionally disabled: the __expf / __sincosf
+            # / __fdividef intrinsics it enables cap precision at ~2^-22
+            # relative, which showed up as ~2e-4 absolute drift in the
+            # Phase B per-kernel test. Standard libm-equivalent functions
+            # give ~1e-7 accuracy, which is what we want for the per-kernel
+            # validation. Memory bandwidth — not compute — is the
+            # bottleneck here, so the timing impact is small.
             '-std=c++17',
             '-gencode=arch=compute_89,code=sm_89',
             '--expt-relaxed-constexpr',
