@@ -117,30 +117,18 @@ class BSDFStep4ForwardFn(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_f_cos):
-        # Phase B fallback backward: rerun the PyTorch reference Step 4
-        # through autograd to get gradients on all inputs.
-        from mm25DGS_v5.cuda.reference import bsdf_step4_reference
+        # Phase C: analytical CUDA backward via bsdf_step4_backward.
         saved = ctx.saved_tensors
-        # Detach and require_grad copies, so autograd can trace them.
-        grad_inputs = [t.detach().requires_grad_(t.dtype.is_floating_point)
-                       for t in saved]
-        with torch.enable_grad():
-            f_cos = bsdf_step4_reference(
-                grad_inputs[0], grad_inputs[1], grad_inputs[2],
-                grad_inputs[3], grad_inputs[4],
-                grad_inputs[5], grad_inputs[6], grad_inputs[7], grad_inputs[8],
-                grad_inputs[9], grad_inputs[10], grad_inputs[11],
-                grad_inputs[12],
-                grad_inputs[13], grad_inputs[14], grad_inputs[15],
-                grad_inputs[16], grad_inputs[17], grad_inputs[18], grad_inputs[19],
-                grad_inputs[20],
-            )
-            grads = torch.autograd.grad(
-                f_cos, grad_inputs, grad_f_cos,
-                allow_unused=True, retain_graph=False,
-            )
-        # Convert None -> None (already); allow_unused=True gives None for
-        # ints / unused inputs.
+        grad_f_cos = grad_f_cos.contiguous()
+        grads = ext.bsdf_step4_backward(
+            grad_f_cos,
+            saved[0],  saved[1],  saved[2],  saved[3],  saved[4],
+            saved[5],  saved[6],  saved[7],  saved[8],
+            saved[9],  saved[10], saved[11], saved[12],
+            saved[13], saved[14], saved[15],
+            saved[16], saved[17], saved[18], saved[19],
+            saved[20],
+        )
         return tuple(grads)
 
 

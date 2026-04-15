@@ -41,6 +41,7 @@ ext = CUDAExtension(
             # penalty (1/64 of fp32) is not worth paying for a precision
             # that Adam's gradient noise averages out over 500 iters.
             '--use_fast_math',
+            '--extended-lambda',
             '-std=c++17',
             '-gencode=arch=compute_89,code=sm_89',
             '--expt-relaxed-constexpr',

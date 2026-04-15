@@ -50,6 +50,33 @@ void launch_itu_slab_fresnel_debug(
     float* R_TM_re, float* R_TM_im,
     int n, cudaStream_t stream);
 
+void launch_zero(float* ptr, int64_t n, cudaStream_t stream);
+
+void launch_bsdf_step4_backward(
+    const float* grad_f_cos,
+    const float* wi, const float* wi_r, const float* wo,
+    const float* n_eff, const float* s_in,
+    const float* cos_i, const float* cos_o,
+    const float* lambda_i, const float* lambda_o,
+    const float* alpha_sq, const float* kappa_SPM,
+    const float* norm_SPM, const float* eps_factor,
+    const float* eps_real_m, const float* eps_imag_m, const float* thickness_m,
+    const float* E_s_out_re, const float* E_s_out_im,
+    const float* E_p_out_re, const float* E_p_out_im,
+    const float* tau_eff,
+    float* grad_wi, float* grad_wi_r, float* grad_wo,
+    float* grad_n_eff, float* grad_s_in,
+    float* grad_cos_i, float* grad_cos_o,
+    float* grad_lambda_i, float* grad_lambda_o,
+    float* grad_alpha_sq, float* grad_kappa_SPM,
+    float* grad_norm_SPM, float* grad_eps_factor,
+    float* grad_eps_real_m, float* grad_eps_imag_m, float* grad_thickness_m,
+    float* grad_E_s_out_re, float* grad_E_s_out_im,
+    float* grad_E_p_out_re, float* grad_E_p_out_im,
+    float* grad_tau_eff,
+    int M, int n_tx, int n_rx,
+    cudaStream_t stream);
+
 void launch_bsdf_step4_forward(
     const float* wi, const float* wi_r, const float* wo,
     const float* n_eff, const float* s_in,
@@ -198,6 +225,113 @@ torch::Tensor bsdf_step4_forward(
     return f_cos;
 }
 
+// Phase C: fused BSDF Step-4 backward. Takes grad_f_cos and all 21
+// forward inputs, returns a list of 21 grad tensors in the same order
+// as the forward inputs.
+std::vector<torch::Tensor> bsdf_step4_backward(
+    torch::Tensor grad_f_cos,
+    torch::Tensor wi, torch::Tensor wi_r, torch::Tensor wo,
+    torch::Tensor n_eff, torch::Tensor s_in,
+    torch::Tensor cos_i, torch::Tensor cos_o,
+    torch::Tensor lambda_i, torch::Tensor lambda_o,
+    torch::Tensor alpha_sq, torch::Tensor kappa_SPM,
+    torch::Tensor norm_SPM, torch::Tensor eps_factor,
+    torch::Tensor eps_real_m, torch::Tensor eps_imag_m, torch::Tensor thickness_m,
+    torch::Tensor E_s_out_re, torch::Tensor E_s_out_im,
+    torch::Tensor E_p_out_re, torch::Tensor E_p_out_im,
+    torch::Tensor tau_eff)
+{
+    CHECK_CUDA(grad_f_cos); CHECK_CONTIG(grad_f_cos); CHECK_FLOAT32(grad_f_cos);
+    CHECK_CUDA(wi); CHECK_CONTIG(wi); CHECK_FLOAT32(wi);
+    CHECK_CUDA(wi_r); CHECK_CONTIG(wi_r); CHECK_FLOAT32(wi_r);
+    CHECK_CUDA(wo); CHECK_CONTIG(wo); CHECK_FLOAT32(wo);
+    CHECK_CUDA(n_eff); CHECK_CONTIG(n_eff); CHECK_FLOAT32(n_eff);
+    CHECK_CUDA(s_in); CHECK_CONTIG(s_in); CHECK_FLOAT32(s_in);
+    CHECK_CUDA(cos_i); CHECK_CONTIG(cos_i); CHECK_FLOAT32(cos_i);
+    CHECK_CUDA(cos_o); CHECK_CONTIG(cos_o); CHECK_FLOAT32(cos_o);
+    CHECK_CUDA(lambda_i); CHECK_CONTIG(lambda_i); CHECK_FLOAT32(lambda_i);
+    CHECK_CUDA(lambda_o); CHECK_CONTIG(lambda_o); CHECK_FLOAT32(lambda_o);
+    CHECK_CUDA(alpha_sq); CHECK_CONTIG(alpha_sq); CHECK_FLOAT32(alpha_sq);
+    CHECK_CUDA(kappa_SPM); CHECK_CONTIG(kappa_SPM); CHECK_FLOAT32(kappa_SPM);
+    CHECK_CUDA(norm_SPM); CHECK_CONTIG(norm_SPM); CHECK_FLOAT32(norm_SPM);
+    CHECK_CUDA(eps_factor); CHECK_CONTIG(eps_factor); CHECK_FLOAT32(eps_factor);
+    CHECK_CUDA(eps_real_m); CHECK_CONTIG(eps_real_m); CHECK_FLOAT32(eps_real_m);
+    CHECK_CUDA(eps_imag_m); CHECK_CONTIG(eps_imag_m); CHECK_FLOAT32(eps_imag_m);
+    CHECK_CUDA(thickness_m); CHECK_CONTIG(thickness_m); CHECK_FLOAT32(thickness_m);
+    CHECK_CUDA(E_s_out_re); CHECK_CONTIG(E_s_out_re); CHECK_FLOAT32(E_s_out_re);
+    CHECK_CUDA(E_s_out_im); CHECK_CONTIG(E_s_out_im); CHECK_FLOAT32(E_s_out_im);
+    CHECK_CUDA(E_p_out_re); CHECK_CONTIG(E_p_out_re); CHECK_FLOAT32(E_p_out_re);
+    CHECK_CUDA(E_p_out_im); CHECK_CONTIG(E_p_out_im); CHECK_FLOAT32(E_p_out_im);
+    CHECK_CUDA(tau_eff); CHECK_CONTIG(tau_eff); CHECK_FLOAT32(tau_eff);
+
+    const int M    = (int)wi.size(0);
+    const int n_tx = (int)wi.size(1);
+    const int n_rx = (int)wo.size(1);
+    auto options = torch::TensorOptions().dtype(torch::kFloat32).device(wi.device());
+
+    auto make_grad = [&](const std::vector<int64_t>& shape) {
+        return torch::zeros(shape, options);
+    };
+    auto grad_wi          = make_grad({M, n_tx, 3});
+    auto grad_wi_r        = make_grad({M, n_tx, 3});
+    auto grad_wo          = make_grad({M, n_rx, 3});
+    auto grad_n_eff       = make_grad({M, n_tx, 3});
+    auto grad_s_in        = make_grad({M, n_tx, 3});
+    auto grad_cos_i       = make_grad({M, n_tx});
+    auto grad_cos_o       = make_grad({M, n_rx});
+    auto grad_lambda_i    = make_grad({M, n_tx});
+    auto grad_lambda_o    = make_grad({M, n_rx});
+    auto grad_alpha_sq    = make_grad({M});
+    auto grad_kappa_SPM   = make_grad({M});
+    auto grad_norm_SPM    = make_grad({M});
+    auto grad_eps_factor  = make_grad({M});
+    auto grad_eps_real_m  = make_grad({M});
+    auto grad_eps_imag_m  = make_grad({M});
+    auto grad_thickness_m = make_grad({M});
+    auto grad_E_s_out_re  = make_grad({M, n_tx});
+    auto grad_E_s_out_im  = make_grad({M, n_tx});
+    auto grad_E_p_out_re  = make_grad({M, n_tx});
+    auto grad_E_p_out_im  = make_grad({M, n_tx});
+    auto grad_tau_eff     = make_grad({M, n_tx});
+
+    at::cuda::CUDAStream stream = at::cuda::getCurrentCUDAStream();
+    mm25v5::launch_bsdf_step4_backward(
+        grad_f_cos.data_ptr<float>(),
+        wi.data_ptr<float>(), wi_r.data_ptr<float>(), wo.data_ptr<float>(),
+        n_eff.data_ptr<float>(), s_in.data_ptr<float>(),
+        cos_i.data_ptr<float>(), cos_o.data_ptr<float>(),
+        lambda_i.data_ptr<float>(), lambda_o.data_ptr<float>(),
+        alpha_sq.data_ptr<float>(), kappa_SPM.data_ptr<float>(),
+        norm_SPM.data_ptr<float>(), eps_factor.data_ptr<float>(),
+        eps_real_m.data_ptr<float>(), eps_imag_m.data_ptr<float>(),
+        thickness_m.data_ptr<float>(),
+        E_s_out_re.data_ptr<float>(), E_s_out_im.data_ptr<float>(),
+        E_p_out_re.data_ptr<float>(), E_p_out_im.data_ptr<float>(),
+        tau_eff.data_ptr<float>(),
+        grad_wi.data_ptr<float>(), grad_wi_r.data_ptr<float>(), grad_wo.data_ptr<float>(),
+        grad_n_eff.data_ptr<float>(), grad_s_in.data_ptr<float>(),
+        grad_cos_i.data_ptr<float>(), grad_cos_o.data_ptr<float>(),
+        grad_lambda_i.data_ptr<float>(), grad_lambda_o.data_ptr<float>(),
+        grad_alpha_sq.data_ptr<float>(), grad_kappa_SPM.data_ptr<float>(),
+        grad_norm_SPM.data_ptr<float>(), grad_eps_factor.data_ptr<float>(),
+        grad_eps_real_m.data_ptr<float>(), grad_eps_imag_m.data_ptr<float>(),
+        grad_thickness_m.data_ptr<float>(),
+        grad_E_s_out_re.data_ptr<float>(), grad_E_s_out_im.data_ptr<float>(),
+        grad_E_p_out_re.data_ptr<float>(), grad_E_p_out_im.data_ptr<float>(),
+        grad_tau_eff.data_ptr<float>(),
+        M, n_tx, n_rx, stream.stream());
+
+    return {
+        grad_wi, grad_wi_r, grad_wo, grad_n_eff, grad_s_in,
+        grad_cos_i, grad_cos_o, grad_lambda_i, grad_lambda_o,
+        grad_alpha_sq, grad_kappa_SPM, grad_norm_SPM, grad_eps_factor,
+        grad_eps_real_m, grad_eps_imag_m, grad_thickness_m,
+        grad_E_s_out_re, grad_E_s_out_im,
+        grad_E_p_out_re, grad_E_p_out_im,
+        grad_tau_eff,
+    };
+}
+
 // Debug entry: run the full Step-4 kernel but emit per-(m, t, r)
 // intermediates (f_KA, f_SPM, R_jones_h, R_jones_macro, cos_h, cos_dev)
 // so tests can localize numerical drift.
@@ -296,6 +430,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("bsdf_step4_forward", &bsdf_step4_forward,
           "Phase B fused BSDF Step-4 forward kernel. Replaces lines "
           "228-420 of rasterizer_factorized.py.");
+    m.def("bsdf_step4_backward", &bsdf_step4_backward,
+          "Phase C fused BSDF Step-4 backward kernel. Takes grad_f_cos "
+          "and the 21 forward inputs, returns 21 grad tensors.");
     m.def("bsdf_microfacet_basis", &bsdf_microfacet_basis,
           "Debug-only: compute s_h, p_h_in, p_h_out from wi, wo.");
     m.def("bsdf_step4_intermediates", &bsdf_step4_intermediates,
