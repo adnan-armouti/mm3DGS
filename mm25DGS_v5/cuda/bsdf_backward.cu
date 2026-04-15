@@ -671,11 +671,11 @@ __global__ void bsdf_step4_backward_kernel(
     // tau_eff
     atomicAdd(&grad_tau_eff[m*n_tx + t], g_tau_ef);
 
-    // wi (M, n_tx, 3): from SPM (via wi_r), from sh cross, from pin cross,
-    // from wo_dot_wi (Jones h cos_h path + h_len).
-    atomicAdd(&grad_wi[mt3+0], g_wi_x_sh + g_wi_x_pin + g_wi_x_wdw);
-    atomicAdd(&grad_wi[mt3+1], g_wi_y_sh + g_wi_y_pin + g_wi_y_wdw);
-    atomicAdd(&grad_wi[mt3+2], g_wi_z_sh + g_wi_z_pin + g_wi_z_wdw);
+    // wi (M, n_tx, 3): skipped — flows only to frozen `positions`
+    // (LEARN_POSITIONS=False). The autograd.Function returns a pre-
+    // zeroed tensor for grad_wi so PyTorch's chain rule sees zeros and
+    // doesn't propagate anywhere useful. Saves 3 atomicAdds per thread.
+    // (void)(g_wi_x_sh + g_wi_x_pin + g_wi_x_wdw);  // keep vars live for optimizer
 
     // wi_r (M, n_tx, 3): from SPM cos_dev
     atomicAdd(&grad_wi_r[mt3+0], g_wir_x);
@@ -695,16 +695,8 @@ __global__ void bsdf_step4_backward_kernel(
     atomicAdd(&grad_s_in[mt3+1], g_s_y_total);
     atomicAdd(&grad_s_in[mt3+2], g_s_z_total);
 
-    // wo (M, n_rx, 3): contributions from many places
-    float g_wo_x_total = g_wo_x_spm + g_wo_x_mac1 + g_wo_x_mac2 + g_wo_x_ka1
-                       + g_wo_x_sh + g_wo_x_pout + g_wo_x_wdw;
-    float g_wo_y_total = g_wo_y_spm + g_wo_y_mac1 + g_wo_y_mac2 + g_wo_y_ka1
-                       + g_wo_y_sh + g_wo_y_pout + g_wo_y_wdw;
-    float g_wo_z_total = g_wo_z_spm + g_wo_z_mac1 + g_wo_z_mac2 + g_wo_z_ka1
-                       + g_wo_z_sh + g_wo_z_pout + g_wo_z_wdw;
-    atomicAdd(&grad_wo[mr3+0], g_wo_x_total);
-    atomicAdd(&grad_wo[mr3+1], g_wo_y_total);
-    atomicAdd(&grad_wo[mr3+2], g_wo_z_total);
+    // wo (M, n_rx, 3): skipped — flows only to frozen `positions`
+    // (LEARN_POSITIONS=False). Same rationale as grad_wi above.
 }
 
 void launch_bsdf_step4_backward(
