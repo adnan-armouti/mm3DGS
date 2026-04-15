@@ -461,7 +461,7 @@ def render_factorized(
     # Instead of computing cos/sin for K=256 ADC samples per path,
     # deposit each Gaussian's amplitude at ~5 range bins per channel.
 
-    from mm25DGS_v5.psf import hann_psf
+    from mm25DGS_v5.psf import hann_psf, HannPSFTable
 
     # Weight per (M, n_tx, n_rx)
     sqrt_f_cos = torch.sqrt(f_cos.clamp(min=1e-20))
@@ -494,8 +494,6 @@ def render_factorized(
     # Splat to range bins with Hann PSF (precomputed lookup table)
     SPREAD = 15
 
-    from mm25DGS_v5.psf import HannPSFTable
-
     # Lazy-init PSF table (created once, reused across calls)
     if not hasattr(render_factorized, '_psf_table') or \
        render_factorized._psf_table.K != K or \
@@ -503,6 +501,31 @@ def render_factorized(
        render_factorized._psf_table.device != str(device):
         render_factorized._psf_table = HannPSFTable(K, SPREAD, n_grid=1024, device=str(device))
     psf_table = render_factorized._psf_table
+
+    # Phase D: fused CUDA Step-5 kernel — avoids materializing the
+    # (SPREAD, M·n_tx·n_rx) contrib tensors (~540 MB at target_n=90K).
+    # Falls back to PyTorch scatter_add when the extension isn't loaded
+    # or use_cuda_kernels is False.
+    _use_cuda_step5 = use_cuda_kernels and detach_phase  # fused bwd assumes detached phase
+    if _use_cuda_step5:
+        try:
+            from mm25DGS_v5 import cuda as _v5cuda
+            _use_cuda_step5 = _v5cuda.is_available()
+        except Exception:
+            _use_cuda_step5 = False
+
+    if _use_cuda_step5:
+        from mm25DGS_v5.cuda import step5_fused as _cuda_step5
+        rp_real, rp_imag = _cuda_step5(
+            w_full.contiguous(),
+            phi_carrier.contiguous(),
+            n_peak.contiguous(),
+            psf_table.psf_real,
+            psf_table.psf_imag,
+            K,
+            1e-20,
+        )
+        return rp_real, rp_imag
 
     n_floor = n_peak.floor().long()
     n_frac = n_peak - n_floor.float()
@@ -560,10 +583,29 @@ def render_factorized(
     contrib_real_all = carrier_real[None, :] * psf_r - carrier_imag[None, :] * psf_i
     contrib_imag_all = carrier_real[None, :] * psf_i + carrier_imag[None, :] * psf_r
 
-    # Single scatter_add
-    rp_real = torch.zeros(n_tx, n_rx, K, device=device)
-    rp_imag = torch.zeros(n_tx, n_rx, K, device=device)
-    rp_real.view(-1).scatter_add_(0, flat_idx_all.reshape(-1), contrib_real_all.reshape(-1))
-    rp_imag.view(-1).scatter_add_(0, flat_idx_all.reshape(-1), contrib_imag_all.reshape(-1))
+    # Phase D: fused CUDA scatter splat (autograd-wrapped). Falls back
+    # to the PyTorch scatter_add_ path when the extension isn't loaded
+    # or use_cuda_kernels is False.
+    _use_cuda_scatter = use_cuda_kernels
+    if _use_cuda_scatter:
+        try:
+            from mm25DGS_v5 import cuda as _v5cuda
+            _use_cuda_scatter = _v5cuda.is_available()
+        except Exception:
+            _use_cuda_scatter = False
+
+    if _use_cuda_scatter:
+        from mm25DGS_v5.cuda import splat_scatter as _cuda_splat_scatter
+        rp_real, rp_imag = _cuda_splat_scatter(
+            contrib_real_all.reshape(-1),
+            contrib_imag_all.reshape(-1),
+            flat_idx_all.reshape(-1),
+            (n_tx, n_rx, K),
+        )
+    else:
+        rp_real = torch.zeros(n_tx, n_rx, K, device=device)
+        rp_imag = torch.zeros(n_tx, n_rx, K, device=device)
+        rp_real.view(-1).scatter_add_(0, flat_idx_all.reshape(-1), contrib_real_all.reshape(-1))
+        rp_imag.view(-1).scatter_add_(0, flat_idx_all.reshape(-1), contrib_imag_all.reshape(-1))
 
     return rp_real, rp_imag

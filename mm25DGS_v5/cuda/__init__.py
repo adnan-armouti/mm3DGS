@@ -80,6 +80,111 @@ def scatter_splat(contrib_real, contrib_imag, flat_idx, rp_real, rp_imag):
     ext.scatter_splat(contrib_real, contrib_imag, flat_idx, rp_real, rp_imag)
 
 
+class ScatterSplatFn(torch.autograd.Function):
+    """Phase D autograd wrapper for the scatter_splat CUDA kernel.
+
+    Forward: writes contrib_real / contrib_imag into rp_real / rp_imag
+    via atomicAdd, returning the accumulated rp tensors.
+
+    Backward: grad flows to contrib_real / contrib_imag via a gather
+    (`grad_contrib[i] = grad_rp.view(-1)[flat_idx[i]]`) — this is
+    PyTorch's standard scatter_add backward, just faster because we do
+    a single fused gather per output instead of two.
+    """
+
+    @staticmethod
+    def forward(ctx, contrib_real, contrib_imag, flat_idx,
+                out_shape_tx, out_shape_rx, out_shape_k):
+        contrib_real = contrib_real.contiguous()
+        contrib_imag = contrib_imag.contiguous()
+        flat_idx     = flat_idx.contiguous()
+        rp_real = torch.zeros(out_shape_tx, out_shape_rx, out_shape_k,
+                              device=contrib_real.device,
+                              dtype=contrib_real.dtype)
+        rp_imag = torch.zeros_like(rp_real)
+        ext.scatter_splat(contrib_real, contrib_imag, flat_idx, rp_real, rp_imag)
+        ctx.save_for_backward(flat_idx)
+        ctx.rp_numel = rp_real.numel()
+        return rp_real, rp_imag
+
+    @staticmethod
+    def backward(ctx, grad_rp_real, grad_rp_imag):
+        (flat_idx,) = ctx.saved_tensors
+        # Gather: grad_contrib[i] = grad_rp.view(-1)[flat_idx[i]]
+        grad_real_flat = grad_rp_real.reshape(-1)
+        grad_imag_flat = grad_rp_imag.reshape(-1)
+        grad_contrib_real = grad_real_flat[flat_idx]
+        grad_contrib_imag = grad_imag_flat[flat_idx]
+        return grad_contrib_real, grad_contrib_imag, None, None, None, None
+
+
+def splat_scatter(contrib_real, contrib_imag, flat_idx, out_shape):
+    """Autograd-friendly entry point. Returns (rp_real, rp_imag)."""
+    if ext is None:
+        raise RuntimeError("mm25dgs_v5_cuda extension is not built.")
+    return ScatterSplatFn.apply(
+        contrib_real, contrib_imag, flat_idx,
+        out_shape[0], out_shape[1], out_shape[2],
+    )
+
+
+class Step5FusedFn(torch.autograd.Function):
+    """Phase D fused Step-5 autograd.Function.
+
+    Forward: takes (w_full, phi_carrier, n_peak, psf_real, psf_imag, K,
+    w_threshold), returns (rp_real, rp_imag). The kernel fuses:
+      - carrier phasor computation (sin/cos of phi)
+      - PSF table lookup with linear interpolation
+      - bin index computation (floor + offset mod K)
+      - contrib = carrier × psf complex multiply
+      - atomic scatter into rp_real, rp_imag
+    All intermediates stay in registers. No (SPREAD, P) contrib
+    materialization.
+
+    Backward: only computes grad_w_full. phi_carrier, n_peak, and the
+    PSF tables are treated as non-differentiable inputs (which matches
+    the production path where detach_phase=True and n_peak is
+    explicitly detached).
+    """
+
+    @staticmethod
+    def forward(ctx, w_full, phi_carrier, n_peak, psf_real, psf_imag,
+                K, w_threshold):
+        w_full      = w_full.contiguous()
+        phi_carrier = phi_carrier.contiguous()
+        n_peak      = n_peak.contiguous()
+        psf_real    = psf_real.contiguous()
+        psf_imag    = psf_imag.contiguous()
+        rp_real, rp_imag = ext.step5_fused_forward(
+            w_full, phi_carrier, n_peak, psf_real, psf_imag,
+            K, float(w_threshold),
+        )
+        ctx.save_for_backward(w_full, phi_carrier, n_peak, psf_real, psf_imag)
+        ctx.w_threshold = float(w_threshold)
+        return rp_real, rp_imag
+
+    @staticmethod
+    def backward(ctx, grad_rp_real, grad_rp_imag):
+        w_full, phi_carrier, n_peak, psf_real, psf_imag = ctx.saved_tensors
+        grad_w = ext.step5_fused_backward(
+            grad_rp_real.contiguous(), grad_rp_imag.contiguous(),
+            w_full, phi_carrier, n_peak, psf_real, psf_imag,
+            ctx.w_threshold,
+        )
+        # w_full, phi_carrier, n_peak, psf_real, psf_imag, K, w_threshold
+        return grad_w, None, None, None, None, None, None
+
+
+def step5_fused(w_full, phi_carrier, n_peak, psf_real, psf_imag,
+                K, w_threshold=1e-20):
+    """Autograd-friendly entry point for the fused Step-5 kernel."""
+    if ext is None:
+        raise RuntimeError("mm25dgs_v5_cuda extension is not built.")
+    return Step5FusedFn.apply(
+        w_full, phi_carrier, n_peak, psf_real, psf_imag, K, w_threshold,
+    )
+
+
 class BSDFStep4ForwardFn(torch.autograd.Function):
     """Phase B: fused Step-4 BSDF forward wrapped as an autograd.Function.
 

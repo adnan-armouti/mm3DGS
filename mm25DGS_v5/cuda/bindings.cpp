@@ -24,6 +24,23 @@ void launch_scatter_splat(
     float* rp_real, float* rp_imag,
     int64_t n_items, int64_t out_size, cudaStream_t stream);
 
+void launch_step5_fused_forward(
+    const float* w_full, const float* phi_carrier, const float* n_peak,
+    const float* psf_real, const float* psf_imag,
+    float* rp_real, float* rp_imag,
+    int M, int n_tx, int n_rx, int K,
+    int spread, int n_grid, float w_threshold,
+    cudaStream_t stream);
+
+void launch_step5_fused_backward(
+    const float* grad_rp_real, const float* grad_rp_imag,
+    const float* w_full, const float* phi_carrier, const float* n_peak,
+    const float* psf_real, const float* psf_imag,
+    float* grad_w,
+    int M, int n_tx, int n_rx, int K,
+    int spread, int n_grid, float w_threshold,
+    cudaStream_t stream);
+
 void launch_bsdf_step4_intermediates(
     const float* wi, const float* wi_r, const float* wo,
     const float* n_eff, const float* s_in,
@@ -418,6 +435,79 @@ std::vector<torch::Tensor> itu_slab_fresnel_debug(
     return {R_TE_re, R_TE_im, R_TM_re, R_TM_im};
 }
 
+// Phase D: fused Step-5 forward. Returns (rp_real, rp_imag) from
+// (w_full, phi_carrier, n_peak, psf_real, psf_imag). Shapes:
+//   w_full, phi_carrier, n_peak: (M, n_tx, n_rx)
+//   psf_real, psf_imag:          (spread, n_grid)
+//   rp_real, rp_imag (out):      (n_tx, n_rx, K)
+std::vector<torch::Tensor> step5_fused_forward(
+    torch::Tensor w_full, torch::Tensor phi_carrier, torch::Tensor n_peak,
+    torch::Tensor psf_real, torch::Tensor psf_imag,
+    int64_t K, double w_threshold)
+{
+    CHECK_CUDA(w_full); CHECK_CONTIG(w_full); CHECK_FLOAT32(w_full);
+    CHECK_CUDA(phi_carrier); CHECK_CONTIG(phi_carrier); CHECK_FLOAT32(phi_carrier);
+    CHECK_CUDA(n_peak); CHECK_CONTIG(n_peak); CHECK_FLOAT32(n_peak);
+    CHECK_CUDA(psf_real); CHECK_CONTIG(psf_real); CHECK_FLOAT32(psf_real);
+    CHECK_CUDA(psf_imag); CHECK_CONTIG(psf_imag); CHECK_FLOAT32(psf_imag);
+
+    const int M    = (int)w_full.size(0);
+    const int n_tx = (int)w_full.size(1);
+    const int n_rx = (int)w_full.size(2);
+    const int spread = (int)psf_real.size(0);
+    const int n_grid = (int)psf_real.size(1);
+
+    auto opts = torch::TensorOptions()
+        .dtype(torch::kFloat32).device(w_full.device());
+    auto rp_real = torch::zeros({n_tx, n_rx, (int64_t)K}, opts);
+    auto rp_imag = torch::zeros({n_tx, n_rx, (int64_t)K}, opts);
+
+    at::cuda::CUDAStream stream = at::cuda::getCurrentCUDAStream();
+    mm25v5::launch_step5_fused_forward(
+        w_full.data_ptr<float>(), phi_carrier.data_ptr<float>(),
+        n_peak.data_ptr<float>(),
+        psf_real.data_ptr<float>(), psf_imag.data_ptr<float>(),
+        rp_real.data_ptr<float>(), rp_imag.data_ptr<float>(),
+        M, n_tx, n_rx, (int)K, spread, n_grid, (float)w_threshold,
+        stream.stream());
+    return {rp_real, rp_imag};
+}
+
+torch::Tensor step5_fused_backward(
+    torch::Tensor grad_rp_real, torch::Tensor grad_rp_imag,
+    torch::Tensor w_full, torch::Tensor phi_carrier, torch::Tensor n_peak,
+    torch::Tensor psf_real, torch::Tensor psf_imag,
+    double w_threshold)
+{
+    CHECK_CUDA(grad_rp_real); CHECK_CONTIG(grad_rp_real); CHECK_FLOAT32(grad_rp_real);
+    CHECK_CUDA(grad_rp_imag); CHECK_CONTIG(grad_rp_imag); CHECK_FLOAT32(grad_rp_imag);
+    CHECK_CUDA(w_full); CHECK_CONTIG(w_full); CHECK_FLOAT32(w_full);
+    CHECK_CUDA(phi_carrier); CHECK_CONTIG(phi_carrier); CHECK_FLOAT32(phi_carrier);
+    CHECK_CUDA(n_peak); CHECK_CONTIG(n_peak); CHECK_FLOAT32(n_peak);
+
+    const int M    = (int)w_full.size(0);
+    const int n_tx = (int)w_full.size(1);
+    const int n_rx = (int)w_full.size(2);
+    const int K    = (int)grad_rp_real.size(2);
+    const int spread = (int)psf_real.size(0);
+    const int n_grid = (int)psf_real.size(1);
+
+    auto opts = torch::TensorOptions()
+        .dtype(torch::kFloat32).device(w_full.device());
+    auto grad_w = torch::empty({M, n_tx, n_rx}, opts);
+
+    at::cuda::CUDAStream stream = at::cuda::getCurrentCUDAStream();
+    mm25v5::launch_step5_fused_backward(
+        grad_rp_real.data_ptr<float>(), grad_rp_imag.data_ptr<float>(),
+        w_full.data_ptr<float>(), phi_carrier.data_ptr<float>(),
+        n_peak.data_ptr<float>(),
+        psf_real.data_ptr<float>(), psf_imag.data_ptr<float>(),
+        grad_w.data_ptr<float>(),
+        M, n_tx, n_rx, K, spread, n_grid, (float)w_threshold,
+        stream.stream());
+    return grad_w;
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.doc() = "mm25DGS_v5 CUDA kernels";
     m.def("bsdf_forward_stub", &bsdf_forward_stub,
@@ -433,6 +523,13 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("bsdf_step4_backward", &bsdf_step4_backward,
           "Phase C fused BSDF Step-4 backward kernel. Takes grad_f_cos "
           "and the 21 forward inputs, returns 21 grad tensors.");
+    m.def("step5_fused_forward", &step5_fused_forward,
+          "Phase D fused Step-5 range-profile splat forward. Returns "
+          "(rp_real, rp_imag) given (w_full, phi_carrier, n_peak, "
+          "psf_real, psf_imag).");
+    m.def("step5_fused_backward", &step5_fused_backward,
+          "Phase D fused Step-5 backward. Returns grad_w given "
+          "grad_rp_real/imag and the same forward inputs.");
     m.def("bsdf_microfacet_basis", &bsdf_microfacet_basis,
           "Debug-only: compute s_h, p_h_in, p_h_out from wi, wo.");
     m.def("bsdf_step4_intermediates", &bsdf_step4_intermediates,
