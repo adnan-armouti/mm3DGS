@@ -684,7 +684,12 @@ def get_lr_scale(iteration, warmup_iters=5, warmup_factor=0.3,
 
 
 def rms_clip_grad(param, max_rms):
-    """Per-parameter RMS gradient clipping."""
+    """Per-parameter RMS gradient clipping.
+
+    Data-dependent Python branch on `rms > max_rms`. Not CUDA-graph
+    compatible — use `rms_clip_grad_graph_safe` for graph-captured
+    training loops.
+    """
     if param.grad is None:
         return
     g = param.grad.data
@@ -693,6 +698,24 @@ def rms_clip_grad(param, max_rms):
     if rms > max_rms:
         g.mul_(max_rms / rms)
     param.grad.data = g
+
+
+def rms_clip_grad_graph_safe(param, max_rms):
+    """Graph-capture-safe RMS gradient clipping.
+
+    Equivalent to `rms_clip_grad`, but uses a GPU-only `min(1, max_rms/rms)`
+    scale instead of a Python `if` branch. The multiplication is always
+    applied; it's a no-op when rms ≤ max_rms (scale == 1). Also drops the
+    `nan_to_num` for speed (the CUDA kernels don't produce NaNs in
+    practice; if they do, training has other problems).
+    """
+    if param.grad is None:
+        return
+    g = param.grad.data
+    rms = torch.sqrt(torch.mean(g * g)).clamp(min=1e-30)
+    # scale = min(1, max_rms/rms) — data-independent branch-free form
+    scale = torch.clamp(max_rms / rms, max=1.0)
+    g.mul_(scale)
 
 
 def train_gaussians(scene, num_iters=500, target_n=90000, verbose=True,

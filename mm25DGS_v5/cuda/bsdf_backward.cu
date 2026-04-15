@@ -426,54 +426,63 @@ __global__ void bsdf_step4_backward_kernel(
     // with analytical derivatives if profiling shows it's worth it.
     float g_e_r = 0.0f, g_e_i = 0.0f, g_thk = 0.0f, g_cos_h_slab = 0.0f;
     {
-        // Central FD in double precision. Use itu_slab_fresnel_d for both
-        // the plus and minus evaluations so the derivative signal isn't
-        // drowned out by float32 rounding on the slab fresnel output.
-        // h = 1e-6 relative — small enough that the derivative is
-        // accurate, large enough that the float64 difference survives
-        // subtraction.
-        const double h_step = 1e-6;
-        const double dh_r = h_step * fmax((double)fabsf(e_r), 1.0);
-        const double dh_i = h_step * fmax((double)fabsf(e_i), 1.0);
-        const double dh_c = h_step;
-        const double dh_t = h_step * fmax((double)fabsf(thk), 1.0);
+        // Hybrid FD: forward difference for eps_real, eps_imag, cos_h
+        // (3 perturbed calls + 1 baseline = 4 calls), central difference
+        // for thickness (2 calls). Total: 6 slab_fresnel_d calls vs 8
+        // for pure central. Thickness needs central because the slab
+        // phase q = (2π/λ)·d·a reaches ~9000 rad at d=1.7 m, making
+        // d/dthk highly oscillatory; the O(h²) error of central is
+        // essential to avoid the ~6% max rel err that forward diff
+        // produces at thick-slab paths.
+        const double h_fwd = 1e-5;
+        const double h_cen = 1e-6;
+        const double dh_r = h_fwd * fmax((double)fabsf(e_r), 1.0);
+        const double dh_i = h_fwd * fmax((double)fabsf(e_i), 1.0);
+        const double dh_c = h_fwd;
+        const double dh_t = h_cen * fmax((double)fabsf(thk), 1.0);
         const double e_r_d  = (double)e_r;
         const double e_i_d  = (double)e_i;
         const double cos_h_d= (double)cos_h;
         const double thk_d  = (double)thk;
-        double2 rsp_p, rpp_p, rsp_m, rpp_m;
 
-        auto accum = [&] __device__ (
-            double inv2h,
-            const double2& rsp_pp, const double2& rpp_pp,
-            const double2& rsp_mm, const double2& rpp_mm,
+        // Baseline: reused as f(x) for the forward diffs.
+        double2 rs_base, rp_base;
+        itu_slab_fresnel_d(e_r_d, e_i_d, cos_h_d, thk_d, rs_base, rp_base);
+
+        double2 rsp, rpp;
+
+        auto accum_fwd = [&] __device__ (
+            double inv_h,
+            const double2& rsp_p, const double2& rpp_p,
             float& out_g)
         {
-            out_g += g_r_s_h_re * (float)(inv2h * (rsp_pp.x - rsp_mm.x));
-            out_g += g_r_s_h_im * (float)(inv2h * (rsp_pp.y - rsp_mm.y));
-            out_g += g_r_p_h_re * (float)(inv2h * (rpp_pp.x - rpp_mm.x));
-            out_g += g_r_p_h_im * (float)(inv2h * (rpp_pp.y - rpp_mm.y));
+            out_g += g_r_s_h_re * (float)(inv_h * (rsp_p.x - rs_base.x));
+            out_g += g_r_s_h_im * (float)(inv_h * (rsp_p.y - rs_base.y));
+            out_g += g_r_p_h_re * (float)(inv_h * (rpp_p.x - rp_base.x));
+            out_g += g_r_p_h_im * (float)(inv_h * (rpp_p.y - rp_base.y));
         };
 
-        // d/d eps_real
-        itu_slab_fresnel_d(e_r_d + dh_r, e_i_d, cos_h_d, thk_d, rsp_p, rpp_p);
-        itu_slab_fresnel_d(e_r_d - dh_r, e_i_d, cos_h_d, thk_d, rsp_m, rpp_m);
-        accum(0.5 / dh_r, rsp_p, rpp_p, rsp_m, rpp_m, g_e_r);
+        // d/d eps_real (forward diff)
+        itu_slab_fresnel_d(e_r_d + dh_r, e_i_d, cos_h_d, thk_d, rsp, rpp);
+        accum_fwd(1.0 / dh_r, rsp, rpp, g_e_r);
 
-        // d/d eps_imag
-        itu_slab_fresnel_d(e_r_d, e_i_d + dh_i, cos_h_d, thk_d, rsp_p, rpp_p);
-        itu_slab_fresnel_d(e_r_d, e_i_d - dh_i, cos_h_d, thk_d, rsp_m, rpp_m);
-        accum(0.5 / dh_i, rsp_p, rpp_p, rsp_m, rpp_m, g_e_i);
+        // d/d eps_imag (forward diff)
+        itu_slab_fresnel_d(e_r_d, e_i_d + dh_i, cos_h_d, thk_d, rsp, rpp);
+        accum_fwd(1.0 / dh_i, rsp, rpp, g_e_i);
 
-        // d/d cos_h
-        itu_slab_fresnel_d(e_r_d, e_i_d, cos_h_d + dh_c, thk_d, rsp_p, rpp_p);
-        itu_slab_fresnel_d(e_r_d, e_i_d, cos_h_d - dh_c, thk_d, rsp_m, rpp_m);
-        accum(0.5 / dh_c, rsp_p, rpp_p, rsp_m, rpp_m, g_cos_h_slab);
+        // d/d cos_h (forward diff)
+        itu_slab_fresnel_d(e_r_d, e_i_d, cos_h_d + dh_c, thk_d, rsp, rpp);
+        accum_fwd(1.0 / dh_c, rsp, rpp, g_cos_h_slab);
 
-        // d/d thickness
-        itu_slab_fresnel_d(e_r_d, e_i_d, cos_h_d, thk_d + dh_t, rsp_p, rpp_p);
+        // d/d thickness — central difference (high sensitivity at thick slabs)
+        double2 rsp_m, rpp_m;
+        itu_slab_fresnel_d(e_r_d, e_i_d, cos_h_d, thk_d + dh_t, rsp, rpp);
         itu_slab_fresnel_d(e_r_d, e_i_d, cos_h_d, thk_d - dh_t, rsp_m, rpp_m);
-        accum(0.5 / dh_t, rsp_p, rpp_p, rsp_m, rpp_m, g_thk);
+        const double inv2ht = 0.5 / dh_t;
+        g_thk += g_r_s_h_re * (float)(inv2ht * (rsp.x - rsp_m.x));
+        g_thk += g_r_s_h_im * (float)(inv2ht * (rsp.y - rsp_m.y));
+        g_thk += g_r_p_h_re * (float)(inv2ht * (rpp.x - rpp_m.x));
+        g_thk += g_r_p_h_im * (float)(inv2ht * (rpp.y - rpp_m.y));
     }
     // cos_h also had a direct grad path through Jones h; add it here.
     // cos_h = max(cos_h_raw, 1e-6);  cos_h_raw = (1 + wo_dot_wi) / h_len
