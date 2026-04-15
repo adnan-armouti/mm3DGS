@@ -53,19 +53,39 @@ __device__ __forceinline__ float2 cdiv(float2 a, float2 b) {
     return make_float2((a.x * b.x + a.y * b.y) * inv,
                        (a.y * b.x - a.x * b.y) * inv);
 }
-// complex sqrt (principal branch), using polar form.
+// Numerically stable complex sqrt (principal branch).
+//
+// The naive form `re = sqrt((|z|+x)/2), im = sign(y)*sqrt((|z|-x)/2)`
+// suffers catastrophic cancellation in one of the two sqrt arguments when
+// |y| << |x|: the subtraction `|z|-x` loses all the small-y information.
+// We instead compute the large component directly and derive the small
+// one from the identity 2*re*im = y (which follows from (re+i*im)^2 = z).
 __device__ __forceinline__ float2 csqrt(float2 a) {
+    if (a.x == 0.0f && a.y == 0.0f) return make_float2(0.0f, 0.0f);
     float r = sqrtf(a.x * a.x + a.y * a.y);
-    float re = sqrtf(0.5f * (r + a.x));
-    float im = sqrtf(fmaxf(0.5f * (r - a.x), 0.0f));
-    if (a.y < 0.0f) im = -im;
+    float re, im;
+    if (a.x >= 0.0f) {
+        re = sqrtf(0.5f * (r + a.x));
+        // Guard the divide: if re is zero then a = 0 (handled above).
+        im = (re > 0.0f) ? (0.5f * a.y / re) : 0.0f;
+    } else {
+        im = sqrtf(0.5f * (r - a.x));
+        if (a.y < 0.0f) im = -im;
+        re = (im != 0.0f) ? (0.5f * a.y / im) : 0.0f;
+    }
     return make_float2(re, im);
 }
-// complex exp
+// complex exp. Uses float64 range reduction for the imaginary part so it
+// remains accurate when the argument is much larger than 2π (the slab
+// Fresnel phase q = (2π/λ)·d·a reaches ~9000 rad at d=1.7 m, and the
+// __sincosf intrinsic enabled by --use_fast_math only gives good
+// precision for |x| ≲ π. Double-precision fmod costs a few ops but
+// restores correctness.
 __device__ __forceinline__ float2 cexp(float2 a) {
     float er = expf(a.x);
+    double y_reduced = fmod((double)a.y, 6.283185307179586);
     float s, c;
-    __sincosf(a.y, &s, &c);
+    __sincosf((float)y_reduced, &s, &c);
     return make_float2(er * c, er * s);
 }
 

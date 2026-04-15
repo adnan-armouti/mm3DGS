@@ -36,6 +36,7 @@ def render_factorized(
     shadow_mask=None,   # (M, n_tx) bool — False = occluded, zero weight
     bsdf_mode='full',   # 'full' (default), or 'scalar' (B1 baseline)
     disabled_components=None,  # Phase 1.5: set of {'cbs','directive','broad','spm','ka','blend','jones','slab'}
+    use_cuda_kernels=True,  # Phase B: route Step 4 through the fused CUDA kernel
 ):
     """Range-profile splatting renderer. Returns (rp_real, rp_imag).
 
@@ -233,191 +234,226 @@ def render_factorized(
     # wo directions: (M, n_rx, 3) — dir_hit_to_rx
     wo = dir_hit_to_rx  # (M, n_rx, 3)
 
-    # We need f_bsdf(t,r) for each (M, n_tx, n_rx).
-    # Precomputed per-TX: wi_r (M, n_tx, 3), E_s_out/E_p_out (M, n_tx) complex,
-    #   tau_eff (M, n_tx), lambda_i (M, n_tx), s_in (M, n_tx, 3), cos_i (M, n_tx)
-    # Precomputed per-RX: cos_o (M, n_rx), lambda_o (M, n_rx), wo (M, n_rx, 3)
-    # Precomputed per-Gaussian: alpha_sq (M,), kappa_SPM (M,), norm_SPM (M,),
-    #   eps_factor (M,)
+    # Phase B: route Step 4 through the fused CUDA kernel when available.
+    # Falls back to PyTorch on any of:
+    #   - extension not built
+    #   - bsdf_mode != 'full' (scalar mode or anything exotic)
+    #   - any component in `disabled` (jones/ka/spm ablations bypass this)
+    _use_cuda = use_cuda_kernels and bsdf_mode == 'full' and not disabled
+    if _use_cuda:
+        try:
+            from mm25DGS_v5 import cuda as _v5cuda
+            _use_cuda = _v5cuda.is_available()
+        except Exception:
+            _use_cuda = False
 
-    # --- KA lobe: need half vector h = norm(wo + wi), then h·n ---
-    # wi: (M, n_tx, 3), wo: (M, n_rx, 3)
-    # h: (M, n_tx, n_rx, 3) — this is the 192× expansion, but only for h·n (scalar)
-    # h·n = (wo + wi)·n / |wo + wi|
-    # Numerator: wo·n + wi·n = cos_o_signed + cos_i_signed
-    # But we need to use the TX-specific flipped normal for wi·n consistency.
-    #
-    # More carefully: h = normalize(wo + wi). h·n depends on the actual vectors.
-    # We can compute h·n without forming the full (M, n_tx, n_rx, 3) tensor:
-    #
-    # (wo + wi)·n = wo·n + wi·n
-    # |wo + wi|² = |wo|² + |wi|² + 2(wo·wi) = 2 + 2(wo·wi)  (unit vectors)
-    # |wo + wi| = sqrt(2 + 2 wo·wi)
-    #
-    # wo·wi: (M, n_tx, n_rx) via einsum
-    wo_dot_wi = torch.einsum('mrj,mtj->mtr', wo, wi)                  # (M, n_tx, n_rx)
-
-    # wo·n_eff and wi·n_eff (using TX-flipped normals)
-    # wi·n_eff = cos_i (already computed, (M, n_tx))
-    # wo·n_eff: need per (M, n_tx, n_rx) since n_eff varies per TX
-    wo_dot_n = torch.einsum('mrj,mtj->mtr', wo, n_eff)                # (M, n_tx, n_rx)
-
-    h_dot_n_num = wo_dot_n + cos_i.unsqueeze(-1)                      # (M, n_tx, n_rx)
-    h_len = torch.sqrt((2.0 + 2.0 * wo_dot_wi).clamp(min=1e-10))     # (M, n_tx, n_rx)
-    h_dot_n = (h_dot_n_num / h_len).clamp(min=0.0)                    # (M, n_tx, n_rx)
-
-    # GGX NDF: D = α² / (π ((h·n)²(α²-1)+1)²)
-    denom_ndf = (h_dot_n ** 2 * (alpha_sq[:, None, None] - 1.0) + 1.0) ** 2
-    D_KA = alpha_sq[:, None, None] / (math.pi * denom_ndf.clamp(min=1e-20))
-
-    # Smith G (joint form, exact): G = 1 / (1 + Λ_i + Λ_o)
-    G_KA = 1.0 / (1.0 + lambda_i.unsqueeze(-1) + lambda_o.unsqueeze(-2)).clamp(min=1e-10)
-
-    # Cook-Torrance: f_KA = D × G / (4 cos_i cos_o)
-    f_KA = D_KA * G_KA / (4.0 * cos_i.unsqueeze(-1) * cos_o.unsqueeze(-2)).clamp(min=1e-10)
-    if 'ka' in disabled:
-        f_KA = torch.zeros_like(f_KA)
-
-    # --- SPM lobe: cos_dev = wo · wi_r ---
-    cos_dev = torch.einsum('mrj,mtj->mtr', wo, wi_r)                  # (M, n_tx, n_rx)
-    cos_dev = cos_dev.clamp(-1.0, 1.0)
-    f_SPM = norm_SPM[:, None, None] * torch.exp(kappa_SPM[:, None, None] * (cos_dev - 1.0))
-    f_SPM = f_SPM * eps_factor[:, None, None]
-    if 'spm' in disabled:
-        f_SPM = torch.zeros_like(f_SPM)
-
-    # --- Jones Fresnel power per (TX, RX) ---
-    # Macro-normal RX projection basis (shared by KA and SPM). See note on
-    # the half-vector refinement below.
-    rx_s = (rx_pol * s_in).sum(-1)                                     # (M, n_tx) -- same for all RX
-
-    # p_out = cross(s_in, wo) -- varies per (TX, RX)
-    # Triple product: rx_pol · (s_in × wo) = wo · (rx_pol × s_in)
-    rx_pol_cross_s = torch.cross(
-        rx_pol.expand_as(s_in), s_in, dim=-1)                          # (M, n_tx, 3)
-    rx_p = torch.einsum('mrj,mtj->mtr', wo, rx_pol_cross_s)           # (M, n_tx, n_rx)
-    # Normalize by |cross(s_in, wo)| = sin(angle)
-    s_cross_wo_sq = 1.0 - torch.einsum('mrj,mtj->mtr', wo, s_in) ** 2
-    p_out_norm = torch.sqrt(s_cross_wo_sq.clamp(min=1e-12))
-    rx_p = rx_p / p_out_norm                                           # (M, n_tx, n_rx)
-
-    # --- R_jones_macro: macro-normal Fresnel, used for SPM lobe ---
-    # E_s_out / E_p_out are from Fresnel at cos_i = wi · n (macro-normal).
-    E_rx = E_s_out.unsqueeze(-1) * rx_s.unsqueeze(-1).to(torch.complex64) \
-         + E_p_out.unsqueeze(-1) * rx_p.to(torch.complex64)           # (M, n_tx, n_rx) complex
-    R_jones_macro = _cpx_abs_sq(E_rx).clamp(0.0, 1.0)                 # (M, n_tx, n_rx)
-
-    # --- R_jones_h: full microfacet-correct Jones for the KA lobe (1A'') ---
-    # Walter et al. 2007, "Microfacet Models for Refraction through Rough
-    # Surfaces": for a GGX microfacet BSDF, the specular reflection at a
-    # path (wi, wo) happens at a microfacet whose normal is the half-vector
-    # h = normalize(wi + wo). The local incidence angle, polarization basis,
-    # and Fresnel coefficients should all be computed relative to h, not
-    # the macro normal n.
-    #
-    # This block computes a fully microfacet-correct Jones for the KA
-    # (coherent specular) lobe: per-path s/p polarization basis (s_h,
-    # p_h_in, p_h_out), per-path microfacet Fresnel at cos_h, and per-path
-    # recombination through the microfacet basis. The result R_jones_h is
-    # exact for any GGX roughness and any TX/RX array geometry (monostatic,
-    # compact bistatic, wide bistatic, distributed arrays).
-    #
-    # At the flat-surface limit (α → 0, h → n), s_h → s_in and the result
-    # reduces to the macro Jones R_jones_macro. For moderate roughness
-    # (α ~ 0.4) and compact arrays, the correction is small but
-    # physically consistent.
-    #
-    # The SPM lobe continues to use R_jones_macro (incoherent average over
-    # microfacets uses the mean-surface / macro-normal Fresnel).
-    #
-    # Memory: 4 new (M, n_tx, n_rx, 3) float32 tensors ≈ 400 MB at
-    # M=45K, 192 channels. Scales linearly with channel count.
-
-    # Per-path microfacet geometry
-    wi_exp = wi.unsqueeze(2).expand(-1, -1, n_rx, -1).contiguous()     # (M, n_tx, n_rx, 3)
-    wo_exp = wo.unsqueeze(1).expand(-1, n_tx, -1, -1).contiguous()     # (M, n_tx, n_rx, 3)
-
-    h_vec = wi_exp + wo_exp
-    h_norm = h_vec.norm(dim=-1, keepdim=True).clamp(min=1e-6)
-    h_vec = h_vec / h_norm                                              # (M, n_tx, n_rx, 3)
-    cos_h = (wi_exp * h_vec).sum(-1).clamp(min=1e-6)                   # (M, n_tx, n_rx)
-
-    # Microfacet s-basis: perpendicular to the microfacet plane of
-    # incidence (containing wi and h). Unit vector.
-    # Note: s_h ⊥ wi by construction, so downstream cross products with
-    # wi or wo are well-behaved (nonzero magnitude).
-    s_h_raw = torch.cross(wi_exp, h_vec, dim=-1)
-    s_h_norm = s_h_raw.norm(dim=-1, keepdim=True).clamp(min=1e-6)
-    s_h_vec = s_h_raw / s_h_norm                                        # (M, n_tx, n_rx, 3)
-
-    # Microfacet p-basis for the incoming wave: in the plane of incidence,
-    # perpendicular to wi. Since s_h ⊥ wi, |s_h × wi| = 1 exactly at the
-    # limit where s_h is a unit vector perpendicular to wi, so the norm
-    # below is ~1 up to numerical noise. Still normalize for safety.
-    p_h_in_raw = torch.cross(s_h_vec, wi_exp, dim=-1)
-    p_h_in = p_h_in_raw / p_h_in_raw.norm(dim=-1, keepdim=True).clamp(min=1e-6)
-
-    # Microfacet p-basis for the outgoing wave: in the plane of incidence,
-    # perpendicular to wo. For bistatic arrays, wo is NOT parallel to the
-    # reflection of wi about h in general (only at the specific microfacet
-    # that satisfies the reflection law, which gives wo = reflect(wi, h)).
-    # At that specific microfacet, wo is in the (wi, h) plane, so p_h_out
-    # is well-defined and is perpendicular to wo.
-    p_h_out_raw = torch.cross(s_h_vec, wo_exp, dim=-1)
-    p_h_out = p_h_out_raw / p_h_out_raw.norm(dim=-1, keepdim=True).clamp(min=1e-6)
-
-    # Project TX and RX polarization vectors onto microfacet basis
-    tx_pol_b = tx_pol.view(1, 1, 1, 3)
-    rx_pol_b = rx_pol.view(1, 1, 1, 3)
-
-    tx_s_h = (tx_pol_b * s_h_vec).sum(-1)                              # (M, n_tx, n_rx)
-    tx_p_h_in = (tx_pol_b * p_h_in).sum(-1)                            # (M, n_tx, n_rx)
-
-    rx_s_h = (rx_pol_b * s_h_vec).sum(-1)                              # (M, n_tx, n_rx)
-    rx_p_h_out = (rx_pol_b * p_h_out).sum(-1)                          # (M, n_tx, n_rx)
-
-    # Per-path slab Fresnel at the microfacet incidence angle cos_h
-    cos_h_flat = cos_h.reshape(-1)
-    eps_r_flat_h = eps_real[:, None, None].expand(-1, n_tx, n_rx).reshape(-1)
-    eps_i_flat_h = eps_imag[:, None, None].expand(-1, n_tx, n_rx).reshape(-1)
-    thick_flat_h = thickness[:, None, None].expand(-1, n_tx, n_rx).reshape(-1)
-    R_TE_h, R_TM_h, _, _ = itu_slab_fresnel(
-        eps_r_flat_h, eps_i_flat_h, cos_h_flat, thick_flat_h)
-    r_s_h = R_TE_h.reshape(M, n_tx, n_rx)                               # (M, n_tx, n_rx) complex
-    r_p_h = R_TM_h.reshape(M, n_tx, n_rx)                               # (M, n_tx, n_rx) complex
-
-    # Reflected field components in microfacet basis
-    E_s_out_h = r_s_h * tx_s_h.to(torch.complex64)                     # (M, n_tx, n_rx) complex
-    E_p_out_h = r_p_h * tx_p_h_in.to(torch.complex64)                  # (M, n_tx, n_rx) complex
-
-    # Project onto RX polarization in microfacet outgoing basis
-    E_rx_h = (E_s_out_h * rx_s_h.to(torch.complex64)
-              + E_p_out_h * rx_p_h_out.to(torch.complex64))             # (M, n_tx, n_rx) complex
-    R_jones_h = _cpx_abs_sq(E_rx_h).clamp(0.0, 1.0)                    # (M, n_tx, n_rx)
-
-    # Jones disable path: replace BOTH Fresnel versions with scalar |r|².
-    # For the microfacet path, use the per-path r_s_h / r_p_h values.
-    if 'jones' in disabled:
-        Rs_sq = _cpx_abs_sq(E_s_out).clamp(0.0, 1.0)
-        Rp_sq = _cpx_abs_sq(E_p_out).clamp(0.0, 1.0)
-        R_scalar = 0.5 * (Rs_sq + Rp_sq)
-        R_jones_macro = R_scalar.unsqueeze(-1).expand(-1, -1, n_rx)
-        Rs_sq_h = _cpx_abs_sq(r_s_h).clamp(0.0, 1.0)
-        Rp_sq_h = _cpx_abs_sq(r_p_h).clamp(0.0, 1.0)
-        R_jones_h = 0.5 * (Rs_sq_h + Rp_sq_h)
-
-    # --- Final BSDF: per-lobe Fresnel ---
-    # KA uses half-vector Fresnel (microfacet-correct).
-    # SPM uses macro-normal Fresnel (incoherent average over microfacets).
-    if bsdf_mode == 'scalar':
-        # B1 baseline: f_cos = sigmoid(reflectivity) × cos_i
-        rho = torch.sigmoid(raw_materials[:, 0])
-        f_cos = rho[:, None, None] * cos_i.unsqueeze(-1)
-        f_cos = f_cos.expand(-1, -1, n_rx).contiguous()
+    if _use_cuda:
+        from mm25DGS_v5.cuda import bsdf_step4_forward as _cuda_bsdf_step4
+        # wi_r = 2*(wi·n_eff)*n_eff - wi  (precomputed per TX, matches the
+        # PyTorch Step 2 block earlier in this function).
+        wi_dot_n = (wi * n_eff).sum(-1, keepdim=True)
+        wi_r = 2.0 * wi_dot_n * n_eff - wi
+        f_cos = _cuda_bsdf_step4(
+            wi.contiguous(), wi_r.contiguous(), wo.contiguous(),
+            n_eff.contiguous(), s_in.contiguous(),
+            cos_i.contiguous(), cos_o.contiguous(),
+            lambda_i.contiguous(), lambda_o.contiguous(),
+            alpha_sq.contiguous(),
+            kappa_SPM.contiguous(), norm_SPM.contiguous(),
+            eps_factor.contiguous(),
+            eps_real.contiguous(), eps_imag.contiguous(),
+            thickness.contiguous(),
+            E_s_out.real.contiguous(), E_s_out.imag.contiguous(),
+            E_p_out.real.contiguous(), E_p_out.imag.contiguous(),
+            tau_eff.contiguous(),
+        )
     else:
-        tau_eff_ext = tau_eff.unsqueeze(-1)                            # (M, n_tx, 1)
-        f_coh = tau_eff_ext * R_jones_h * f_KA + (1.0 - tau_eff_ext) * R_jones_macro * f_SPM
-        f_cos = f_coh * cos_i.unsqueeze(-1)                            # (M, n_tx, n_rx)
+
+        # We need f_bsdf(t,r) for each (M, n_tx, n_rx).
+        # Precomputed per-TX: wi_r (M, n_tx, 3), E_s_out/E_p_out (M, n_tx) complex,
+        #   tau_eff (M, n_tx), lambda_i (M, n_tx), s_in (M, n_tx, 3), cos_i (M, n_tx)
+        # Precomputed per-RX: cos_o (M, n_rx), lambda_o (M, n_rx), wo (M, n_rx, 3)
+        # Precomputed per-Gaussian: alpha_sq (M,), kappa_SPM (M,), norm_SPM (M,),
+        #   eps_factor (M,)
+
+        # --- KA lobe: need half vector h = norm(wo + wi), then h·n ---
+        # wi: (M, n_tx, 3), wo: (M, n_rx, 3)
+        # h: (M, n_tx, n_rx, 3) — this is the 192× expansion, but only for h·n (scalar)
+        # h·n = (wo + wi)·n / |wo + wi|
+        # Numerator: wo·n + wi·n = cos_o_signed + cos_i_signed
+        # But we need to use the TX-specific flipped normal for wi·n consistency.
+        #
+        # More carefully: h = normalize(wo + wi). h·n depends on the actual vectors.
+        # We can compute h·n without forming the full (M, n_tx, n_rx, 3) tensor:
+        #
+        # (wo + wi)·n = wo·n + wi·n
+        # |wo + wi|² = |wo|² + |wi|² + 2(wo·wi) = 2 + 2(wo·wi)  (unit vectors)
+        # |wo + wi| = sqrt(2 + 2 wo·wi)
+        #
+        # wo·wi: (M, n_tx, n_rx) via einsum
+        wo_dot_wi = torch.einsum('mrj,mtj->mtr', wo, wi)                  # (M, n_tx, n_rx)
+
+        # wo·n_eff and wi·n_eff (using TX-flipped normals)
+        # wi·n_eff = cos_i (already computed, (M, n_tx))
+        # wo·n_eff: need per (M, n_tx, n_rx) since n_eff varies per TX
+        wo_dot_n = torch.einsum('mrj,mtj->mtr', wo, n_eff)                # (M, n_tx, n_rx)
+
+        h_dot_n_num = wo_dot_n + cos_i.unsqueeze(-1)                      # (M, n_tx, n_rx)
+        h_len = torch.sqrt((2.0 + 2.0 * wo_dot_wi).clamp(min=1e-10))     # (M, n_tx, n_rx)
+        h_dot_n = (h_dot_n_num / h_len).clamp(min=0.0)                    # (M, n_tx, n_rx)
+
+        # GGX NDF: D = α² / (π ((h·n)²(α²-1)+1)²)
+        denom_ndf = (h_dot_n ** 2 * (alpha_sq[:, None, None] - 1.0) + 1.0) ** 2
+        D_KA = alpha_sq[:, None, None] / (math.pi * denom_ndf.clamp(min=1e-20))
+
+        # Smith G (joint form, exact): G = 1 / (1 + Λ_i + Λ_o)
+        G_KA = 1.0 / (1.0 + lambda_i.unsqueeze(-1) + lambda_o.unsqueeze(-2)).clamp(min=1e-10)
+
+        # Cook-Torrance: f_KA = D × G / (4 cos_i cos_o)
+        f_KA = D_KA * G_KA / (4.0 * cos_i.unsqueeze(-1) * cos_o.unsqueeze(-2)).clamp(min=1e-10)
+        if 'ka' in disabled:
+            f_KA = torch.zeros_like(f_KA)
+
+        # --- SPM lobe: cos_dev = wo · wi_r ---
+        cos_dev = torch.einsum('mrj,mtj->mtr', wo, wi_r)                  # (M, n_tx, n_rx)
+        cos_dev = cos_dev.clamp(-1.0, 1.0)
+        f_SPM = norm_SPM[:, None, None] * torch.exp(kappa_SPM[:, None, None] * (cos_dev - 1.0))
+        f_SPM = f_SPM * eps_factor[:, None, None]
+        if 'spm' in disabled:
+            f_SPM = torch.zeros_like(f_SPM)
+
+        # --- Jones Fresnel power per (TX, RX) ---
+        # Macro-normal RX projection basis (shared by KA and SPM). See note on
+        # the half-vector refinement below.
+        rx_s = (rx_pol * s_in).sum(-1)                                     # (M, n_tx) -- same for all RX
+
+        # p_out = cross(s_in, wo) -- varies per (TX, RX)
+        # Triple product: rx_pol · (s_in × wo) = wo · (rx_pol × s_in)
+        rx_pol_cross_s = torch.cross(
+            rx_pol.expand_as(s_in), s_in, dim=-1)                          # (M, n_tx, 3)
+        rx_p = torch.einsum('mrj,mtj->mtr', wo, rx_pol_cross_s)           # (M, n_tx, n_rx)
+        # Normalize by |cross(s_in, wo)| = sin(angle)
+        s_cross_wo_sq = 1.0 - torch.einsum('mrj,mtj->mtr', wo, s_in) ** 2
+        p_out_norm = torch.sqrt(s_cross_wo_sq.clamp(min=1e-12))
+        rx_p = rx_p / p_out_norm                                           # (M, n_tx, n_rx)
+
+        # --- R_jones_macro: macro-normal Fresnel, used for SPM lobe ---
+        # E_s_out / E_p_out are from Fresnel at cos_i = wi · n (macro-normal).
+        E_rx = E_s_out.unsqueeze(-1) * rx_s.unsqueeze(-1).to(torch.complex64) \
+             + E_p_out.unsqueeze(-1) * rx_p.to(torch.complex64)           # (M, n_tx, n_rx) complex
+        R_jones_macro = _cpx_abs_sq(E_rx).clamp(0.0, 1.0)                 # (M, n_tx, n_rx)
+
+        # --- R_jones_h: full microfacet-correct Jones for the KA lobe (1A'') ---
+        # Walter et al. 2007, "Microfacet Models for Refraction through Rough
+        # Surfaces": for a GGX microfacet BSDF, the specular reflection at a
+        # path (wi, wo) happens at a microfacet whose normal is the half-vector
+        # h = normalize(wi + wo). The local incidence angle, polarization basis,
+        # and Fresnel coefficients should all be computed relative to h, not
+        # the macro normal n.
+        #
+        # This block computes a fully microfacet-correct Jones for the KA
+        # (coherent specular) lobe: per-path s/p polarization basis (s_h,
+        # p_h_in, p_h_out), per-path microfacet Fresnel at cos_h, and per-path
+        # recombination through the microfacet basis. The result R_jones_h is
+        # exact for any GGX roughness and any TX/RX array geometry (monostatic,
+        # compact bistatic, wide bistatic, distributed arrays).
+        #
+        # At the flat-surface limit (α → 0, h → n), s_h → s_in and the result
+        # reduces to the macro Jones R_jones_macro. For moderate roughness
+        # (α ~ 0.4) and compact arrays, the correction is small but
+        # physically consistent.
+        #
+        # The SPM lobe continues to use R_jones_macro (incoherent average over
+        # microfacets uses the mean-surface / macro-normal Fresnel).
+        #
+        # Memory: 4 new (M, n_tx, n_rx, 3) float32 tensors ≈ 400 MB at
+        # M=45K, 192 channels. Scales linearly with channel count.
+
+        # Per-path microfacet geometry
+        wi_exp = wi.unsqueeze(2).expand(-1, -1, n_rx, -1).contiguous()     # (M, n_tx, n_rx, 3)
+        wo_exp = wo.unsqueeze(1).expand(-1, n_tx, -1, -1).contiguous()     # (M, n_tx, n_rx, 3)
+
+        h_vec = wi_exp + wo_exp
+        h_norm = h_vec.norm(dim=-1, keepdim=True).clamp(min=1e-6)
+        h_vec = h_vec / h_norm                                              # (M, n_tx, n_rx, 3)
+        cos_h = (wi_exp * h_vec).sum(-1).clamp(min=1e-6)                   # (M, n_tx, n_rx)
+
+        # Microfacet s-basis: perpendicular to the microfacet plane of
+        # incidence (containing wi and h). Unit vector.
+        # Note: s_h ⊥ wi by construction, so downstream cross products with
+        # wi or wo are well-behaved (nonzero magnitude).
+        s_h_raw = torch.cross(wi_exp, h_vec, dim=-1)
+        s_h_norm = s_h_raw.norm(dim=-1, keepdim=True).clamp(min=1e-6)
+        s_h_vec = s_h_raw / s_h_norm                                        # (M, n_tx, n_rx, 3)
+
+        # Microfacet p-basis for the incoming wave: in the plane of incidence,
+        # perpendicular to wi. Since s_h ⊥ wi, |s_h × wi| = 1 exactly at the
+        # limit where s_h is a unit vector perpendicular to wi, so the norm
+        # below is ~1 up to numerical noise. Still normalize for safety.
+        p_h_in_raw = torch.cross(s_h_vec, wi_exp, dim=-1)
+        p_h_in = p_h_in_raw / p_h_in_raw.norm(dim=-1, keepdim=True).clamp(min=1e-6)
+
+        # Microfacet p-basis for the outgoing wave: in the plane of incidence,
+        # perpendicular to wo. For bistatic arrays, wo is NOT parallel to the
+        # reflection of wi about h in general (only at the specific microfacet
+        # that satisfies the reflection law, which gives wo = reflect(wi, h)).
+        # At that specific microfacet, wo is in the (wi, h) plane, so p_h_out
+        # is well-defined and is perpendicular to wo.
+        p_h_out_raw = torch.cross(s_h_vec, wo_exp, dim=-1)
+        p_h_out = p_h_out_raw / p_h_out_raw.norm(dim=-1, keepdim=True).clamp(min=1e-6)
+
+        # Project TX and RX polarization vectors onto microfacet basis
+        tx_pol_b = tx_pol.view(1, 1, 1, 3)
+        rx_pol_b = rx_pol.view(1, 1, 1, 3)
+
+        tx_s_h = (tx_pol_b * s_h_vec).sum(-1)                              # (M, n_tx, n_rx)
+        tx_p_h_in = (tx_pol_b * p_h_in).sum(-1)                            # (M, n_tx, n_rx)
+
+        rx_s_h = (rx_pol_b * s_h_vec).sum(-1)                              # (M, n_tx, n_rx)
+        rx_p_h_out = (rx_pol_b * p_h_out).sum(-1)                          # (M, n_tx, n_rx)
+
+        # Per-path slab Fresnel at the microfacet incidence angle cos_h
+        cos_h_flat = cos_h.reshape(-1)
+        eps_r_flat_h = eps_real[:, None, None].expand(-1, n_tx, n_rx).reshape(-1)
+        eps_i_flat_h = eps_imag[:, None, None].expand(-1, n_tx, n_rx).reshape(-1)
+        thick_flat_h = thickness[:, None, None].expand(-1, n_tx, n_rx).reshape(-1)
+        R_TE_h, R_TM_h, _, _ = itu_slab_fresnel(
+            eps_r_flat_h, eps_i_flat_h, cos_h_flat, thick_flat_h)
+        r_s_h = R_TE_h.reshape(M, n_tx, n_rx)                               # (M, n_tx, n_rx) complex
+        r_p_h = R_TM_h.reshape(M, n_tx, n_rx)                               # (M, n_tx, n_rx) complex
+
+        # Reflected field components in microfacet basis
+        E_s_out_h = r_s_h * tx_s_h.to(torch.complex64)                     # (M, n_tx, n_rx) complex
+        E_p_out_h = r_p_h * tx_p_h_in.to(torch.complex64)                  # (M, n_tx, n_rx) complex
+
+        # Project onto RX polarization in microfacet outgoing basis
+        E_rx_h = (E_s_out_h * rx_s_h.to(torch.complex64)
+                  + E_p_out_h * rx_p_h_out.to(torch.complex64))             # (M, n_tx, n_rx) complex
+        R_jones_h = _cpx_abs_sq(E_rx_h).clamp(0.0, 1.0)                    # (M, n_tx, n_rx)
+
+        # Jones disable path: replace BOTH Fresnel versions with scalar |r|².
+        # For the microfacet path, use the per-path r_s_h / r_p_h values.
+        if 'jones' in disabled:
+            Rs_sq = _cpx_abs_sq(E_s_out).clamp(0.0, 1.0)
+            Rp_sq = _cpx_abs_sq(E_p_out).clamp(0.0, 1.0)
+            R_scalar = 0.5 * (Rs_sq + Rp_sq)
+            R_jones_macro = R_scalar.unsqueeze(-1).expand(-1, -1, n_rx)
+            Rs_sq_h = _cpx_abs_sq(r_s_h).clamp(0.0, 1.0)
+            Rp_sq_h = _cpx_abs_sq(r_p_h).clamp(0.0, 1.0)
+            R_jones_h = 0.5 * (Rs_sq_h + Rp_sq_h)
+
+        # --- Final BSDF: per-lobe Fresnel ---
+        # KA uses half-vector Fresnel (microfacet-correct).
+        # SPM uses macro-normal Fresnel (incoherent average over microfacets).
+        if bsdf_mode == 'scalar':
+            # B1 baseline: f_cos = sigmoid(reflectivity) × cos_i
+            rho = torch.sigmoid(raw_materials[:, 0])
+            f_cos = rho[:, None, None] * cos_i.unsqueeze(-1)
+            f_cos = f_cos.expand(-1, -1, n_rx).contiguous()
+        else:
+            tau_eff_ext = tau_eff.unsqueeze(-1)                            # (M, n_tx, 1)
+            f_coh = tau_eff_ext * R_jones_h * f_KA + (1.0 - tau_eff_ext) * R_jones_macro * f_SPM
+            f_cos = f_coh * cos_i.unsqueeze(-1)                            # (M, n_tx, n_rx)
 
     # ================================================================
     # Step 5: Range-profile splatting

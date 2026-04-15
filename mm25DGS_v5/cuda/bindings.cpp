@@ -24,6 +24,47 @@ void launch_scatter_splat(
     float* rp_real, float* rp_imag,
     int64_t n_items, int64_t out_size, cudaStream_t stream);
 
+void launch_bsdf_step4_intermediates(
+    const float* wi, const float* wi_r, const float* wo,
+    const float* n_eff, const float* s_in,
+    const float* cos_i, const float* cos_o,
+    const float* lambda_i, const float* lambda_o,
+    const float* alpha_sq, const float* kappa_SPM,
+    const float* norm_SPM, const float* eps_factor,
+    const float* eps_real_m, const float* eps_imag_m, const float* thickness_m,
+    const float* E_s_out_re, const float* E_s_out_im,
+    const float* E_p_out_re, const float* E_p_out_im,
+    float* f_KA, float* f_SPM, float* R_jones_h, float* R_jones_macro,
+    float* cos_h, float* cos_dev,
+    int M, int n_tx, int n_rx, cudaStream_t stream);
+
+void launch_bsdf_microfacet_basis(
+    const float* wi, const float* wo,
+    float* sh_xyz, float* pin_xyz, float* pout_xyz,
+    int M, int n_tx, int n_rx, cudaStream_t stream);
+
+void launch_itu_slab_fresnel_debug(
+    const float* eps_real, const float* eps_imag,
+    const float* cos_i, const float* thickness,
+    float* R_TE_re, float* R_TE_im,
+    float* R_TM_re, float* R_TM_im,
+    int n, cudaStream_t stream);
+
+void launch_bsdf_step4_forward(
+    const float* wi, const float* wi_r, const float* wo,
+    const float* n_eff, const float* s_in,
+    const float* cos_i, const float* cos_o,
+    const float* lambda_i, const float* lambda_o,
+    const float* alpha_sq, const float* kappa_SPM,
+    const float* norm_SPM, const float* eps_factor,
+    const float* eps_real_m, const float* eps_imag_m, const float* thickness_m,
+    const float* E_s_out_re, const float* E_s_out_im,
+    const float* E_p_out_re, const float* E_p_out_im,
+    const float* tau_eff,
+    float* f_cos,
+    int M, int n_tx, int n_rx,
+    cudaStream_t stream);
+
 } // namespace mm25v5
 
 #define CHECK_CUDA(x)       TORCH_CHECK(x.is_cuda(),         #x " must be a CUDA tensor")
@@ -88,8 +129,163 @@ void scatter_splat(
         stream.stream());
 }
 
+// Phase B: fused BSDF Step-4 forward.
+// Takes the Python-precomputed per-(m,t) and per-(m,r) tensors plus per-m
+// material scalars and returns f_cos (M, n_tx, n_rx).
+torch::Tensor bsdf_step4_forward(
+    torch::Tensor wi, torch::Tensor wi_r, torch::Tensor wo,
+    torch::Tensor n_eff, torch::Tensor s_in,
+    torch::Tensor cos_i, torch::Tensor cos_o,
+    torch::Tensor lambda_i, torch::Tensor lambda_o,
+    torch::Tensor alpha_sq, torch::Tensor kappa_SPM,
+    torch::Tensor norm_SPM, torch::Tensor eps_factor,
+    torch::Tensor eps_real_m, torch::Tensor eps_imag_m, torch::Tensor thickness_m,
+    torch::Tensor E_s_out_re, torch::Tensor E_s_out_im,
+    torch::Tensor E_p_out_re, torch::Tensor E_p_out_im,
+    torch::Tensor tau_eff)
+{
+    // Dtype + CUDA + contiguous checks on the key tensors. We assume the
+    // caller has already materialized them as float32 contiguous CUDA.
+    CHECK_CUDA(wi); CHECK_CONTIG(wi); CHECK_FLOAT32(wi);
+    CHECK_CUDA(wi_r); CHECK_CONTIG(wi_r); CHECK_FLOAT32(wi_r);
+    CHECK_CUDA(wo); CHECK_CONTIG(wo); CHECK_FLOAT32(wo);
+    CHECK_CUDA(n_eff); CHECK_CONTIG(n_eff); CHECK_FLOAT32(n_eff);
+    CHECK_CUDA(s_in); CHECK_CONTIG(s_in); CHECK_FLOAT32(s_in);
+    CHECK_CUDA(cos_i); CHECK_CONTIG(cos_i); CHECK_FLOAT32(cos_i);
+    CHECK_CUDA(cos_o); CHECK_CONTIG(cos_o); CHECK_FLOAT32(cos_o);
+    CHECK_CUDA(lambda_i); CHECK_CONTIG(lambda_i); CHECK_FLOAT32(lambda_i);
+    CHECK_CUDA(lambda_o); CHECK_CONTIG(lambda_o); CHECK_FLOAT32(lambda_o);
+    CHECK_CUDA(alpha_sq); CHECK_CONTIG(alpha_sq); CHECK_FLOAT32(alpha_sq);
+    CHECK_CUDA(kappa_SPM); CHECK_CONTIG(kappa_SPM); CHECK_FLOAT32(kappa_SPM);
+    CHECK_CUDA(norm_SPM); CHECK_CONTIG(norm_SPM); CHECK_FLOAT32(norm_SPM);
+    CHECK_CUDA(eps_factor); CHECK_CONTIG(eps_factor); CHECK_FLOAT32(eps_factor);
+    CHECK_CUDA(eps_real_m); CHECK_CONTIG(eps_real_m); CHECK_FLOAT32(eps_real_m);
+    CHECK_CUDA(eps_imag_m); CHECK_CONTIG(eps_imag_m); CHECK_FLOAT32(eps_imag_m);
+    CHECK_CUDA(thickness_m); CHECK_CONTIG(thickness_m); CHECK_FLOAT32(thickness_m);
+    CHECK_CUDA(E_s_out_re); CHECK_CONTIG(E_s_out_re); CHECK_FLOAT32(E_s_out_re);
+    CHECK_CUDA(E_s_out_im); CHECK_CONTIG(E_s_out_im); CHECK_FLOAT32(E_s_out_im);
+    CHECK_CUDA(E_p_out_re); CHECK_CONTIG(E_p_out_re); CHECK_FLOAT32(E_p_out_re);
+    CHECK_CUDA(E_p_out_im); CHECK_CONTIG(E_p_out_im); CHECK_FLOAT32(E_p_out_im);
+    CHECK_CUDA(tau_eff); CHECK_CONTIG(tau_eff); CHECK_FLOAT32(tau_eff);
+
+    const int M    = (int)wi.size(0);
+    const int n_tx = (int)wi.size(1);
+    const int n_rx = (int)wo.size(1);
+    TORCH_CHECK(wi.size(2) == 3 && wo.size(2) == 3,
+                "wi / wo last dim must be 3");
+
+    auto options = torch::TensorOptions()
+        .dtype(torch::kFloat32)
+        .device(wi.device());
+    auto f_cos = torch::empty({M, n_tx, n_rx}, options);
+
+    at::cuda::CUDAStream stream = at::cuda::getCurrentCUDAStream();
+    mm25v5::launch_bsdf_step4_forward(
+        wi.data_ptr<float>(), wi_r.data_ptr<float>(), wo.data_ptr<float>(),
+        n_eff.data_ptr<float>(), s_in.data_ptr<float>(),
+        cos_i.data_ptr<float>(), cos_o.data_ptr<float>(),
+        lambda_i.data_ptr<float>(), lambda_o.data_ptr<float>(),
+        alpha_sq.data_ptr<float>(), kappa_SPM.data_ptr<float>(),
+        norm_SPM.data_ptr<float>(), eps_factor.data_ptr<float>(),
+        eps_real_m.data_ptr<float>(), eps_imag_m.data_ptr<float>(),
+        thickness_m.data_ptr<float>(),
+        E_s_out_re.data_ptr<float>(), E_s_out_im.data_ptr<float>(),
+        E_p_out_re.data_ptr<float>(), E_p_out_im.data_ptr<float>(),
+        tau_eff.data_ptr<float>(),
+        f_cos.data_ptr<float>(),
+        M, n_tx, n_rx,
+        stream.stream());
+    return f_cos;
+}
+
+// Debug entry: run the full Step-4 kernel but emit per-(m, t, r)
+// intermediates (f_KA, f_SPM, R_jones_h, R_jones_macro, cos_h, cos_dev)
+// so tests can localize numerical drift.
+std::vector<torch::Tensor> bsdf_step4_intermediates(
+    torch::Tensor wi, torch::Tensor wi_r, torch::Tensor wo,
+    torch::Tensor n_eff, torch::Tensor s_in,
+    torch::Tensor cos_i, torch::Tensor cos_o,
+    torch::Tensor lambda_i, torch::Tensor lambda_o,
+    torch::Tensor alpha_sq, torch::Tensor kappa_SPM,
+    torch::Tensor norm_SPM, torch::Tensor eps_factor,
+    torch::Tensor eps_real_m, torch::Tensor eps_imag_m, torch::Tensor thickness_m,
+    torch::Tensor E_s_out_re, torch::Tensor E_s_out_im,
+    torch::Tensor E_p_out_re, torch::Tensor E_p_out_im)
+{
+    const int M = (int)wi.size(0);
+    const int n_tx = (int)wi.size(1);
+    const int n_rx = (int)wo.size(1);
+    auto opt = torch::TensorOptions().dtype(torch::kFloat32).device(wi.device());
+    auto f_KA = torch::empty({M, n_tx, n_rx}, opt);
+    auto f_SPM = torch::empty({M, n_tx, n_rx}, opt);
+    auto R_jones_h = torch::empty({M, n_tx, n_rx}, opt);
+    auto R_jones_macro = torch::empty({M, n_tx, n_rx}, opt);
+    auto cos_h = torch::empty({M, n_tx, n_rx}, opt);
+    auto cos_dev = torch::empty({M, n_tx, n_rx}, opt);
+
+    at::cuda::CUDAStream stream = at::cuda::getCurrentCUDAStream();
+    mm25v5::launch_bsdf_step4_intermediates(
+        wi.data_ptr<float>(), wi_r.data_ptr<float>(), wo.data_ptr<float>(),
+        n_eff.data_ptr<float>(), s_in.data_ptr<float>(),
+        cos_i.data_ptr<float>(), cos_o.data_ptr<float>(),
+        lambda_i.data_ptr<float>(), lambda_o.data_ptr<float>(),
+        alpha_sq.data_ptr<float>(), kappa_SPM.data_ptr<float>(),
+        norm_SPM.data_ptr<float>(), eps_factor.data_ptr<float>(),
+        eps_real_m.data_ptr<float>(), eps_imag_m.data_ptr<float>(),
+        thickness_m.data_ptr<float>(),
+        E_s_out_re.data_ptr<float>(), E_s_out_im.data_ptr<float>(),
+        E_p_out_re.data_ptr<float>(), E_p_out_im.data_ptr<float>(),
+        f_KA.data_ptr<float>(), f_SPM.data_ptr<float>(),
+        R_jones_h.data_ptr<float>(), R_jones_macro.data_ptr<float>(),
+        cos_h.data_ptr<float>(), cos_dev.data_ptr<float>(),
+        M, n_tx, n_rx, stream.stream());
+    return {f_KA, f_SPM, R_jones_h, R_jones_macro, cos_h, cos_dev};
+}
+
+std::vector<torch::Tensor> bsdf_microfacet_basis(torch::Tensor wi, torch::Tensor wo) {
+    int M = (int)wi.size(0);
+    int n_tx = (int)wi.size(1);
+    int n_rx = (int)wo.size(1);
+    auto opt = torch::TensorOptions().dtype(torch::kFloat32).device(wi.device());
+    auto sh_xyz = torch::empty({M, n_tx, n_rx, 3}, opt);
+    auto pin_xyz = torch::empty({M, n_tx, n_rx, 3}, opt);
+    auto pout_xyz = torch::empty({M, n_tx, n_rx, 3}, opt);
+    at::cuda::CUDAStream stream = at::cuda::getCurrentCUDAStream();
+    mm25v5::launch_bsdf_microfacet_basis(
+        wi.data_ptr<float>(), wo.data_ptr<float>(),
+        sh_xyz.data_ptr<float>(), pin_xyz.data_ptr<float>(), pout_xyz.data_ptr<float>(),
+        M, n_tx, n_rx, stream.stream());
+    return {sh_xyz, pin_xyz, pout_xyz};
+}
+
+// Debug entry: run CUDA itu_slab_fresnel on a batch of inputs and return
+// R_TE_re, R_TE_im, R_TM_re, R_TM_im as 4 float32 tensors.
+std::vector<torch::Tensor> itu_slab_fresnel_debug(
+    torch::Tensor eps_real, torch::Tensor eps_imag,
+    torch::Tensor cos_i, torch::Tensor thickness)
+{
+    CHECK_CUDA(eps_real); CHECK_CONTIG(eps_real); CHECK_FLOAT32(eps_real);
+    CHECK_CUDA(eps_imag); CHECK_CONTIG(eps_imag); CHECK_FLOAT32(eps_imag);
+    CHECK_CUDA(cos_i); CHECK_CONTIG(cos_i); CHECK_FLOAT32(cos_i);
+    CHECK_CUDA(thickness); CHECK_CONTIG(thickness); CHECK_FLOAT32(thickness);
+    int n = (int)eps_real.numel();
+    auto opt = torch::TensorOptions().dtype(torch::kFloat32).device(eps_real.device());
+    auto R_TE_re = torch::empty({n}, opt);
+    auto R_TE_im = torch::empty({n}, opt);
+    auto R_TM_re = torch::empty({n}, opt);
+    auto R_TM_im = torch::empty({n}, opt);
+    at::cuda::CUDAStream stream = at::cuda::getCurrentCUDAStream();
+    mm25v5::launch_itu_slab_fresnel_debug(
+        eps_real.data_ptr<float>(), eps_imag.data_ptr<float>(),
+        cos_i.data_ptr<float>(), thickness.data_ptr<float>(),
+        R_TE_re.data_ptr<float>(), R_TE_im.data_ptr<float>(),
+        R_TM_re.data_ptr<float>(), R_TM_im.data_ptr<float>(),
+        n, stream.stream());
+    return {R_TE_re, R_TE_im, R_TM_re, R_TM_im};
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-    m.doc() = "mm25DGS_v5 CUDA kernels (Phase A: stubs + working scatter_splat)";
+    m.doc() = "mm25DGS_v5 CUDA kernels";
     m.def("bsdf_forward_stub", &bsdf_forward_stub,
           "Phase A stub for BSDF forward (zero-fills the output).");
     m.def("bsdf_backward_stub", &bsdf_backward_stub,
@@ -97,4 +293,16 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("scatter_splat", &scatter_splat,
           "Atomic scatter splat into (rp_real, rp_imag). Equivalent to "
           "two scatter_add_ calls, but with a single kernel launch.");
+    m.def("bsdf_step4_forward", &bsdf_step4_forward,
+          "Phase B fused BSDF Step-4 forward kernel. Replaces lines "
+          "228-420 of rasterizer_factorized.py.");
+    m.def("bsdf_microfacet_basis", &bsdf_microfacet_basis,
+          "Debug-only: compute s_h, p_h_in, p_h_out from wi, wo.");
+    m.def("bsdf_step4_intermediates", &bsdf_step4_intermediates,
+          "Debug-only: return per-(m, t, r) f_KA, f_SPM, R_jones_h, "
+          "R_jones_macro, cos_h, cos_dev from the Step-4 kernel.");
+    m.def("itu_slab_fresnel_debug", &itu_slab_fresnel_debug,
+          "Test-only: evaluate the CUDA itu_slab_fresnel helper on a "
+          "batch of (eps_real, eps_imag, cos_i, thickness) scalars. "
+          "Returns [R_TE_re, R_TE_im, R_TM_re, R_TM_im].");
 }
