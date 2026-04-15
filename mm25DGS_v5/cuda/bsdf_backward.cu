@@ -411,78 +411,143 @@ __global__ void bsdf_step4_backward_kernel(
     float g_pin_z           = g_pin_pout_z * pout_z;
     float g_pout_z          = g_pin_pout_z * pin_z;
 
-    // --- Slab Fresnel (r_s_h, r_p_h) backward ---
-    // r_s_h, r_p_h are complex-valued functions of (eps_real, eps_imag,
-    // cos_h, thickness). We compute the gradients via central finite
-    // differences in double precision — 8 extra slab_fresnel calls per
-    // path. This is ~50× the cost of analytical, but correctness-first:
-    // we validate the forward-kernel math only once, not four times
-    // across all derivative branches. The slab Fresnel block is ~10% of
-    // the backward runtime, so the FD overhead caps the kernel at ~110%
-    // of analytical — still far below the 200ms PyTorch baseline it
-    // replaces.
+    // --- Slab Fresnel (r_s_h, r_p_h) backward — analytical (Phase C.3) ---
     //
-    // NOTE: Phase C.1 ships FD for slab Fresnel. Phase C.2 can replace
-    // with analytical derivatives if profiling shows it's worth it.
+    // Replaces the fp64 finite-difference block with closed-form Wirtinger
+    // derivatives in fp32. The forward computes (for s = TE, p = TM):
+    //
+    //   eta   = e_r - i·e_i
+    //   sin2  = 1 - c²                       (c = cos_h, real)
+    //   a     = sqrt(eta - sin2)
+    //   r_te  = (c - a) / (c + a)
+    //   r_tm  = (eta·c - a) / (eta·c + a)
+    //   X     = exp(-2j·K_WAVE·d·a)          (d = thickness)
+    //   R_te  = r_te (1 - X) / (1 - r_te² X)
+    //   R_tm  = r_tm (1 - X) / (1 - r_tm² X)
+    //
+    // Since every op is holomorphic in its complex arguments, the chain
+    // rule reduces to: for a complex step F: C → C with upstream (real)
+    // grad g_F = (g_F.re, g_F.im) and complex derivative F'(z), the
+    // complex grad on the input is
+    //     g_z = g_F · conj(F'(z))
+    // (Wirtinger / holomorphic chain rule for a real-valued loss).
+    // For real inputs u with the function still complex-valued, the
+    // corresponding real grad is Re(g_F · conj(F'(u))).
+    //
+    // Cost: one full forward + O(20) complex ops total, no fp64 anywhere.
+    // Replaces 6 fp64 slab_fresnel calls.
     float g_e_r = 0.0f, g_e_i = 0.0f, g_thk = 0.0f, g_cos_h_slab = 0.0f;
     {
-        // Hybrid FD: forward difference for eps_real, eps_imag, cos_h
-        // (3 perturbed calls + 1 baseline = 4 calls), central difference
-        // for thickness (2 calls). Total: 6 slab_fresnel_d calls vs 8
-        // for pure central. Thickness needs central because the slab
-        // phase q = (2π/λ)·d·a reaches ~9000 rad at d=1.7 m, making
-        // d/dthk highly oscillatory; the O(h²) error of central is
-        // essential to avoid the ~6% max rel err that forward diff
-        // produces at thick-slab paths.
-        const double h_fwd = 1e-5;
-        const double h_cen = 1e-6;
-        const double dh_r = h_fwd * fmax((double)fabsf(e_r), 1.0);
-        const double dh_i = h_fwd * fmax((double)fabsf(e_i), 1.0);
-        const double dh_c = h_fwd;
-        const double dh_t = h_cen * fmax((double)fabsf(thk), 1.0);
-        const double e_r_d  = (double)e_r;
-        const double e_i_d  = (double)e_i;
-        const double cos_h_d= (double)cos_h;
-        const double thk_d  = (double)thk;
+        // ---- Forward recomputation (fp32, mirrors itu_slab_fresnel) ----
+        const float c2    = fmaxf(fminf(cos_h, 1.0f), 1e-6f);
+        const float sin2  = 1.0f - c2 * c2;
+        const float2 eta  = make_float2(e_r, -e_i);
+        const float2 inside = csub(eta, make_float2(sin2, 0.0f));
+        const float2 a    = csqrt(inside);
 
-        // Baseline: reused as f(x) for the forward diffs.
-        double2 rs_base, rp_base;
-        itu_slab_fresnel_d(e_r_d, e_i_d, cos_h_d, thk_d, rs_base, rp_base);
+        const float2 cc     = make_float2(c2, 0.0f);
+        const float2 eps_c  = make_float2(1e-10f, 0.0f);
 
-        double2 rsp, rpp;
+        const float2 den_te = cadd(cadd(cc, a), eps_c);     // c + a + eps
+        const float2 r_te   = cdiv(csub(cc, a), den_te);
 
-        auto accum_fwd = [&] __device__ (
-            double inv_h,
-            const double2& rsp_p, const double2& rpp_p,
-            float& out_g)
-        {
-            out_g += g_r_s_h_re * (float)(inv_h * (rsp_p.x - rs_base.x));
-            out_g += g_r_s_h_im * (float)(inv_h * (rsp_p.y - rs_base.y));
-            out_g += g_r_p_h_re * (float)(inv_h * (rpp_p.x - rp_base.x));
-            out_g += g_r_p_h_im * (float)(inv_h * (rpp_p.y - rp_base.y));
+        const float2 eta_c  = cscale(eta, c2);
+        const float2 den_tm = cadd(cadd(eta_c, a), eps_c);  // eta·c + a + eps
+        const float2 r_tm   = cdiv(csub(eta_c, a), den_tm);
+
+        const float2 q      = cscale(a, K_WAVE * thk);
+        // X = exp(-2j·q) = exp(2·q.y - 2j·q.x)
+        const float2 X      = cexp(make_float2(2.0f * q.y, -2.0f * q.x));
+
+        const float2 one        = make_float2(1.0f, 0.0f);
+        const float2 one_minus_X= csub(one, X);
+        const float2 r_te_sq    = cmul(r_te, r_te);
+        const float2 r_tm_sq    = cmul(r_tm, r_tm);
+        const float2 D_TE       = cadd(csub(one, cmul(r_te_sq, X)), eps_c);
+        const float2 D_TM       = cadd(csub(one, cmul(r_tm_sq, X)), eps_c);
+
+        // ---- Shared helpers ----
+        // Wirtinger VJP: g_z = g_F · conj(Fp).  For inputs that are real,
+        // the real grad is the .x of the result.
+        auto vjp_c = [] __device__ (const float2& gF, const float2& Fp) -> float2 {
+            // (gF.re + i gF.im) * (Fp.re - i Fp.im)
+            return make_float2(gF.x * Fp.x + gF.y * Fp.y,
+                               gF.y * Fp.x - gF.x * Fp.y);
         };
 
-        // d/d eps_real (forward diff)
-        itu_slab_fresnel_d(e_r_d + dh_r, e_i_d, cos_h_d, thk_d, rsp, rpp);
-        accum_fwd(1.0 / dh_r, rsp, rpp, g_e_r);
+        // ---- Upstream grads packaged as complex ----
+        const float2 g_R_te = make_float2(g_r_s_h_re, g_r_s_h_im);
+        const float2 g_R_tm = make_float2(g_r_p_h_re, g_r_p_h_im);
 
-        // d/d eps_imag (forward diff)
-        itu_slab_fresnel_d(e_r_d, e_i_d + dh_i, cos_h_d, thk_d, rsp, rpp);
-        accum_fwd(1.0 / dh_i, rsp, rpp, g_e_i);
+        // ---- R = r(1-X)/(1 - r²X) ----
+        //   dR/dr = (1-X)(1 + r²X) / (1 - r²X)²
+        //   dR/dX = r(r² - 1) / (1 - r²X)²
+        const float2 D_TE_sq = cmul(D_TE, D_TE);
+        const float2 D_TM_sq = cmul(D_TM, D_TM);
 
-        // d/d cos_h (forward diff)
-        itu_slab_fresnel_d(e_r_d, e_i_d, cos_h_d + dh_c, thk_d, rsp, rpp);
-        accum_fwd(1.0 / dh_c, rsp, rpp, g_cos_h_slab);
+        const float2 dR_te_dr = cdiv(cmul(one_minus_X, cadd(one, cmul(r_te_sq, X))), D_TE_sq);
+        const float2 dR_te_dX = cdiv(cmul(r_te, csub(r_te_sq, one)),                D_TE_sq);
+        const float2 dR_tm_dr = cdiv(cmul(one_minus_X, cadd(one, cmul(r_tm_sq, X))), D_TM_sq);
+        const float2 dR_tm_dX = cdiv(cmul(r_tm, csub(r_tm_sq, one)),                D_TM_sq);
 
-        // d/d thickness — central difference (high sensitivity at thick slabs)
-        double2 rsp_m, rpp_m;
-        itu_slab_fresnel_d(e_r_d, e_i_d, cos_h_d, thk_d + dh_t, rsp, rpp);
-        itu_slab_fresnel_d(e_r_d, e_i_d, cos_h_d, thk_d - dh_t, rsp_m, rpp_m);
-        const double inv2ht = 0.5 / dh_t;
-        g_thk += g_r_s_h_re * (float)(inv2ht * (rsp.x - rsp_m.x));
-        g_thk += g_r_s_h_im * (float)(inv2ht * (rsp.y - rsp_m.y));
-        g_thk += g_r_p_h_re * (float)(inv2ht * (rpp.x - rpp_m.x));
-        g_thk += g_r_p_h_im * (float)(inv2ht * (rpp.y - rpp_m.y));
+        const float2 g_r_te = vjp_c(g_R_te, dR_te_dr);
+        const float2 g_r_tm = vjp_c(g_R_tm, dR_tm_dr);
+        const float2 g_X    = cadd(vjp_c(g_R_te, dR_te_dX), vjp_c(g_R_tm, dR_tm_dX));
+
+        // ---- X = exp(-2j·q): dX/dq = -2j·X = (2 X.y, -2 X.x) ----
+        const float2 dX_dq = make_float2(2.0f * X.y, -2.0f * X.x);
+        const float2 g_q   = vjp_c(g_X, dX_dq);
+
+        // ---- q = (K_WAVE · d) · a ----
+        // a → q: holomorphic with scalar K_WAVE·d.  g_a += g_q · (K_WAVE·d)
+        // d → q: q(d) = (K_WAVE·a)·d, d real: g_d += K_WAVE·(g_q.re·a.re + g_q.im·a.im)
+        const float kwd = K_WAVE * thk;
+        float2 g_a = cscale(g_q, kwd);
+        g_thk += K_WAVE * (g_q.x * a.x + g_q.y * a.y);
+
+        // ---- r_te = (c - a)/(c + a) ----
+        //   dr_te/da = -2c / (c+a)²
+        //   dr_te/dc =  2a / (c+a)²     (c real)
+        const float2 den_te_sq = cmul(den_te, den_te);
+        const float2 dr_te_da  = cdiv(make_float2(-2.0f * c2, 0.0f), den_te_sq);
+        const float2 dr_te_dc  = cdiv(cscale(a, 2.0f),              den_te_sq);
+        g_a = cadd(g_a, vjp_c(g_r_te, dr_te_da));
+        g_cos_h_slab += vjp_c(g_r_te, dr_te_dc).x;
+
+        // ---- r_tm = (eta·c - a)/(eta·c + a) ----
+        //   dr_tm/da   = -2·eta·c / (eta·c + a)²
+        //   dr_tm/dc   =  2·eta·a / (eta·c + a)²      (c real)
+        //   dr_tm/deta =  2·c·a   / (eta·c + a)²
+        const float2 den_tm_sq = cmul(den_tm, den_tm);
+        const float2 eta_a     = cmul(eta, a);
+        const float2 dr_tm_da  = cdiv(cscale(eta_c, -2.0f), den_tm_sq);
+        const float2 dr_tm_dc  = cdiv(cscale(eta_a,  2.0f), den_tm_sq);
+        const float2 dr_tm_deta= cdiv(cscale(a, 2.0f * c2), den_tm_sq);
+        g_a = cadd(g_a, vjp_c(g_r_tm, dr_tm_da));
+        g_cos_h_slab += vjp_c(g_r_tm, dr_tm_dc).x;
+        const float2 g_eta_from_rtm = vjp_c(g_r_tm, dr_tm_deta);
+
+        // ---- a = sqrt(inside): a'(inside) = 1/(2a) ----
+        // g_inside = g_a · conj(1/(2a)) = g_a · (a / (2 |a|²))
+        const float  a_abs_sq = fmaxf(a.x * a.x + a.y * a.y, 1e-30f);
+        const float  inv_2aa  = 0.5f / a_abs_sq;
+        // conj(1/(2a)) = a / (2 |a|²). Multiply as complex.
+        const float2 Fp_sqrt  = make_float2(a.x * inv_2aa, a.y * inv_2aa);
+        // NOTE: we want g_a · conj(Fp) where Fp = 1/(2a) = (a.x, -a.y)·inv_2aa.
+        //   conj(Fp) = (a.x, a.y)·inv_2aa = Fp_sqrt.  So g_inside = cmul(g_a, Fp_sqrt).
+        const float2 g_inside = cmul(g_a, Fp_sqrt);
+
+        // ---- inside = eta - sin2 ----
+        // g_eta += g_inside ; g_sin2 = -g_inside.re
+        // sin2 = 1 - c² → dsin2/dc = -2c → g_c += 2·c·g_inside.re
+        const float2 g_eta = cadd(g_eta_from_rtm, g_inside);
+        g_cos_h_slab += 2.0f * c2 * g_inside.x;
+
+        // ---- eta = (e_r, -e_i) ----
+        //   e_r → eta: d(eta.re)/d e_r = 1  → g_e_r += g_eta.re
+        //   e_i → eta: d(eta.im)/d e_i = -1 → g_e_i += -g_eta.im
+        g_e_r += g_eta.x;
+        g_e_i += -g_eta.y;
     }
     // cos_h also had a direct grad path through Jones h; add it here.
     // cos_h = max(cos_h_raw, 1e-6);  cos_h_raw = (1 + wo_dot_wi) / h_len

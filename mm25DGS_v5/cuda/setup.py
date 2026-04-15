@@ -43,6 +43,7 @@ ext = CUDAExtension(
             '--use_fast_math',
             '--extended-lambda',
             '-std=c++17',
+            '--ptxas-options=-v',
             '-gencode=arch=compute_89,code=sm_89',
             '--expt-relaxed-constexpr',
             '-lineinfo',
