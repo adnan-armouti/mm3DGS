@@ -340,26 +340,100 @@ python -m mmir.preprocessing.mesh_utils \
 ### 2. Cascaded Radar-LiDAR Alignment
 
 Optimize the rigid alignment between radar and LiDAR coordinate frames.
+Alignment runs as two passes; the recommended entry point invokes both
+back-to-back per scene.
+
+#### Build the v5 CUDA extension (required for pass 2)
 
 ```bash
-# Run full cascaded alignment on all benchmark scenes
-python -m mmir.preprocessing.alignment.cascaded_alignment \
-    --data-root data \
-    --output-root output/alignment
-
-# Print alignment summary only (no optimization)
-python -m mmir.preprocessing.alignment.cascaded_alignment \
-    --data-root data \
-    --summary-only
+cd mm25DGS_v5/cuda
+python setup.py build_ext --inplace
+cd ../..
 ```
 
-The orchestrator runs two methods per scene:
-1. **LiDAR-based 4-DOF** — optimizes range, azimuth, elevation rotation,
-   and azimuth rotation offsets using GPU-accelerated voxel correlation
-2. **Renderer-based 2-DOF** — optimizes range and azimuth offsets by
-   differentiable rendering and RA-image correlation
+This drops a `.so` next to `mm25DGS_v5/cuda/setup.py`. Pass 2's CUDA
+renderer backend falls back to a clear error if the extension is not
+built; pass 1 does not need it.
 
-The best alignment (highest RA correlation) is selected automatically.
+#### Run both passes end-to-end (recommended)
+
+```bash
+# Both passes on every scene under data/
+python -m mm25DGS_v5.preprocessing.alignment.run_alignment --all
+
+# Single scene
+python -m mm25DGS_v5.preprocessing.alignment.run_alignment \
+    --scene seq_0_frame_135
+
+# Continue on per-scene failures instead of aborting
+python -m mm25DGS_v5.preprocessing.alignment.run_alignment --all --skip-on-error
+```
+
+Outputs (per scene) live in `data/alignment_data/<scene>/cascade/`:
+
+| File | Pass | Purpose |
+|---|---|---|
+| `cascaded_frame_<F>_aligned.json` | 1 | Pass-1 winner config (consumed by `train.py`) |
+| `cascaded_frame_<F>_aligned_2dof.json` / `_aligned_gpu.json` | 1 | Per-method pass-1 candidates |
+| `cascaded_frame_<F>_alignment_log.json` | 1 | Pass-1 winner/loser cart_corr + method metadata |
+| `cascaded_frame_<F>_aligned_pass2.json` | 2 | **Trajectory-aware** config (consumed by `train_chirp_loop_nvs.py --use_pass2_alignment`) |
+| `cascaded_frame_<F>_alignment_log_pass2.json` | 2 | All pass-2 candidates + gate decision |
+| `pass2_triage.json` | 2 | Stage A trajectory fit + MAD outlier flags |
+| `pass2_summary.json` | 2 | Stage B per-frame winners + post-verification |
+
+Timing on 1× RTX 4090: pass 1 ≈ 5–15 min/scene (Mitsuba MC dominates),
+pass 2 ≈ 2–3 min/scene (v5 CUDA renderer + cupy-based LiDAR).
+
+#### What each pass does
+
+**Pass 1** — per-frame independent alignment. Two methods are run and the
+higher-cart_corr winner is written per frame:
+
+1. **LiDAR 4-DOF** — voxelises the LiDAR point cloud into the radar's
+   RAE grid and optimises (range, azimuth, elevation-rot, azimuth-rot)
+   to maximise correlation with the measured RA image (cupy-accelerated).
+2. **Renderer 2-DOF** — Mitsuba MC renderer, optimises range + azimuth
+   only (zero boresight rotation).
+
+**Pass 2** — trajectory-aware refinement. Because pass 1 aligns each frame
+in isolation, the boresight z-component can flip on frames with
+multi-modal objectives (observed on 5 of 7 "reference" frames and ~22/81
+frames scene-wide). Pass 2 fixes this by:
+
+1. **Stage A** — fit a smoothed pose trajectory (LOWESS + Huber) over all
+   cascade frames in the scene, flag outliers by MAD residual.
+2. **Stage B** — re-align flagged frames with two prior-aware candidates:
+   a v5-CUDA renderer-4-DOF (fast analytic-BSDF) and a LiDAR-4-DOF
+   (cupy), both centred on the smoothed trajectory and penalised for
+   drift. The best gate-passing candidate wins (gate = ≤2.5 MAD off the
+   smoothed trajectory). Falls back to the smoothed pose itself if no
+   candidate passes the gate.
+
+Pass 2 writes to parallel `*_pass2.json` files and never overwrites pass 1.
+
+#### Running a single pass
+
+```bash
+# Pass 1 only (skip the trajectory-aware refinement)
+python -m mm25DGS_v5.preprocessing.alignment.run_alignment --all --skip-pass-2
+
+# Pass 2 only (pass-1 configs must already be on disk)
+python -m mm25DGS_v5.preprocessing.alignment.run_alignment --all --skip-pass-1
+```
+
+Pass 2 can also be driven directly for per-stage control:
+
+```bash
+# Stage A only (trajectory fit + outlier flag, no re-alignment)
+python -m mm25DGS_v5.preprocessing.alignment.pass2.trajectory_fit --all
+
+# Stage A + B on one scene
+python -m mm25DGS_v5.preprocessing.alignment.pass2.run_pass2 \
+    --scene seq_0_frame_135
+```
+
+See [`md/cascade_alignment_pass2_plan.md`](md/cascade_alignment_pass2_plan.md)
+for the full pass-2 design, outlier catalog, and per-scene results.
 
 ---
 
@@ -396,6 +470,37 @@ Training produces:
 - `output/<scene>/checkpoints/` — Model checkpoints (`.pt`)
 - `output/<scene>/metrics/` — Per-iteration metrics (`.json`)
 - `output/<scene>/visualizations/` — RA image comparisons (`.png`)
+
+#### Chirp-Loop NVS (v5 CUDA)
+
+Train on the 16 slow-time chirp loops within a single cascaded radar
+frame. Each loop gets its own pose, synthesised by interpolating between
+neighbouring aligned configs. Supports an `upper_bound` mode (train on
+all 16 loops) and a `held_out` mode (train on 15, test on 1) for measuring
+chirp-loop-level NVS interpolation.
+
+```bash
+# Upper bound on seq_0_frame_135 frame 135 (all 16 loops)
+python -m mm25DGS_v5.train_chirp_loop_nvs \
+    --scene seq_0_frame_135 --frame 135 \
+    --mode upper_bound --iters 500
+
+# Held-out loop 8 (train on 15, test on 1)
+python -m mm25DGS_v5.train_chirp_loop_nvs \
+    --scene seq_0_frame_135 --frame 135 \
+    --mode held_out --held_out_loop 8 --iters 500
+
+# With pass-2 alignment (recommended — uses trajectory-refined poses)
+python -m mm25DGS_v5.train_chirp_loop_nvs \
+    --scene seq_0_frame_135 --frame 135 \
+    --mode held_out --held_out_loop 8 --iters 500 \
+    --use_pass2_alignment
+```
+
+Requires the v5 CUDA extension and works best with pass-2 alignment
+configs on disk (see *Cascaded Radar-LiDAR Alignment* above). Results are
+written to `mm25DGS_v5/output_chirp_loop/<scene>_<tag>/` with
+`results.json`, `history.npz`, and `best_model.pt`.
 
 ---
 
