@@ -8,9 +8,10 @@ the repo (training, evaluation, chirp-loop NVS) consumes.
 
 Per scene the driver runs:
 
-  1. **Pass 1** — per-frame independent alignment (LiDAR-voxel 4-DOF +
-     Mitsuba MC renderer 2-DOF, winner selected by cart_corr):
-     ``mmir.preprocessing.alignment.sc_trajectory_transfer.align_all_cascade_frames``
+  1. **Pass 1** — per-frame independent alignment (v5-CUDA renderer-2-DOF
+     + cupy LiDAR-4-DOF, winner selected by cart_corr against the same
+     CUDA renderer objective):
+     ``mm25DGS_v5.preprocessing.alignment.cascaded_alignment.run_all``
      Outputs: ``data/alignment_data/<scene>/cascade/cascaded_frame_<F>_aligned*.json``
      + per-frame alignment logs.
 
@@ -23,12 +24,14 @@ Per scene the driver runs:
      ``..._alignment_log_pass2.json`` + ``pass2_triage.json`` +
      ``pass2_summary.json``.
 
+Both passes use the v5 CUDA rendering backend (no Mitsuba MC).
+
 Prerequisites
 -------------
 * Preprocessing done — each ``data/<scene>/`` has ``scene/mesh.ply``,
   ``scene/pcl.npy``, ``radar/cascaded_frame_*.npy``, and
   ``configs/cascaded_frame_*.json``.
-* v5 CUDA extension built (for pass 2)::
+* v5 CUDA extension built (required for both passes)::
 
       cd mm25DGS_v5/cuda && python setup.py build_ext --inplace
 
@@ -52,9 +55,9 @@ Usage
         --all --skip-pass-2
 
 Timing (1× RTX 4090):
-    pass 1: ~5–15 min / scene (Mitsuba MC is the bottleneck; dominated by
-            per-frame renderer 2-DOF grid search and LiDAR 4-DOF optim.)
-    pass 2: ~2–3 min / scene (v5 CUDA grid + Nelder-Mead is fast)
+    pass 1: ~1–2 min / scene (CUDA renderer-2-DOF + cupy LiDAR-4-DOF)
+    pass 2: ~2–3 min / scene (CUDA renderer-4-DOF + cupy LiDAR-4-DOF
+            with trajectory prior)
 """
 
 import os
@@ -79,21 +82,22 @@ def _discover_scenes(data_root):
     )
 
 
-def run_pass1(scene, data_root, output_root, verbose=True):
-    """Pass-1 alignment for every cascade frame in a scene. Produces
-    ``cascaded_frame_<F>_aligned*.json`` + per-frame alignment logs under
-    ``{output_root}/{scene}/cascade/``.
+def run_pass1(scene, data_root, output_root, target_n=30000,
+              skip_if_exists=True, verbose=True):
+    """Pass-1 alignment for every cascade frame in a scene (CUDA backend).
+    Produces ``cascaded_frame_<F>_aligned*.json`` + per-frame alignment
+    logs under ``{output_root}/{scene}/cascade/``.
     """
     import mitsuba as mi
     if mi.variant() is None:
         mi.set_variant('cuda_ad_rgb')
-    from mmir.preprocessing.alignment.sc_trajectory_transfer import (
-        align_all_cascade_frames,
-    )
-    return align_all_cascade_frames(
-        scene_name=scene,
+    from mm25DGS_v5.preprocessing.alignment.cascaded_alignment import run_all
+    return run_all(
         data_root=data_root,
         output_root=output_root,
+        scenes=[scene],
+        skip_if_exists=skip_if_exists,
+        target_n=target_n,
         verbose=verbose,
     )
 
@@ -145,7 +149,11 @@ def main():
     ap.add_argument('--gate-mad', type=float, default=2.5,
                     help='Pass-2 trajectory-consistency gate (MAD units)')
     ap.add_argument('--target-n', type=int, default=30000,
-                    help='Pass-2 FPS target point count for CUDA alignment ctx')
+                    help='FPS target point count for CUDA alignment ctx '
+                         '(used by both pass 1 and pass 2)')
+    ap.add_argument('--force', action='store_true',
+                    help='Pass-1: re-run alignment even if existing outputs '
+                         'are on disk (otherwise skip_if_exists=True)')
     ap.add_argument('--skip-on-error', action='store_true',
                     help='Continue to the next scene on per-scene failure '
                          'instead of aborting')
@@ -185,6 +193,8 @@ def main():
                 print(f'\n── {sc} · pass 1 ──')
                 run_pass1(sc, data_root=args.data_root,
                           output_root=args.pass1_output_root,
+                          target_n=args.target_n,
+                          skip_if_exists=not args.force,
                           verbose=True)
             else:
                 print(f'── {sc} · pass 1 skipped ──')

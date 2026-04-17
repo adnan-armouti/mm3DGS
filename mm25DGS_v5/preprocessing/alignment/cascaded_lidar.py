@@ -147,8 +147,14 @@ from mmir.data.io_utils import compute_range_res_from_cfg  # io_utils.py:26-38
 # ANTENNA BEAM PATTERN WEIGHTING
 # ============================================================================
 
-# Default antenna pattern path
-DEFAULT_ANTENNA_PATTERN_PATH = None
+# Default antenna pattern path — MMWCAS TX (shared with v5 CUDA renderer).
+# Resolved relative to the repo root so the vendored copy works the same
+# regardless of cwd.
+DEFAULT_ANTENNA_PATTERN_PATH = os.path.abspath(os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    '..', '..', '..', 'assets', 'antenna_pattern', 'MMWCAS', 'tx1_76.npy'))
+if not os.path.isfile(DEFAULT_ANTENNA_PATTERN_PATH):
+    DEFAULT_ANTENNA_PATTERN_PATH = None  # fall back; caller must pass explicit path
 
 
 def load_antenna_pattern(pattern_path: str = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:

@@ -343,7 +343,7 @@ Optimize the rigid alignment between radar and LiDAR coordinate frames.
 Alignment runs as two passes; the recommended entry point invokes both
 back-to-back per scene.
 
-#### Build the v5 CUDA extension (required for pass 2)
+#### Build the v5 CUDA extension (required for both passes)
 
 ```bash
 cd mm25DGS_v5/cuda
@@ -351,9 +351,10 @@ python setup.py build_ext --inplace
 cd ../..
 ```
 
-This drops a `.so` next to `mm25DGS_v5/cuda/setup.py`. Pass 2's CUDA
-renderer backend falls back to a clear error if the extension is not
-built; pass 1 does not need it.
+This drops a `.so` next to `mm25DGS_v5/cuda/setup.py`. Both alignment
+passes render through the v5 CUDA backend (analytic BSDF over an FPS'd
+point cloud, ~3 ms/render vs seconds for the upstream Mitsuba MC path)
+and fall back to a clear error if the extension is not built.
 
 #### Run both passes end-to-end (recommended)
 
@@ -381,19 +382,21 @@ Outputs (per scene) live in `data/alignment_data/<scene>/cascade/`:
 | `pass2_triage.json` | 2 | Stage A trajectory fit + MAD outlier flags |
 | `pass2_summary.json` | 2 | Stage B per-frame winners + post-verification |
 
-Timing on 1× RTX 4090: pass 1 ≈ 5–15 min/scene (Mitsuba MC dominates),
-pass 2 ≈ 2–3 min/scene (v5 CUDA renderer + cupy-based LiDAR).
+Timing on 1× RTX 4090: pass 1 ≈ 1–2 min/scene (CUDA renderer-2-DOF +
+cupy LiDAR-4-DOF, ~8 s/frame), pass 2 ≈ 2–3 min/scene (CUDA
+renderer-4-DOF + cupy LiDAR with trajectory prior).
 
 #### What each pass does
 
 **Pass 1** — per-frame independent alignment. Two methods are run and the
-higher-cart_corr winner is written per frame:
+higher-cart_corr winner is written per frame; both candidate poses are
+scored with the same CUDA renderer cc for a fair comparison:
 
 1. **LiDAR 4-DOF** — voxelises the LiDAR point cloud into the radar's
    RAE grid and optimises (range, azimuth, elevation-rot, azimuth-rot)
    to maximise correlation with the measured RA image (cupy-accelerated).
-2. **Renderer 2-DOF** — Mitsuba MC renderer, optimises range + azimuth
-   only (zero boresight rotation).
+2. **Renderer 2-DOF** — v5 CUDA renderer (analytic BSDF), optimises
+   range + azimuth only (zero boresight rotation).
 
 **Pass 2** — trajectory-aware refinement. Because pass 1 aligns each frame
 in isolation, the boresight z-component can flip on frames with
