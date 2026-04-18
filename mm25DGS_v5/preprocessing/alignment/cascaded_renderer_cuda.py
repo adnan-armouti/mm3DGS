@@ -86,6 +86,7 @@ def build_alignment_context(
     device=DEVICE,
     target_n=30000,
     use_factory_patterns=None,
+    chirp_idx=0,
     verbose=False,
 ):
     """Build a one-time alignment context for a single frame.
@@ -147,7 +148,13 @@ def build_alignment_context(
     sample_grid = build_polar_to_cart_grid(127, 256, range_res, 400, device)
 
     gt_adc_np = np.load(gt_adc_path)
-    gt_s = gt_adc_np[0] if gt_adc_np.ndim == 4 else gt_adc_np
+    if gt_adc_np.ndim == 4:
+        if not (0 <= chirp_idx < gt_adc_np.shape[0]):
+            raise ValueError(
+                f'chirp_idx={chirp_idx} out of range for ADC of shape {gt_adc_np.shape}')
+        gt_s = gt_adc_np[chirp_idx]
+    else:
+        gt_s = gt_adc_np
     gt_ri = np.stack([gt_s.real, gt_s.imag], axis=-1).astype(np.float32)
     # (RX, TX, K, 2) -> (TX, RX, K, 2) to match render output layout
     gt_ri = gt_ri.transpose(1, 0, 2, 3)
@@ -215,6 +222,33 @@ def render_and_evaluate_cuda(ctx, recompute_active_mask=True):
         ra_cart = polar_to_cart_torch(ra_polar, ctx.sample_grid)
         cc = cart_corr_torch(ra_cart, ctx.gt_cart_norm).item()
     return cc
+
+
+def update_gt_for_chirp(ctx, gt_adc_path, chirp_idx):
+    """Recompute ctx.gt_cart_norm for a new chirp index without rebuilding
+    the full context (reuses the FPS'd model, sample grid, and Rasterizer).
+    Call once before each per-chirp alignment pass to avoid paying the
+    ~2 s FPS/raytrace cost per chirp within a single frame.
+    """
+    gt_adc_np = np.load(gt_adc_path)
+    if gt_adc_np.ndim == 4:
+        if not (0 <= chirp_idx < gt_adc_np.shape[0]):
+            raise ValueError(
+                f'chirp_idx={chirp_idx} out of range for ADC of shape {gt_adc_np.shape}')
+        gt_s = gt_adc_np[chirp_idx]
+    else:
+        gt_s = gt_adc_np
+    gt_ri = np.stack([gt_s.real, gt_s.imag], axis=-1).astype(np.float32)
+    gt_ri = gt_ri.transpose(1, 0, 2, 3)
+    gt_adc_ri = torch.from_numpy(gt_ri).to(ctx.device)
+    with torch.no_grad():
+        ra_c = adc_to_ra_complex(gt_adc_ri)
+        ra_polar = torch.abs(ra_c).float()
+        gt_cart = polar_to_cart_torch(ra_polar, ctx.sample_grid)
+        mn, mx = gt_cart.min(), gt_cart.max()
+        ctx.gt_cart_norm = (
+            (gt_cart - mn) / (mx - mn).clamp(min=1e-30)).detach()
+    del gt_adc_ri, ra_c, ra_polar, gt_cart
 
 
 def destroy_alignment_context(ctx):

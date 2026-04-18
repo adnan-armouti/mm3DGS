@@ -1,0 +1,17 @@
+scene,combo,cc
+seq_1_frame_438,HO_128 mat + HO_128 rot (HO baseline),0.4873925447463989
+seq_1_frame_438,UB_144 mat + UB_144 rot (UB on HO grid),0.5224083662033081
+seq_1_frame_438,UB_144 mat + HO_128 rot,0.4795147776603699
+seq_1_frame_438,HO_128 mat + UB_144 rot,0.46442344784736633
+seq_1_frame_438,HO_8 mat + HO_8 rot (HO baseline),0.49928343296051025
+seq_1_frame_438,UB_9 mat + UB_9 rot (UB on HO grid),0.47355496883392334
+seq_1_frame_438,UB_9 mat + HO_8 rot,0.37567541003227234
+seq_1_frame_438,HO_8 mat + UB_9 rot,0.42396652698516846
+seq_2_frame_105,HO_128 mat + HO_128 rot (HO baseline),0.4994400143623352
+seq_2_frame_105,UB_144 mat + UB_144 rot (UB on HO grid),0.5528078079223633
+seq_2_frame_105,UB_144 mat + HO_128 rot,0.4765000641345978
+seq_2_frame_105,HO_128 mat + UB_144 rot,0.5352343916893005
+seq_2_frame_105,HO_8 mat + HO_8 rot (HO baseline),0.5080146193504333
+seq_2_frame_105,UB_9 mat + UB_9 rot (UB on HO grid),0.4875331223011017
+seq_2_frame_105,UB_9 mat + HO_8 rot,0.4369160234928131
+seq_2_frame_105,HO_8 mat + UB_9 rot,0.45909515023231506
