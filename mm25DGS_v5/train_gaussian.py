@@ -513,7 +513,8 @@ def cull_gaussians(model, rast, cos_threshold=0.05):
 def init_visible_weighted(scene, rast, target_n=90000,
                           cos_bore_min=0.1,
                           n_intermediate=None,
-                          device=DEVICE):
+                          device=DEVICE,
+                          return_pool=False):
     # Default: make the intermediate pool large enough that the cosine
     # importance resample step doesn't bottleneck FPS selection. The
     # n_resample = min(n_intermediate, 3*target_n) line then picks 3*target_n.
@@ -618,6 +619,27 @@ def init_visible_weighted(scene, rast, target_n=90000,
         quats = _normals_to_quaternions(normals)
         model.rotations.copy_(torch.from_numpy(quats).to(device))
 
+    if return_pool:
+        # Post-visibility pool (post-FOV + post-visibility ray test, NO
+        # cosine resample, NO FPS). Size is typically several hundred
+        # thousand points — the largest honest "radar-visible LiDAR"
+        # candidate set. Used by S4 pool-kNN child spawning so children
+        # are drawn from un-FPS-biased LiDAR neighbours of high-Fisher
+        # parents (post-resample would bias toward cos_bore-aligned
+        # points already close to the FPS-chosen training set).
+        #
+        # `pool_fps_sel` gives the indices into (xyz_vis, nrm_vis) that
+        # map each of the target_n training slots to a real pool point.
+        # Derivation:
+        #   training pt i = xyz[i]
+        #                 = xyz_weighted[sel[i]]   (sel: fps index → weighted)
+        #                 = xyz_vis[unique_idx[sel[i]]]
+        # so pool index for slot i = unique_idx[sel[i]].
+        if len(xyz_weighted) > target_n:
+            pool_fps_sel = unique_idx[sel].astype(np.int64)
+        else:
+            pool_fps_sel = unique_idx.astype(np.int64)
+        return model, xyz_vis, nrm_vis, pool_fps_sel
     return model
 
 

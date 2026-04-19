@@ -255,22 +255,139 @@ def build_frame_level_dataset(scene, train_frames, test_frame,
 # S4 — adaptive density: Fisher-weighted split + prune, fixed N budget.
 # ---------------------------------------------------------------------------
 
+def _normal_to_quat_gpu(n):
+    """GPU-side version of _normals_to_quaternions (axis–angle from +z→n).
+
+    ``n``: (K, 3) unit normals on device.
+    Returns: (K, 4) quaternion [w, x, y, z].
+    """
+    n = n / n.norm(dim=-1, keepdim=True).clamp(min=1e-12)
+    # axis = cross(+z, n) = (-n_y, n_x, 0); magnitude = sin(θ)
+    axis = torch.zeros_like(n)
+    axis[:, 0] = -n[:, 1]
+    axis[:, 1] = n[:, 0]
+    axis_len = axis.norm(dim=-1, keepdim=True).clamp(min=1e-12)
+    axis = axis / axis_len
+    dot = n[:, 2]
+    # half-angle from cos(θ)
+    cos_half = torch.sqrt(((1.0 + dot) / 2.0).clamp(min=0.0))
+    sin_half = torch.sqrt(((1.0 - dot) / 2.0).clamp(min=0.0))
+    q = torch.zeros((n.shape[0], 4), dtype=n.dtype, device=n.device)
+    q[:, 0] = cos_half                       # w
+    q[:, 1:] = axis * sin_half.unsqueeze(-1) # x, y, z
+    # Near-exact-opposite (dot ≈ −1) → 180° rotation; axis already in xy plane.
+    # Above handles it via sin_half → 1, cos_half → 0.
+    return torch.nn.functional.normalize(q, dim=-1)
+
+
+def _pool_knn_assign(parent_pos, pool_xyz, pool_used, radius_m,
+                     radius_min_m=0.0, selection='nearest',
+                     topk=10, parent_batch=500):
+    """For each split parent, pick an unused pool point within a radius
+    range, using one of two selection strategies.
+
+    ``selection``:
+      * ``'nearest'`` (default): pick the nearest unused pool point within
+        ``[0, radius_m)``. Tends to produce near-clone children when the
+        pool is dense (sub-cm nearest neighbours often exist).
+      * ``'random_annulus'``: pick a UNIFORM-RANDOM unused pool point
+        within the annulus ``[radius_min_m, radius_m)``. Trades locality
+        for diversity; matches the spatial scale of jitter (2-15 cm) but
+        keeps children on real LiDAR surfaces.
+
+    Greedy resolution of parent-parent collisions: parents are processed
+    in a random order; each takes a point that is then locked out for
+    subsequent parents.
+
+    Returns (assigned: (K,) long, hit: (K,) bool). ``assigned[i] == -1``
+    when no eligible neighbour exists (caller falls back to jitter).
+    """
+    K = parent_pos.shape[0]
+    P = pool_xyz.shape[0]
+    device = parent_pos.device
+
+    assigned = torch.full((K,), -1, dtype=torch.long, device=device)
+    used_this_round = pool_used.clone()
+    order = torch.randperm(K, device=device).tolist()
+
+    if selection == 'nearest':
+        # Compute top-K nearest pool indices per parent (chunked for memory).
+        topk_idx = torch.empty((K, topk), dtype=torch.long, device=device)
+        topk_dist = torch.empty((K, topk), dtype=torch.float32, device=device)
+        for i in range(0, K, parent_batch):
+            j = min(i + parent_batch, K)
+            d = torch.cdist(parent_pos[i:j], pool_xyz)           # (b, P)
+            d = d.masked_fill(pool_used[None, :], float('inf'))
+            v, ix = d.topk(topk, dim=-1, largest=False)
+            topk_dist[i:j] = v
+            topk_idx[i:j]  = ix
+        for p_ord in order:
+            for r in range(topk):
+                cand = topk_idx[p_ord, r].item()
+                if topk_dist[p_ord, r].item() > radius_m:
+                    break
+                if not used_this_round[cand]:
+                    assigned[p_ord] = cand
+                    used_this_round[cand] = True
+                    break
+    elif selection == 'random_annulus':
+        # For each parent (in random order), sample uniformly among unused
+        # pool points inside [radius_min_m, radius_m). Processed in chunks.
+        for i in range(0, K, parent_batch):
+            chunk = order[i:i + parent_batch]
+            chunk_t = torch.tensor(chunk, device=device, dtype=torch.long)
+            d = torch.cdist(parent_pos[chunk_t], pool_xyz)          # (b, P)
+            valid = (d >= radius_min_m) & (d < radius_m)
+            valid = valid & (~used_this_round[None, :])
+            for k, p_ord in enumerate(chunk):
+                vk = valid[k]
+                if not vk.any():
+                    continue
+                vi = torch.nonzero(vk, as_tuple=True)[0]
+                pick_idx = int(torch.randint(len(vi), (1,), device=device).item())
+                pick = int(vi[pick_idx].item())
+                assigned[p_ord] = pick
+                used_this_round[pick] = True
+                # lock out this pool index for subsequent parents in chunk
+                valid[:, pick] = False
+    else:
+        raise ValueError(f'unknown pool selection: {selection}')
+
+    hit = (assigned >= 0)
+    return assigned, hit
+
+
 def _densify_step(model, optimizer, fisher_per_pt, split_n, prune_n,
                   pos_jitter_m, mat_jitter, rot_jitter=0.05,
-                  init_raw_ref=None, init_normals_ref=None, verbose=False):
+                  init_raw_ref=None, init_normals_ref=None,
+                  child_source='pool_knn',
+                  pool_xyz=None, pool_normals=None, slot_to_pool_idx=None,
+                  pool_radius_m=0.15, pool_radius_min_m=0.0,
+                  pool_selection='nearest', verbose=False):
     """In-place split + prune to reallocate the fixed N-point budget.
 
     The bottom ``prune_n`` points (lowest Fisher) are *replaced* in-place
-    by children of the top ``split_n`` points (highest Fisher). Each child
-    = parent params + small isotropic jitter. Tensor indices of
-    non-modified points are preserved (the prune slots get overwritten).
-    Adam state at the replaced slots is zeroed so children start with no
-    momentum. The ``init_raw_ref`` / ``init_normals_ref`` arrays (used by
-    H1 / S2 drift penalties) are patched to the children's values so the
-    drift at birth is zero and the penalty doesn't immediately punish
-    them for having drifted off the (now-stale) original init.
+    by children of the top ``split_n`` points (highest Fisher).
 
-    Requires ``split_n == prune_n`` and both ≤ 0.45·N (no overlap).
+    ``child_source``:
+      * ``'pool_knn'`` (default): draw the child's position + normal from
+        the nearest-unused point in the post-visibility LiDAR pool within
+        ``pool_radius_m``. Keeps children on real LiDAR surfaces and
+        preserves genuine LiDAR normals. Requires ``pool_xyz``,
+        ``pool_normals``, ``slot_to_pool_idx`` to be provided.
+      * ``'jitter'``: legacy mode — child = parent params + Gaussian noise
+        (position σ = ``pos_jitter_m``, rotation σ = ``rot_jitter``).
+        Kept for ablation / fallback when the pool is unavailable.
+
+    Child material is always parent + Gaussian jitter (``mat_jitter``);
+    Adam can repair this quickly.
+
+    Tensor indices of non-modified points are preserved (prune slots are
+    overwritten, not deleted). Adam state at replaced slots is zeroed so
+    children start with no momentum. ``init_raw_ref`` / ``init_normals_ref``
+    are patched so drift penalties see zero drift at birth.
+
+    Requires ``split_n == prune_n`` and both ≤ 0.45·N.
     """
     assert split_n == prune_n, 'split_n and prune_n must match to preserve N'
     N = model.N
@@ -281,9 +398,11 @@ def _densify_step(model, optimizer, fisher_per_pt, split_n, prune_n,
     split_idx = order[:split_n].clone()
     prune_idx = order[-prune_n:].clone()
 
-    # Sanity: no overlap (guaranteed by frac ≤ 0.45·N, but double-check)
     overlap = set(split_idx.tolist()) & set(prune_idx.tolist())
     assert not overlap, f'split/prune index overlap: {overlap}'
+
+    n_pool_hits = 0
+    n_pool_fallback = 0
 
     with torch.no_grad():
         # Gather parent params
@@ -291,13 +410,53 @@ def _densify_step(model, optimizer, fisher_per_pt, split_n, prune_n,
         rot_parent = model.rotations[split_idx].clone()
         raw_parent = model.raw_materials[split_idx].clone()
 
-        # Perturb
-        pos_noise = torch.randn_like(pos_parent) * pos_jitter_m
-        rot_noise = torch.randn_like(rot_parent) * rot_jitter
-        raw_noise = torch.randn_like(raw_parent) * mat_jitter
-        pos_new = pos_parent + pos_noise
-        rot_new = torch.nn.functional.normalize(rot_parent + rot_noise, dim=-1)
-        raw_new = raw_parent + raw_noise
+        # --- Generate new (child) position + rotation ---
+        if child_source == 'pool_knn':
+            assert pool_xyz is not None and pool_normals is not None \
+                and slot_to_pool_idx is not None, \
+                'pool_knn mode requires pool_xyz, pool_normals, slot_to_pool_idx'
+            pool_used = torch.zeros(pool_xyz.shape[0], dtype=torch.bool,
+                                     device=device)
+            pool_used[slot_to_pool_idx] = True
+
+            assigned, hit = _pool_knn_assign(
+                pos_parent, pool_xyz, pool_used,
+                radius_m=pool_radius_m,
+                radius_min_m=pool_radius_min_m,
+                selection=pool_selection)
+
+            # pool-sourced children for hits; jitter fallback for misses.
+            pos_new = pos_parent.clone()
+            rot_new = rot_parent.clone()
+            pos_new[hit] = pool_xyz[assigned[hit]]
+            rot_new[hit] = _normal_to_quat_gpu(pool_normals[assigned[hit]])
+
+            miss = ~hit
+            if miss.any():
+                # Fallback: jitter for parents with no nearby unused pool pt.
+                pos_new[miss] = pos_parent[miss] + \
+                    torch.randn_like(pos_parent[miss]) * pos_jitter_m
+                rot_new[miss] = torch.nn.functional.normalize(
+                    rot_parent[miss] + torch.randn_like(rot_parent[miss]) * rot_jitter,
+                    dim=-1)
+
+            n_pool_hits = int(hit.sum().item())
+            n_pool_fallback = int(miss.sum().item())
+
+            # Update slot_to_pool_idx for the replaced (prune) slots
+            # Only hits have a real pool idx; misses get -1 (untracked).
+            new_pool_mapping = torch.full_like(prune_idx, -1)
+            new_pool_mapping[hit] = assigned[hit]
+            # Assign back into the slot-level map at prune slots
+            slot_to_pool_idx[prune_idx] = new_pool_mapping
+
+        else:  # 'jitter' (legacy)
+            pos_new = pos_parent + torch.randn_like(pos_parent) * pos_jitter_m
+            rot_new = torch.nn.functional.normalize(
+                rot_parent + torch.randn_like(rot_parent) * rot_jitter, dim=-1)
+
+        # Material always: parent + Gaussian noise
+        raw_new = raw_parent + torch.randn_like(raw_parent) * mat_jitter
 
         # In-place overwrite of prune slots with children
         model.positions[prune_idx]     = pos_new
@@ -313,11 +472,10 @@ def _densify_step(model, optimizer, fisher_per_pt, split_n, prune_n,
                 if k in st and st[k].shape == p.shape:
                     st[k][prune_idx] = 0.0
 
-        # Patch init_* buffers so that drift penalties see zero drift at birth
+        # Patch init_* so drift penalties see zero drift at birth
         if init_raw_ref is not None:
             init_raw_ref[prune_idx] = raw_new
         if init_normals_ref is not None:
-            # Recompute init normals from the new rotations
             q = torch.nn.functional.normalize(rot_new, dim=-1)
             w, x, y, z = q[:, 0], q[:, 1], q[:, 2], q[:, 3]
             nx = 2 * (x * z + w * y)
@@ -326,8 +484,19 @@ def _densify_step(model, optimizer, fisher_per_pt, split_n, prune_n,
             init_normals_ref[prune_idx] = torch.stack([nx, ny, nz], dim=-1)
 
     if verbose:
-        print(f'  [S4] densify: split {split_n} top-Fisher → replaced '
-              f'{prune_n} bottom-Fisher  (pos_jitter={pos_jitter_m:.3f} m)')
+        if child_source == 'pool_knn':
+            sel_str = pool_selection
+            if pool_selection == 'random_annulus':
+                r_str = f'annulus=[{pool_radius_min_m:.2f}, {pool_radius_m:.2f}] m'
+            else:
+                r_str = f'radius={pool_radius_m:.2f} m'
+            print(f'  [S4] densify: split {split_n} top-Fisher → replaced '
+                  f'{prune_n} bottom-Fisher  '
+                  f'[pool_knn {sel_str}: {n_pool_hits} hits / '
+                  f'{n_pool_fallback} jitter-fb @ {r_str}]')
+        else:
+            print(f'  [S4] densify: split {split_n} top-Fisher → replaced '
+                  f'{prune_n} bottom-Fisher  (pos_jitter={pos_jitter_m:.3f} m)')
 
 
 # ---------------------------------------------------------------------------
@@ -364,6 +533,10 @@ def train_frame_nvs(scene,
                     reg_densify_until=300,
                     reg_densify_pos_jitter_m=0.02,
                     reg_densify_mat_jitter=0.1,
+                    reg_densify_child_source='pool_knn',
+                    reg_densify_pool_radius_m=0.15,
+                    reg_densify_pool_radius_min_m=0.0,
+                    reg_densify_pool_selection='nearest',
                     seed_frame=None):
     assert v5cuda.is_available(), (
         'v5 CUDA extension not built. '
@@ -421,7 +594,27 @@ def train_frame_nvs(scene,
     # Init model at seed pose — FOV will be recomputed per-sample via
     # cull_gaussians during render_gaussians. We need a Mitsuba scene for
     # the init-time visibility test.
-    model = init_visible_weighted(scene, rast, target_n=target_n)
+    # If S4 pool-kNN mode is in use, also return the post-visibility
+    # LiDAR pool (xyz, normals, fps_sel) so children can be drawn from
+    # real on-surface unused points. The pool is the un-resampled /
+    # un-FPS-reduced set of LiDAR points that survived FOV + visibility;
+    # typically several hundred thousand candidates per scene.
+    need_pool = (reg_densify_interval > 0
+                  and reg_densify_child_source == 'pool_knn')
+    if need_pool:
+        model, pool_xyz_np, pool_normals_np, fps_sel_np = \
+            init_visible_weighted(scene, rast, target_n=target_n,
+                                   return_pool=True)
+        pool_xyz = torch.from_numpy(pool_xyz_np.astype(np.float32)).to(DEVICE)
+        pool_normals = torch.from_numpy(pool_normals_np.astype(np.float32)).to(DEVICE)
+        slot_to_pool_idx = torch.from_numpy(fps_sel_np.astype(np.int64)).to(DEVICE)
+        if verbose:
+            print(f'  [S4] pool_knn enabled: post-visibility pool size = '
+                  f'{pool_xyz.shape[0]:,} points  '
+                  f'(radius={reg_densify_pool_radius_m:.2f} m)')
+    else:
+        model = init_visible_weighted(scene, rast, target_n=target_n)
+        pool_xyz = pool_normals = slot_to_pool_idx = None
     rast.free_mi_scene()
     import gc; gc.collect(); torch.cuda.empty_cache()
 
@@ -674,6 +867,13 @@ def train_frame_nvs(scene,
                         rot_jitter=0.05,
                         init_raw_ref=init_raw,
                         init_normals_ref=init_normals,
+                        child_source=reg_densify_child_source,
+                        pool_xyz=pool_xyz,
+                        pool_normals=pool_normals,
+                        slot_to_pool_idx=slot_to_pool_idx,
+                        pool_radius_m=reg_densify_pool_radius_m,
+                        pool_radius_min_m=reg_densify_pool_radius_min_m,
+                        pool_selection=reg_densify_pool_selection,
                         verbose=verbose,
                     )
                     n_densify_rounds += 1
@@ -755,8 +955,15 @@ def train_frame_nvs(scene,
             if reg_fisher_rot_threshold_deg > 0.0:
                 tag = f'{tag}_thr{reg_fisher_rot_threshold_deg:g}'
         if reg_densify_interval > 0:
-            tag = (f'{tag}_dnsfy{reg_densify_split_frac:g}i{reg_densify_interval}'
-                   f'u{reg_densify_until}p{reg_densify_pos_jitter_m:g}')
+            src_tag = 'pk' if reg_densify_child_source == 'pool_knn' else 'jt'
+            tag = (f'{tag}_dnsfy{src_tag}{reg_densify_split_frac:g}'
+                   f'i{reg_densify_interval}u{reg_densify_until}')
+            if reg_densify_child_source == 'pool_knn':
+                tag = f'{tag}r{reg_densify_pool_radius_m:g}'
+                if reg_densify_pool_selection == 'random_annulus':
+                    tag = (f'{tag}ann{reg_densify_pool_radius_min_m:g}')
+            else:
+                tag = f'{tag}p{reg_densify_pos_jitter_m:g}'
         output_dir = os.path.join(
             PROJECT_ROOT, 'mm25DGS_v5', 'output_frame_nvs', f'{scene}_{tag}')
     os.makedirs(output_dir, exist_ok=True)
@@ -804,6 +1011,10 @@ def train_frame_nvs(scene,
         'reg_densify_until': int(reg_densify_until),
         'reg_densify_pos_jitter_m': float(reg_densify_pos_jitter_m),
         'reg_densify_mat_jitter': float(reg_densify_mat_jitter),
+        'reg_densify_child_source': reg_densify_child_source,
+        'reg_densify_pool_radius_m': float(reg_densify_pool_radius_m),
+        'reg_densify_pool_radius_min_m': float(reg_densify_pool_radius_min_m),
+        'reg_densify_pool_selection': reg_densify_pool_selection,
         'reg_densify_rounds_completed': int(n_densify_rounds),
     }
     with open(os.path.join(output_dir, 'results.json'), 'w') as f:
@@ -903,6 +1114,29 @@ if __name__ == '__main__':
     ap.add_argument('--reg_densify_mat_jitter', type=float, default=0.1,
                     help='S4: std of Gaussian noise added to raw_materials for '
                          'child points (raw units).')
+    ap.add_argument('--reg_densify_child_source', default='pool_knn',
+                    choices=['pool_knn', 'jitter'],
+                    help='S4 child source. "pool_knn" (default): draw '
+                         'child position + normal from the nearest-unused '
+                         'point in the post-resample LiDAR pool within '
+                         '--reg_densify_pool_radius_m of each parent. '
+                         '"jitter" (legacy): child = parent + Gaussian '
+                         'position/quaternion noise (may drift off-surface).')
+    ap.add_argument('--reg_densify_pool_radius_m', type=float, default=0.15,
+                    help='S4 pool_knn mode: max distance (m) from parent to '
+                         'a candidate pool point. Parents with no pool point '
+                         'inside this radius fall back to jitter.')
+    ap.add_argument('--reg_densify_pool_radius_min_m', type=float, default=0.0,
+                    help='S4 pool_knn mode (random_annulus only): min distance '
+                         '(m) from parent. Ignored under selection=nearest.')
+    ap.add_argument('--reg_densify_pool_selection', default='nearest',
+                    choices=['nearest', 'random_annulus'],
+                    help='S4 pool_knn picking strategy. "nearest": pick '
+                         'nearest unused pool point in [0, radius_m) — near-'
+                         'clone behaviour when pool is dense. "random_annulus": '
+                         'uniform-random pick within [radius_min_m, radius_m) — '
+                         'matches jitter-scale diversity while keeping children '
+                         'on real LiDAR surfaces.')
     ap.add_argument('--seed_frame', type=int, default=None,
                     help='Frame whose pose seeds the rasterizer (drives FOV + '
                          'RX visibility before FPS, so it determines the 90k-'
@@ -942,4 +1176,8 @@ if __name__ == '__main__':
         reg_densify_until=args.reg_densify_until,
         reg_densify_pos_jitter_m=args.reg_densify_pos_jitter_m,
         reg_densify_mat_jitter=args.reg_densify_mat_jitter,
+        reg_densify_child_source=args.reg_densify_child_source,
+        reg_densify_pool_radius_m=args.reg_densify_pool_radius_m,
+        reg_densify_pool_radius_min_m=args.reg_densify_pool_radius_min_m,
+        reg_densify_pool_selection=args.reg_densify_pool_selection,
         seed_frame=args.seed_frame)
