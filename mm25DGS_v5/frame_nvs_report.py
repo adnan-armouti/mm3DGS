@@ -76,21 +76,33 @@ def _classify_variant(r):
 
     samples = r.get('n_train_samples') or (n_frames * (n_loops or 16))
 
+    anchor = r.get('anchor_source', 'pass2_lerp')
+    anchor_tag = ' · pass-3' if anchor == 'pass3_per_chirp' else ''
+    anchor_key = '_p3' if anchor == 'pass3_per_chirp' else ''
+
     if test_in_train:
-        return (f'UB ({samples})', f'UB_{samples}')
+        return (f'UB ({samples}){anchor_tag}', f'UB_{samples}{anchor_key}')
     else:
         if n_loops == 1:
-            return (f'HO ({samples}, 1 chirp/frame)', f'HO_{samples}_1c')
-        return (f'HO ({samples})', f'HO_{samples}')
+            return (f'HO ({samples}, 1 chirp/frame){anchor_tag}',
+                    f'HO_{samples}_1c{anchor_key}')
+        return (f'HO ({samples}){anchor_tag}', f'HO_{samples}{anchor_key}')
 
 
 def _variant_order(key):
-    """Stable sort order for variant columns: HO (n), HO (small, 1-chirp), UB (n)."""
-    if key.startswith('UB_'):
-        return (2, int(key.split('_')[1]))
-    if key.endswith('_1c'):
-        return (1, int(key.split('_')[1]))
-    return (0, int(key.split('_')[1]))
+    """Stable sort order for variant columns: HO (n), HO (small, 1-chirp), UB (n).
+    Pass-3-anchored variants come just after their pass-2 counterparts.
+    """
+    # Strip _p3 suffix for grouping; track it separately
+    is_p3 = key.endswith('_p3')
+    base = key[:-3] if is_p3 else key
+    if base.startswith('UB_'):
+        grp = (2, int(base.split('_')[1]))
+    elif base.endswith('_1c'):
+        grp = (1, int(base.split('_')[1]))
+    else:
+        grp = (0, int(base.split('_')[1]))
+    return grp + (1 if is_p3 else 0,)
 
 
 def _pivot(rows):

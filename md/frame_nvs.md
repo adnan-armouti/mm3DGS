@@ -16,10 +16,10 @@ Task: train on `n_train_frames × n_train_loops` chirp-loop RA maps from a 9-fra
 
 ## Results — pivot (one row per scene)
 
-| scene | test (frame / loop) | init_HO | HO (128) | HO (8, 1 chirp/frame) | UB (9) | UB (144) | init_train | final_train · HO (128) | final_train · HO (8, 1 chirp/frame) | final_train · UB (9) | final_train · UB (144) |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `seq_1_frame_438` | 438 / 0 | 0.2251 | **0.4904** | **0.5003** | **0.9510** | **0.9126** | 0.2410 | 0.9102 | 0.9371 | 0.9295 | 0.8997 |
-| `seq_2_frame_105` | 105 / 0 | 0.2948 | **0.5043** | **0.5116** | **0.8814** | **0.8228** | 0.3247 | 0.8684 | 0.8970 | 0.8817 | 0.8469 |
+| scene | test (frame / loop) | init_HO | HO (128) | HO (128) · pass-3 | HO (8, 1 chirp/frame) | HO (8, 1 chirp/frame) · pass-3 | UB (9) | UB (9) · pass-3 | UB (144) | init_train | final_train · HO (128) | final_train · HO (128) · pass-3 | final_train · HO (8, 1 chirp/frame) | final_train · HO (8, 1 chirp/frame) · pass-3 | final_train · UB (9) | final_train · UB (9) · pass-3 | final_train · UB (144) |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `seq_1_frame_438` | 438 / 0 | 0.2301 | **0.4904** | **0.4941** | **0.5003** | **0.4393** | **0.9510** | **0.9484** | **0.9126** | 0.2433 | 0.9102 | 0.9118 | 0.9371 | 0.9438 | 0.9295 | 0.9310 | 0.8997 |
+| `seq_2_frame_105` | 105 / 0 | 0.3302 | **0.5043** | **0.5381** | **0.5116** | **0.4974** | **0.8814** | **0.8719** | **0.8228** | 0.3264 | 0.8684 | 0.8509 | 0.8970 | 0.9003 | 0.8817 | 0.8821 | 0.8469 |
 
 ## Per-scene details
 
@@ -28,8 +28,11 @@ Task: train on `n_train_frames × n_train_loops` chirp-loop RA maps from a 9-fra
 | variant | n_frames × n_loops | align | iters | best iter | init_HO → HO (Δ) | init_train → final_train (Δ) | elapsed |
 |---|---|---|---:|---:|---|---|---:|
 | `HO (128)` | 8 × 16 = 128 | pass-2 | 500 | 499 | 0.2251 → **0.4904** (+0.2653) | 0.2414 → 0.9102 (+0.6688) | 3638 s |
+| `HO (128) · pass-3` | 8 × 16 = 128 | pass-2 | 500 | 476 | 0.2301 → **0.4941** (+0.2640) | 0.2433 → 0.9118 (+0.6684) | 5679 s |
 | `HO (8, 1 chirp/frame)` | 8 × 1 = 8 | pass-2 | 500 | 492 | 0.2251 → **0.5003** (+0.2752) | 0.2410 → 0.9371 (+0.6961) | 230 s |
+| `HO (8, 1 chirp/frame) · pass-3` | 8 × 1 = 8 | pass-2 | 500 | 499 | 0.2301 → **0.4393** (+0.2092) | 0.2321 → 0.9438 (+0.7117) | 264 s |
 | `UB (9)` | 9 × 1 = 9 | pass-2 | 500 | 499 | 0.2422 → **0.9510** (+0.7088) | 0.2356 → 0.9295 (+0.6939) | 257 s |
+| `UB (9) · pass-3` | 9 × 1 = 9 | pass-2 | 500 | 466 | 0.2370 → **0.9484** (+0.7114) | 0.2259 → 0.9310 (+0.7052) | 261 s |
 | `UB (144)` | 9 × 16 = 144 | pass-2 | 500 | 499 | 0.2422 → **0.9126** (+0.6704) | 0.2357 → 0.8997 (+0.6639) | 4203 s |
 
 ### `seq_2_frame_105`  —  test frame `105` loop `0`
@@ -37,9 +40,77 @@ Task: train on `n_train_frames × n_train_loops` chirp-loop RA maps from a 9-fra
 | variant | n_frames × n_loops | align | iters | best iter | init_HO → HO (Δ) | init_train → final_train (Δ) | elapsed |
 |---|---|---|---:|---:|---|---|---:|
 | `HO (128)` | 8 × 16 = 128 | pass-2 | 500 | 468 | 0.2948 → **0.5043** (+0.2095) | 0.3186 → 0.8684 (+0.5499) | 3737 s |
+| `HO (128) · pass-3` | 8 × 16 = 128 | pass-2 | 500 | 499 | 0.3302 → **0.5381** (+0.2078) | 0.3264 → 0.8509 (+0.5244) | 4897 s |
 | `HO (8, 1 chirp/frame)` | 8 × 1 = 8 | pass-2 | 500 | 499 | 0.2948 → **0.5116** (+0.2168) | 0.3247 → 0.8970 (+0.5723) | 228 s |
+| `HO (8, 1 chirp/frame) · pass-3` | 8 × 1 = 8 | pass-2 | 500 | 489 | 0.3302 → **0.4974** (+0.1671) | 0.3284 → 0.9003 (+0.5719) | 222 s |
 | `UB (9)` | 9 × 1 = 9 | pass-2 | 500 | 499 | 0.3301 → **0.8814** (+0.5513) | 0.3269 → 0.8817 (+0.5547) | 259 s |
+| `UB (9) · pass-3` | 9 × 1 = 9 | pass-2 | 500 | 477 | 0.3559 → **0.8719** (+0.5160) | 0.3212 → 0.8821 (+0.5609) | 253 s |
 | `UB (144)` | 9 × 16 = 144 | pass-2 | 500 | 499 | 0.3301 → **0.8228** (+0.4926) | 0.3126 → 0.8469 (+0.5343) | 4113 s |
+
+## Matched-grid rerun (2026-04-19, `seed_frame = test_frame`, target_n = 20 000)
+
+Previously HO and UB variants trained on *different* 90 000-point
+position grids (HO seed = `test_frame + 1`, UB seed = `test_frame`),
+per a middle-of-`train_frames` convention. Fixed by defaulting
+`seed_frame = test_frame`; all four variants now share a single
+20 000-point FPS subset of `pcl.npy` (smaller `target_n` to reduce
+DOF and to make the full matrix runnable in ~90 min wall-time).
+Prior and matched rows side by side:
+
+| scene | variant | prior-grid (N=90k) | matched-grid (N=20k) | Δ |
+|---|---|---:|---:|---:|
+| `seq_1_frame_438` | HO (128)              | 0.4904 | **0.5118** | +0.021 |
+| `seq_1_frame_438` | HO (8, 1 chirp/frame) | 0.5003 | **0.5672** | +0.067 |
+| `seq_1_frame_438` | UB (9)                | 0.9510 | 0.9090 | −0.042 |
+| `seq_1_frame_438` | UB (144)              | 0.9126 | 0.8309 | −0.082 |
+| `seq_2_frame_105` | HO (128)              | 0.5043 | **0.5900** | +0.086 |
+| `seq_2_frame_105` | HO (8, 1 chirp/frame) | 0.5116 | **0.5633** | +0.052 |
+| `seq_2_frame_105` | UB (9)                | 0.8814 | 0.8063 | −0.075 |
+| `seq_2_frame_105` | UB (144)              | 0.8228 | 0.7319 | −0.091 |
+
+**Interpretation.** UB's grid didn't change under the seed fix
+(middle-of-9 `train_frames` already landed on `test_frame`), so UB's
+Δ isolates the `target_n` 90k→20k cost at **~−0.09 cc** uniformly.
+Subtracting that component, HO's pure position-grid lift is
+**+0.11–0.18 cc** across both scenes — consistent with Analysis I's
+prior-grid prediction (see
+[`md/frame_nvs_analysis/findings.md`](frame_nvs_analysis/findings.md)
+§I) that HO's parameter-only ceiling on the HO-seed grid was
+0.52/0.55.
+
+### Why it still doesn't hit HO cc ≥ 0.70
+
+Matched-grid swap ablation (see
+[`md/frame_nvs_analysis_matched_grid/findings.md`](frame_nvs_analysis_matched_grid/findings.md)
+§9) reveals that **HO's rotations (normals), not materials, are the
+dominant remaining fault**:
+
+| scene | HO native | UB native | `HO_mat + UB_rot` | `UB_mat + HO_rot` |
+|---|---:|---:|---:|---:|
+| seq_1_frame_438 | 0.512 | 0.830 | **0.685** | 0.573 |
+| seq_2_frame_105 | 0.590 | 0.732 | **0.639** | 0.599 |
+
+Swapping only the normals (keeping HO materials) closes 55 % of the
+remaining gap on seq_1 and 34 % on seq_2. Swapping only materials
+closes only 19 % / 6 %. This signal was invisible on mis-matched
+grids because NN-remapping UB onto HO's positions introduced ~7.5 λ
+of phase error at 77 GHz, masking the attribution.
+
+Aggregate HO vs UB normal statistics are identical (mean drift 28 ° /
+33 °, k-NN smoothness 60 ° / 63 °). But **Fisher-weighted** to the
+~200 points carrying 95 % of test-cc sensitivity, HO's normal drift
+is **17 ° higher than UB's on seq_2** (69.7 ° vs 52.4 °) and 2.9 °
+higher on seq_1. Those ~200 high-Fisher points are being
+free-rotated during training to fit train-set noise in a way
+UB's full-data supervision suppresses.
+
+**Target regulariser (S2, revised):** *Fisher-weighted L2 on
+rotation drift from init* — holds the top-200 rotations pinned to
+their LiDAR-normal init while letting the 19 800 null-space points
+drift freely. See
+[`md/frame_nvs_next_steps.md`](frame_nvs_next_steps.md) for the
+implementation plan + expected gain bounds (swap-ablation ceiling
+0.685 / 0.639 → likely 0.60–0.68 HO cc after the new regulariser).
 
 ## Saved state (for downstream analysis)
 

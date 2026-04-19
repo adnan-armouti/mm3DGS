@@ -1,0 +1,17 @@
+scene,combo,cc
+seq_1_frame_438,HO_128 native,0.5117653608322144
+seq_1_frame_438,UB_144 native,0.8304030299186707
+seq_1_frame_438,UB_mat + HO_rot,0.5733217000961304
+seq_1_frame_438,HO_mat + UB_rot,0.6853098273277283
+seq_1_frame_438,HO_8 native,0.5669949650764465
+seq_1_frame_438,UB_9 native,0.9081863760948181
+seq_1_frame_438,UB9_mat + HO8_rot,0.6526274085044861
+seq_1_frame_438,HO8_mat + UB9_rot,0.764403223991394
+seq_2_frame_105,HO_128 native,0.5901859402656555
+seq_2_frame_105,UB_144 native,0.7315739989280701
+seq_2_frame_105,UB_mat + HO_rot,0.5990155935287476
+seq_2_frame_105,HO_mat + UB_rot,0.6385438442230225
+seq_2_frame_105,HO_8 native,0.5634307265281677
+seq_2_frame_105,UB_9 native,0.8057719469070435
+seq_2_frame_105,UB9_mat + HO8_rot,0.5924265384674072
+seq_2_frame_105,HO8_mat + UB9_rot,0.6440550684928894

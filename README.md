@@ -340,8 +340,12 @@ python -m mmir.preprocessing.mesh_utils \
 ### 2. Cascaded Radar-LiDAR Alignment
 
 Optimize the rigid alignment between radar and LiDAR coordinate frames.
-Alignment runs as two passes; the recommended entry point invokes both
-back-to-back per scene.
+Alignment runs as two per-frame passes with an optional per-chirp third
+pass; the recommended entry point invokes all enabled passes back-to-back
+per scene. **Pass 1 + pass 2 run by default; pass 3 is opt-in via
+`--run-pass-3`** (see [*Optional — Pass 3*](#optional--pass-3-per-chirp-refinement)
+below and [`md/per_chirp_alignment_stage3_plan.md`](md/per_chirp_alignment_stage3_plan.md)
+for when it is worth the extra compute).
 
 #### Build the v5 CUDA extension (required for both passes)
 
@@ -356,10 +360,10 @@ passes render through the v5 CUDA backend (analytic BSDF over an FPS'd
 point cloud, ~3 ms/render vs seconds for the upstream Mitsuba MC path)
 and fall back to a clear error if the extension is not built.
 
-#### Run both passes end-to-end (recommended)
+#### Run pass 1 + pass 2 end-to-end (recommended default)
 
 ```bash
-# Both passes on every scene under data/
+# Pass 1 + pass 2 on every scene under data/ (pass 3 is OFF by default)
 python -m mm25DGS_v5.preprocessing.alignment.run_alignment --all
 
 # Single scene
@@ -368,6 +372,9 @@ python -m mm25DGS_v5.preprocessing.alignment.run_alignment \
 
 # Continue on per-scene failures instead of aborting
 python -m mm25DGS_v5.preprocessing.alignment.run_alignment --all --skip-on-error
+
+# Include the optional per-chirp pass 3 (adds ~45–70 min/scene)
+python -m mm25DGS_v5.preprocessing.alignment.run_alignment --all --run-pass-3
 ```
 
 Outputs (per scene) live in `data/alignment_data/<scene>/cascade/`:
@@ -381,10 +388,16 @@ Outputs (per scene) live in `data/alignment_data/<scene>/cascade/`:
 | `cascaded_frame_<F>_alignment_log_pass2.json` | 2 | All pass-2 candidates + gate decision |
 | `pass2_triage.json` | 2 | Stage A trajectory fit + MAD outlier flags |
 | `pass2_summary.json` | 2 | Stage B per-frame winners + post-verification |
+| `per_chirp/cascaded_frame_<F>_chirp<CC>_aligned_pass3.json` | 3 (opt-in) | Per-chirp anchored pose (consumed by `train_frame_nvs.py --anchor_source pass3_per_chirp`) |
+| `per_chirp/cascaded_frame_<F>_chirp<CC>_alignment_log_pass3.json` | 3 (opt-in) | Per-chirp anchor/renderer/lidar cc + winner |
+| `per_chirp/pass3_summary.json` | 3 (opt-in) | Scene-level winner breakdown + timing |
 
 Timing on 1× RTX 4090: pass 1 ≈ 1–2 min/scene (CUDA renderer-2-DOF +
 cupy LiDAR-4-DOF, ~8 s/frame), pass 2 ≈ 2–3 min/scene (CUDA
-renderer-4-DOF + cupy LiDAR with trajectory prior).
+renderer-4-DOF + cupy LiDAR with trajectory prior),
+pass 3 ≈ 45–70 min/scene (per-chirp anchored refinement; see
+[`md/per_chirp_alignment_stage3_speedup_plan.md`](md/per_chirp_alignment_stage3_speedup_plan.md)
+for the planned reductions).
 
 #### What each pass does
 
@@ -413,6 +426,49 @@ frames scene-wide). Pass 2 fixes this by:
    candidate passes the gate.
 
 Pass 2 writes to parallel `*_pass2.json` files and never overwrites pass 1.
+
+#### Optional — Pass 3 (per-chirp refinement)
+
+Pass 3 (a.k.a. Stage 3) refines the pose of each *individual chirp* on
+top of pass 2. Given the radar's 16 chirps per frame, this produces 16×
+more configs — one per `(frame, chirp)` pair — which the frame-NVS
+trainer can consume via `--anchor_source pass3_per_chirp` to get a more
+accurate per-chirp pose than the pass-2 LERP-midpoint default.
+
+**Pass 3 is OFF by default.** The A/B results in
+[`md/frame_nvs.md`](md/frame_nvs.md) show it is **only net-positive for
+all-chirp training variants on scenes with clean pass-2 anchors** (see
+the leading paragraph of `md/per_chirp_alignment_stage3_plan.md`);
+first-chirp-only training variants (HO_8, UB_9) do not benefit. The
+current implementation is also slow (~45–70 min/scene on 1× RTX 4090) —
+the planned speedups are in
+[`md/per_chirp_alignment_stage3_speedup_plan.md`](md/per_chirp_alignment_stage3_speedup_plan.md).
+
+```bash
+# Full pipeline including pass 3 (pass 1 + pass 2 + pass 3)
+python -m mm25DGS_v5.preprocessing.alignment.run_alignment --all --run-pass-3
+
+# Only pass 3 (pass 1 and pass 2 must already be on disk)
+python -m mm25DGS_v5.preprocessing.alignment.run_alignment \
+    --all --skip-pass-1 --skip-pass-2 --run-pass-3
+
+# Pass 3 with explicit knobs (defaults shown)
+python -m mm25DGS_v5.preprocessing.alignment.run_alignment \
+    --all --run-pass-3 \
+    --pass3-anchor-source hybrid \
+    --pass3-prior-weight 0.05 \
+    --pass3-gate-margin 0.005
+```
+
+Pass 3 can also be driven directly:
+
+```bash
+python -m mm25DGS_v5.preprocessing.alignment.per_chirp_alignment \
+    --scene seq_0_frame_135 --mode stage3 --anchor-source hybrid
+```
+
+See [`md/per_chirp_alignment_stage3_plan.md`](md/per_chirp_alignment_stage3_plan.md)
+for the full pass-3 design and anchor-source ablation.
 
 #### Running a single pass
 

@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""End-to-end cascade alignment pipeline (pass-1 + pass-2).
+"""End-to-end cascade alignment pipeline (pass-1 + pass-2 [+ optional pass-3]).
 
-Single convenience entry point that runs both alignment passes per scene,
-producing the ``cascaded_frame_<F>_aligned.json`` (pass 1) and
-``cascaded_frame_<F>_aligned_pass2.json`` (pass 2) artefacts the rest of
-the repo (training, evaluation, chirp-loop NVS) consumes.
+Single convenience entry point that runs both per-frame alignment passes
+per scene — plus, when explicitly enabled via ``--run-pass-3``, the
+per-chirp Stage 3 refinement on top — producing the
+``cascaded_frame_<F>_aligned.json`` (pass 1),
+``cascaded_frame_<F>_aligned_pass2.json`` (pass 2), and (optionally)
+``per_chirp/cascaded_frame_<F>_chirp<CC>_aligned_pass3.json`` (pass 3)
+artefacts the rest of the repo (training, evaluation, chirp-loop NVS,
+frame NVS) consumes.
 
 Per scene the driver runs:
 
@@ -24,7 +28,16 @@ Per scene the driver runs:
      ``..._alignment_log_pass2.json`` + ``pass2_triage.json`` +
      ``pass2_summary.json``.
 
-Both passes use the v5 CUDA rendering backend (no Mitsuba MC).
+  3. **Pass 3** (*optional*, off by default) — per-chirp anchored
+     refinement on top of pass 2. Produces one aligned config per
+     (frame, chirp) pair under ``per_chirp/``. Enable with
+     ``--run-pass-3``. The chirp-loop NVS and frame-NVS trainers only
+     need pass-3 configs for specific all-chirp training variants; see
+     ``md/per_chirp_alignment_stage3_plan.md`` and the ``pass2 vs pass3``
+     A/B in ``md/frame_nvs.md`` for when this is worth the extra
+     compute. Default is **pass 1 + pass 2 only**.
+
+All passes use the v5 CUDA rendering backend (no Mitsuba MC).
 
 Prerequisites
 -------------
@@ -39,7 +52,7 @@ Prerequisites
 
 Usage
 -----
-    # Both passes on every scene under data/
+    # Default: pass 1 + pass 2 on every scene under data/
     python -m mm25DGS_v5.preprocessing.alignment.run_alignment --all
 
     # Single scene
@@ -54,10 +67,21 @@ Usage
     python -m mm25DGS_v5.preprocessing.alignment.run_alignment \
         --all --skip-pass-2
 
+    # Include the optional Stage 3 per-chirp refinement (OFF by default)
+    python -m mm25DGS_v5.preprocessing.alignment.run_alignment \
+        --all --run-pass-3
+
+    # Only Stage 3 (pass-1 + pass-2 configs already on disk)
+    python -m mm25DGS_v5.preprocessing.alignment.run_alignment \
+        --all --skip-pass-1 --skip-pass-2 --run-pass-3
+
 Timing (1× RTX 4090):
     pass 1: ~1–2 min / scene (CUDA renderer-2-DOF + cupy LiDAR-4-DOF)
     pass 2: ~2–3 min / scene (CUDA renderer-4-DOF + cupy LiDAR-4-DOF
             with trajectory prior)
+    pass 3: ~45–70 min / scene (per-chirp anchored refinement — see
+            ``md/per_chirp_alignment_stage3_speedup_plan.md`` for the
+            planned reductions)
 """
 
 import os
@@ -125,6 +149,33 @@ def run_pass2(scene, data_root, prior_weight, gate_mad, target_n, verbose=True):
     )
 
 
+def run_pass3(scene, data_root, anchor_source, prior_weight, gate_margin,
+              target_n, verbose=True):
+    """Pass-3 per-chirp anchored refinement on top of pass 2. Produces
+    ``per_chirp/cascaded_frame_<F>_chirp<CC>_aligned_pass3.json`` +
+    per-chirp alignment logs + ``pass3_summary.json`` under
+    ``{data_root}/alignment_data/{scene}/cascade/``.
+
+    Requires pass-2 configs to exist on disk (Stage 3 anchors on
+    ``cascaded_frame_<F>_aligned_pass2.json``).
+    """
+    import mitsuba as mi
+    if mi.variant() is None:
+        mi.set_variant('cuda_ad_rgb')
+    from mm25DGS_v5.preprocessing.alignment.per_chirp_alignment import (
+        run_stage3_for_scene,
+    )
+    return run_stage3_for_scene(
+        scene,
+        data_root=data_root,
+        anchor_source=anchor_source,
+        target_n=target_n,
+        prior_weight=prior_weight,
+        gate_margin=gate_margin,
+        verbose=verbose,
+    )
+
+
 def main():
     ap = argparse.ArgumentParser(
         description='mm3DGS cascade alignment (pass-1 + pass-2) end-to-end',
@@ -140,17 +191,32 @@ def main():
                     help='Where pass-1 writes aligned configs + logs. The '
                          'tree layout is {root}/{scene}/cascade/...')
     ap.add_argument('--skip-pass-1', action='store_true',
-                    help='Only run pass 2. Pass-1 configs must already be on disk.')
+                    help='Do not run pass 1. Pass-1 configs must already be on disk.')
     ap.add_argument('--skip-pass-2', action='store_true',
-                    help='Only run pass 1.')
+                    help='Do not run pass 2.')
+    ap.add_argument('--run-pass-3', action='store_true',
+                    help='Additionally run pass 3 (per-chirp Stage 3 '
+                         'refinement). OFF by default — pass-2/Stage-2 '
+                         'configs are the recommended default for '
+                         'downstream training (see '
+                         'md/per_chirp_alignment_stage3_plan.md).')
     # Pass-2 knobs (match run_pass2 defaults)
     ap.add_argument('--prior-weight', type=float, default=0.01,
                     help='Pass-2 prior penalty weight λ in cc - λ·||δ||²')
     ap.add_argument('--gate-mad', type=float, default=2.5,
                     help='Pass-2 trajectory-consistency gate (MAD units)')
+    # Pass-3 knobs (only used when --run-pass-3)
+    ap.add_argument('--pass3-anchor-source', default='hybrid',
+                    choices=['lerp', 'gt', 'hybrid'],
+                    help='Pass-3 anchor source. hybrid (recommended): '
+                         'pass-2_F absolute + GT relative per-chirp motion.')
+    ap.add_argument('--pass3-prior-weight', type=float, default=0.05,
+                    help='Pass-3 prior penalty weight λ around the anchor')
+    ap.add_argument('--pass3-gate-margin', type=float, default=0.005,
+                    help='Pass-3 refinement must beat anchor cc by ≥ this margin')
     ap.add_argument('--target-n', type=int, default=30000,
                     help='FPS target point count for CUDA alignment ctx '
-                         '(used by both pass 1 and pass 2)')
+                         '(used by all passes)')
     ap.add_argument('--force', action='store_true',
                     help='Pass-1: re-run alignment even if existing outputs '
                          'are on disk (otherwise skip_if_exists=True)')
@@ -159,8 +225,9 @@ def main():
                          'instead of aborting')
     args = ap.parse_args()
 
-    if args.skip_pass_1 and args.skip_pass_2:
-        ap.error('--skip-pass-1 and --skip-pass-2 together do nothing')
+    if args.skip_pass_1 and args.skip_pass_2 and not args.run_pass_3:
+        ap.error('--skip-pass-1 and --skip-pass-2 together do nothing '
+                 '(pass --run-pass-3 to run only pass 3)')
 
     if args.all:
         scenes = _discover_scenes(args.data_root)
@@ -177,9 +244,15 @@ def main():
     print(f'  pass1_output  = {args.pass1_output_root}')
     print(f'  pass1 enabled = {not args.skip_pass_1}')
     print(f'  pass2 enabled = {not args.skip_pass_2}')
+    print(f'  pass3 enabled = {args.run_pass_3}  (default OFF — '
+          f'Stage-2 is the recommended training anchor)')
     if not args.skip_pass_2:
         print(f'  pass2 knobs   = prior_weight={args.prior_weight}, '
               f'gate={args.gate_mad} MAD, target_n={args.target_n}')
+    if args.run_pass_3:
+        print(f'  pass3 knobs   = anchor_source={args.pass3_anchor_source}, '
+              f'prior_weight={args.pass3_prior_weight}, '
+              f'gate_margin={args.pass3_gate_margin} cc')
     print('=' * 72)
 
     t_total = time.time()
@@ -208,6 +281,18 @@ def main():
                           verbose=True)
             else:
                 print(f'── {sc} · pass 2 skipped ──')
+
+            if args.run_pass_3:
+                print(f'\n── {sc} · pass 3 ──')
+                run_pass3(sc, data_root=args.data_root,
+                          anchor_source=args.pass3_anchor_source,
+                          prior_weight=args.pass3_prior_weight,
+                          gate_margin=args.pass3_gate_margin,
+                          target_n=args.target_n,
+                          verbose=True)
+            else:
+                print(f'── {sc} · pass 3 skipped (default; '
+                      f'pass --run-pass-3 to enable) ──')
 
             n_ok += 1
             print(f'\n[{sc}] done in {time.time() - t_scene:.1f}s')
