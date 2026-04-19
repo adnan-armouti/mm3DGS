@@ -112,6 +112,47 @@ drift freely. See
 implementation plan + expected gain bounds (swap-ablation ceiling
 0.685 / 0.639 → likely 0.60–0.68 HO cc after the new regulariser).
 
+## S2 results (Fisher-weighted rotation drift — 3 targets tried)
+
+S2 was implemented with three target variants: Option 1 pin to init,
+Option 2 pin to an EMA of the trajectory, Option 3 Huber-thresholded
+drift at 45 °. Sweep across λ ∈ {1e-3 … 10} on seq_1 + seq_2 HO_8
+(fast variants). Best cell per scene was modest:
+
+| scene | variant | best S2 cfg | test cc | Δ vs S1 matched |
+|---|---|---|---:|---:|
+| seq_1_frame_438 | HO_8 | Option 2 EMA α=0.9, λ=10 | 0.5968 | +0.030 |
+| seq_1_frame_438 | HO_8 | Option 1 init, λ=0.1       | 0.5912 | +0.024 |
+| seq_2_frame_105 | HO_8 | Option 3 thresh=45°, λ=1   | 0.5690 | +0.006 |
+| seq_2_frame_105 | HO_8 | Option 2 EMA α=0.9, λ=0.1  | 0.5665 | +0.003 |
+
+S2 on HO_128 (λ=0.1, Option 1) was **negative on both scenes**
+(−0.021 / −0.031) — pinning toward init prevents the optimum drift
+UB achieves from its own data. Full table in
+[`md/frame_nvs_s4_adaptive_density.md`](frame_nvs_s4_adaptive_density.md)
+§4.
+
+## S4 results (Fisher-based adaptive density — dominant fix)
+
+S4 (in-place replace bottom-Fisher with children of top-Fisher,
+budget-preserving, 6 rounds × 2 % turnover during iters 50–300)
+delivers the biggest HO cc lift in this entire investigation on
+seq_1, and a modest positive on seq_2 with a different
+hyper-parameter cell:
+
+| scene | variant | baseline (S1 matched) | + S4 | Δ |
+|---|---|---:|---:|---:|
+| seq_1_frame_438 | HO_128 | 0.5118 | **0.6440** | **+0.132** |
+| seq_1_frame_438 | HO_8   | 0.5672 | **0.6656** | **+0.098** |
+| seq_2_frame_105 | HO_8   | 0.5633 | 0.5807 | +0.017 (alt cfg 0.10 × 100) |
+| seq_2_frame_105 | HO_128 | 0.5900 | 0.6057 | +0.016 (alt cfg 0.10 × 100) |
+
+seq_1 HO_128 reaches **93 % of the swap-ablation upper bound**
+(0.685). HO vs UB gap shrinks from prior 0.42 → matched-grid 0.32
+→ **S4 0.19**. Details, sweep, and per-scene optimal
+hyper-parameters in
+[`md/frame_nvs_s4_adaptive_density.md`](frame_nvs_s4_adaptive_density.md).
+
 ## Saved state (for downstream analysis)
 
 Every run saves its best-iter model state to `mm25DGS_v5/output_frame_nvs/<scene>_<tag>/best_model.pt`. The state dict contains:

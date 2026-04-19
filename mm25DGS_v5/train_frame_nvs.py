@@ -252,6 +252,85 @@ def build_frame_level_dataset(scene, train_frames, test_frame,
 
 
 # ---------------------------------------------------------------------------
+# S4 — adaptive density: Fisher-weighted split + prune, fixed N budget.
+# ---------------------------------------------------------------------------
+
+def _densify_step(model, optimizer, fisher_per_pt, split_n, prune_n,
+                  pos_jitter_m, mat_jitter, rot_jitter=0.05,
+                  init_raw_ref=None, init_normals_ref=None, verbose=False):
+    """In-place split + prune to reallocate the fixed N-point budget.
+
+    The bottom ``prune_n`` points (lowest Fisher) are *replaced* in-place
+    by children of the top ``split_n`` points (highest Fisher). Each child
+    = parent params + small isotropic jitter. Tensor indices of
+    non-modified points are preserved (the prune slots get overwritten).
+    Adam state at the replaced slots is zeroed so children start with no
+    momentum. The ``init_raw_ref`` / ``init_normals_ref`` arrays (used by
+    H1 / S2 drift penalties) are patched to the children's values so the
+    drift at birth is zero and the penalty doesn't immediately punish
+    them for having drifted off the (now-stale) original init.
+
+    Requires ``split_n == prune_n`` and both ≤ 0.45·N (no overlap).
+    """
+    assert split_n == prune_n, 'split_n and prune_n must match to preserve N'
+    N = model.N
+    assert split_n <= 0.45 * N, 'split/prune frac too large; may overlap'
+
+    device = model.positions.device
+    _, order = fisher_per_pt.sort(descending=True)
+    split_idx = order[:split_n].clone()
+    prune_idx = order[-prune_n:].clone()
+
+    # Sanity: no overlap (guaranteed by frac ≤ 0.45·N, but double-check)
+    overlap = set(split_idx.tolist()) & set(prune_idx.tolist())
+    assert not overlap, f'split/prune index overlap: {overlap}'
+
+    with torch.no_grad():
+        # Gather parent params
+        pos_parent = model.positions[split_idx].clone()
+        rot_parent = model.rotations[split_idx].clone()
+        raw_parent = model.raw_materials[split_idx].clone()
+
+        # Perturb
+        pos_noise = torch.randn_like(pos_parent) * pos_jitter_m
+        rot_noise = torch.randn_like(rot_parent) * rot_jitter
+        raw_noise = torch.randn_like(raw_parent) * mat_jitter
+        pos_new = pos_parent + pos_noise
+        rot_new = torch.nn.functional.normalize(rot_parent + rot_noise, dim=-1)
+        raw_new = raw_parent + raw_noise
+
+        # In-place overwrite of prune slots with children
+        model.positions[prune_idx]     = pos_new
+        model.rotations[prune_idx]     = rot_new
+        model.raw_materials[prune_idx] = raw_new
+
+        # Adam state surgery: zero momentum + velocity at replaced slots.
+        for p in [model.positions, model.rotations, model.raw_materials]:
+            st = optimizer.state.get(p)
+            if st is None:
+                continue
+            for k in ('exp_avg', 'exp_avg_sq'):
+                if k in st and st[k].shape == p.shape:
+                    st[k][prune_idx] = 0.0
+
+        # Patch init_* buffers so that drift penalties see zero drift at birth
+        if init_raw_ref is not None:
+            init_raw_ref[prune_idx] = raw_new
+        if init_normals_ref is not None:
+            # Recompute init normals from the new rotations
+            q = torch.nn.functional.normalize(rot_new, dim=-1)
+            w, x, y, z = q[:, 0], q[:, 1], q[:, 2], q[:, 3]
+            nx = 2 * (x * z + w * y)
+            ny = 2 * (y * z - w * x)
+            nz = 1 - 2 * (x * x + y * y)
+            init_normals_ref[prune_idx] = torch.stack([nx, ny, nz], dim=-1)
+
+    if verbose:
+        print(f'  [S4] densify: split {split_n} top-Fisher → replaced '
+              f'{prune_n} bottom-Fisher  (pos_jitter={pos_jitter_m:.3f} m)')
+
+
+# ---------------------------------------------------------------------------
 # Main trainer
 # ---------------------------------------------------------------------------
 
@@ -279,6 +358,12 @@ def train_frame_nvs(scene,
                     reg_fisher_rot_target='init',
                     reg_fisher_rot_ema_alpha=0.95,
                     reg_fisher_rot_threshold_deg=0.0,
+                    reg_densify_interval=0,
+                    reg_densify_split_frac=0.02,
+                    reg_densify_prune_frac=0.02,
+                    reg_densify_until=300,
+                    reg_densify_pos_jitter_m=0.02,
+                    reg_densify_mat_jitter=0.1,
                     seed_frame=None):
     assert v5cuda.is_available(), (
         'v5 CUDA extension not built. '
@@ -415,8 +500,10 @@ def train_frame_nvs(scene,
     fisher_rot = None
     # S2 Option 2: EMA of normals during training (rolling target).
     normal_ema = None
+    # S4: adaptive density (split/prune) bookkeeping
+    n_densify_rounds = 0
     reg_enabled = (reg_l2_drift_lambda > 0.0) or (reg_active_top_frac is not None) \
-        or (reg_fisher_rot_lambda > 0.0)
+        or (reg_fisher_rot_lambda > 0.0) or (reg_densify_interval > 0)
     reg_rot_thresh_rad = float(reg_fisher_rot_threshold_deg) * np.pi / 180.0
     if verbose and reg_enabled:
         print(f'  [reg] l2_drift_lambda={reg_l2_drift_lambda}  '
@@ -558,6 +645,53 @@ def train_frame_nvs(scene,
                     a = float(reg_fisher_rot_ema_alpha)
                     normal_ema = a * normal_ema + (1.0 - a) * n_now
 
+        # S4: adaptive density — split top-Fisher + prune bottom-Fisher.
+        # Triggered at iter = reg_warm_iters and every reg_densify_interval
+        # iters thereafter, up to reg_densify_until. Fisher signal combines
+        # Adam exp_avg_sq on raw_materials and rotations (per-point total).
+        if (reg_densify_interval > 0
+                and it >= reg_warm_iters
+                and it <= reg_densify_until
+                and (it - reg_warm_iters) % reg_densify_interval == 0):
+            v_mat = optimizer.state.get(model.raw_materials, {}).get('exp_avg_sq')
+            v_rot = optimizer.state.get(model.rotations, {}).get('exp_avg_sq')
+            if v_mat is not None and v_rot is not None:
+                # Per-point combined Fisher (normalise each to max=1 before
+                # summing so neither modality dominates).
+                mat_pp = v_mat.detach().sum(dim=-1)
+                rot_pp = v_rot.detach().sum(dim=-1)
+                mat_n  = mat_pp / mat_pp.max().clamp(min=1e-30)
+                rot_n  = rot_pp / rot_pp.max().clamp(min=1e-30)
+                f_comb = mat_n + rot_n                              # (N,)
+                split_n = int(reg_densify_split_frac * model.N)
+                prune_n = int(reg_densify_prune_frac * model.N)
+                if split_n > 0 and prune_n > 0 and split_n == prune_n:
+                    _densify_step(
+                        model, optimizer, f_comb,
+                        split_n=split_n, prune_n=prune_n,
+                        pos_jitter_m=reg_densify_pos_jitter_m,
+                        mat_jitter=reg_densify_mat_jitter,
+                        rot_jitter=0.05,
+                        init_raw_ref=init_raw,
+                        init_normals_ref=init_normals,
+                        verbose=verbose,
+                    )
+                    n_densify_rounds += 1
+                    # Positions moved — recompute FOV mask at the *first*
+                    # train sample's pose (any train pose is fine for the
+                    # "is this point in FOV anywhere" estimate). Apply it
+                    # as the new conservative mask.
+                    apply_pose(rast, train_samples[0]['pose'])
+                    new_mask = cull_gaussians(model, rast)
+                    with torch.no_grad():
+                        active_mask = new_mask
+                        vertex_areas = torch.zeros(model.N, device=DEVICE)
+                        vertex_areas[active_mask] = 1.0
+                    # Reset S2 Fisher snapshot + normal EMA so they
+                    # re-establish under the new point set.
+                    fisher_rot = None
+                    normal_ema = None
+
         mean_tc = float(np.mean(per_sample_cc))
         history.append({
             'iter': it, 'loss': loss_sum,
@@ -620,6 +754,9 @@ def train_frame_nvs(scene,
                 tag = f'{tag}_{reg_fisher_rot_target}'
             if reg_fisher_rot_threshold_deg > 0.0:
                 tag = f'{tag}_thr{reg_fisher_rot_threshold_deg:g}'
+        if reg_densify_interval > 0:
+            tag = (f'{tag}_dnsfy{reg_densify_split_frac:g}i{reg_densify_interval}'
+                   f'u{reg_densify_until}p{reg_densify_pos_jitter_m:g}')
         output_dir = os.path.join(
             PROJECT_ROOT, 'mm25DGS_v5', 'output_frame_nvs', f'{scene}_{tag}')
     os.makedirs(output_dir, exist_ok=True)
@@ -661,6 +798,13 @@ def train_frame_nvs(scene,
         'reg_fisher_rot_target': reg_fisher_rot_target,
         'reg_fisher_rot_ema_alpha': float(reg_fisher_rot_ema_alpha),
         'reg_fisher_rot_threshold_deg': float(reg_fisher_rot_threshold_deg),
+        'reg_densify_interval': int(reg_densify_interval),
+        'reg_densify_split_frac': float(reg_densify_split_frac),
+        'reg_densify_prune_frac': float(reg_densify_prune_frac),
+        'reg_densify_until': int(reg_densify_until),
+        'reg_densify_pos_jitter_m': float(reg_densify_pos_jitter_m),
+        'reg_densify_mat_jitter': float(reg_densify_mat_jitter),
+        'reg_densify_rounds_completed': int(n_densify_rounds),
     }
     with open(os.path.join(output_dir, 'results.json'), 'w') as f:
         json.dump(results, f, indent=2)
@@ -742,6 +886,23 @@ if __name__ == '__main__':
                          '*beyond* this threshold (in degrees). Soft Huber-'
                          'style: loss ∝ max(0, drift° − θ)². 0 = disabled '
                          '(full L2 penalty). Typical: 30–60°.')
+    ap.add_argument('--reg_densify_interval', type=int, default=0,
+                    help='S4: densify/prune every N iters after --reg_warm_iters. '
+                         '0 = disabled. Typical: 50.')
+    ap.add_argument('--reg_densify_split_frac', type=float, default=0.02,
+                    help='S4: fraction of top-Fisher points to split per round.')
+    ap.add_argument('--reg_densify_prune_frac', type=float, default=0.02,
+                    help='S4: fraction of bottom-Fisher points to prune per round '
+                         '(must equal --reg_densify_split_frac to keep N fixed).')
+    ap.add_argument('--reg_densify_until', type=int, default=300,
+                    help='S4: stop densifying past this iter (lets the final '
+                         'iters converge on a stable point set).')
+    ap.add_argument('--reg_densify_pos_jitter_m', type=float, default=0.02,
+                    help='S4: std (m) of isotropic Gaussian position noise for '
+                         'new child points. 0.02 = 2 cm ≈ 5λ at 77 GHz.')
+    ap.add_argument('--reg_densify_mat_jitter', type=float, default=0.1,
+                    help='S4: std of Gaussian noise added to raw_materials for '
+                         'child points (raw units).')
     ap.add_argument('--seed_frame', type=int, default=None,
                     help='Frame whose pose seeds the rasterizer (drives FOV + '
                          'RX visibility before FPS, so it determines the 90k-'
@@ -775,4 +936,10 @@ if __name__ == '__main__':
         reg_fisher_rot_target=args.reg_fisher_rot_target,
         reg_fisher_rot_ema_alpha=args.reg_fisher_rot_ema_alpha,
         reg_fisher_rot_threshold_deg=args.reg_fisher_rot_threshold_deg,
+        reg_densify_interval=args.reg_densify_interval,
+        reg_densify_split_frac=args.reg_densify_split_frac,
+        reg_densify_prune_frac=args.reg_densify_prune_frac,
+        reg_densify_until=args.reg_densify_until,
+        reg_densify_pos_jitter_m=args.reg_densify_pos_jitter_m,
+        reg_densify_mat_jitter=args.reg_densify_mat_jitter,
         seed_frame=args.seed_frame)

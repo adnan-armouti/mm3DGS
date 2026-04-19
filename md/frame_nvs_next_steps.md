@@ -18,20 +18,28 @@ and smoothness statistics hide this — but weighted to the top-1 %
 Fisher points (~200 of 20 000), HO's normals drift **17 ° more than
 UB's on seq_2**. **S2 accordingly pivots from materials to rotations.**
 
-## 0. Summary
+## 0. Summary (updated 2026-04-19 after S2 + S4 experiments)
 
-| Stage | What | Why | Risk | Gain estimate | Effort |
-|---|---|---|---|---|---|
-| **S1** ✅ done | Re-run 4 variants with `--seed_frame = test_frame` (new default); rerun Analyses A–K on matched grids | Align HO and UB position grids; measure the grid-only contribution | low | **seq_1 HO_128 +0.021, HO_8 +0.067 · seq_2 HO_128 +0.086, HO_8 +0.052** | done, ~90 min compute |
-| **S2** (revised) | Fisher-weighted L2 on **rotation drift from init** | Matched-grid swap ablation: normals are the dominant residual fault; ~200 high-Fisher points drift 17 ° more than UB on seq_2 | low | **+0.05–0.17 HO cc** (swap upper bounds: seq_1 0.685, seq_2 0.639) | ~80 LOC + λ sweep |
-| **S3** (reserved) | Fisher-weighted L2 on **material drift from init** | Swap shows materials are secondary but still contribute +0.06 / +0.01 | low | +0.01–0.06 (stack with S2) | ~30 LOC |
-| **S4** (reserved) | Adaptive point density (split/prune) | Reallocate parameter budget from null space to high-Fisher points | medium | +0.05–0.10 | ~200 LOC + rerun |
-| **S5** (reserved) | Low-rank material field | Structural fix: parameterise the material field in a K-dim basis | high | +0.05 + 5× speed | ~500 LOC, multi-week |
+| Stage | What | Measured result | Status |
+|---|---|---|---|
+| **S1** | `seed_frame = test_frame` (matched grid), target_n = 20k | seq_1 HO_128 +0.021, HO_8 +0.067 · seq_2 HO_128 +0.086, HO_8 +0.052 | ✅ shipped |
+| **S2** | Fisher-weighted rotation drift (init / EMA / thresh-45° targets) | seq_1 HO_8 +0.024–0.030 (best EMA α=0.9 λ=10); seq_2 HO_8 ≤ +0.006; **all three targets hurt HO_128 on both scenes** | ⚠ marginal — sign-correct on HO_8 only |
+| **S3** (reserved) | Fisher-weighted material drift | Analysis I bound: +0.01–0.06 | not implemented (S4 dominates) |
+| **S4** | Fisher-based adaptive density (split top + prune bottom, budget-preserving) | **seq_1 HO_128 +0.132, seq_1 HO_8 +0.098**; seq_2 HO_8 +0.017 (alt cfg 0.10/100); seq_2 HO_128 pending | ✅ **main result** |
+| **S5** (reserved) | Low-rank material field | Multi-week refactor | not needed yet |
 
-Expected path to ≥0.70: **S2 alone reaches 0.685 upper bound on seq_1**
-(meets the 0.70 target within noise). seq_2 caps at 0.64 from S2 alone;
-**S2 + S3** probably still falls short of 0.70 on seq_2. S4/S5 may be
-needed on seq_2.
+**Current HO cc status (S1 + S4 best per scene, matched grid target_n=20k):**
+
+| scene | HO_128 | HO_8 | 0.70 target short-by |
+|---|---:|---:|---:|
+| seq_1_frame_438 | **0.6440** | **0.6656** | 0.034–0.056 |
+| seq_2_frame_105 | **0.6057** | **0.5807** | 0.094–0.119 |
+
+seq_1 closed 93 % of the swap-ablation gap; seq_2 still responds
+only modestly. Path to 0.70 is unclear on seq_2 with parameter-space
+regularisation alone; likely needs either (a) a different S4 cell
+(pos_jitter × split_frac × interval grid), (b) pass-3 per-chirp
+anchors stacked with S4, or (c) escalation to S5.
 
 **Rejected hypotheses** (from matched-grid analyses — see
 `md/frame_nvs_analysis_matched_grid/findings.md`):
