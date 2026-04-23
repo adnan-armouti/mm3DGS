@@ -1,0 +1,100 @@
+{
+  "scene": "seq_0_frame_135",
+  "frame": 135,
+  "target_n": 20000,
+  "vego_sweep": {
+    "rows": [
+      {
+        "scale": -1.0,
+        "v_ego_norm_mps": 1.2189970016479492,
+        "rad_cc": 0.006193028762936592
+      },
+      {
+        "scale": 0.0,
+        "v_ego_norm_mps": 0.0,
+        "rad_cc": 0.05401596054434776
+      },
+      {
+        "scale": 0.5,
+        "v_ego_norm_mps": 0.6094985008239746,
+        "rad_cc": 0.09041590243577957
+      },
+      {
+        "scale": 0.8,
+        "v_ego_norm_mps": 0.9751976728439331,
+        "rad_cc": 0.14738039672374725
+      },
+      {
+        "scale": 0.9,
+        "v_ego_norm_mps": 1.097097396850586,
+        "rad_cc": 0.16910019516944885
+      },
+      {
+        "scale": 0.95,
+        "v_ego_norm_mps": 1.1580471992492676,
+        "rad_cc": 0.1786215454339981
+      },
+      {
+        "scale": 1.0,
+        "v_ego_norm_mps": 1.2189970016479492,
+        "rad_cc": 0.18665634095668793
+      },
+      {
+        "scale": 1.05,
+        "v_ego_norm_mps": 1.2799469232559204,
+        "rad_cc": 0.19241680204868317
+      },
+      {
+        "scale": 1.1,
+        "v_ego_norm_mps": 1.3408968448638916,
+        "rad_cc": 0.19583453238010406
+      },
+      {
+        "scale": 1.2,
+        "v_ego_norm_mps": 1.4627964496612549,
+        "rad_cc": 0.19226893782615662
+      },
+      {
+        "scale": 1.5,
+        "v_ego_norm_mps": 1.8284956216812134,
+        "rad_cc": 0.13391321897506714
+      },
+      {
+        "scale": 2.0,
+        "v_ego_norm_mps": 2.4379940032958984,
+        "rad_cc": 0.05967475101351738
+      }
+    ],
+    "plot": "/home/adnan/Desktop/mm3DGS/md/diagnostics/sweep_vego_seq_0_frame_135_F135.png",
+    "v_ego_GT_mps": 1.2189970016479492
+  },
+  "tx_jitter_sweep": {
+    "rows": [
+      {
+        "sigma_mm": 0.0,
+        "cc_vs_unjittered": 0.9999999403953552
+      },
+      {
+        "sigma_mm": 0.1,
+        "cc_vs_unjittered": 0.9945166110992432
+      },
+      {
+        "sigma_mm": 0.3,
+        "cc_vs_unjittered": 0.9144041538238525
+      },
+      {
+        "sigma_mm": 1.0,
+        "cc_vs_unjittered": 0.6227031350135803
+      },
+      {
+        "sigma_mm": 3.0,
+        "cc_vs_unjittered": 0.6811790466308594
+      },
+      {
+        "sigma_mm": 10.0,
+        "cc_vs_unjittered": 0.6372397541999817
+      }
+    ],
+    "plot": "/home/adnan/Desktop/mm3DGS/md/diagnostics/sweep_tx_jitter_seq_0_frame_135_F135.png"
+  }
+}
