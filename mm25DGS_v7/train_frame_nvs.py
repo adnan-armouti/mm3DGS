@@ -833,7 +833,6 @@ def train_frame_nvs(scene,
                             per_sample_cc.append(cc)
                             break
                 del rp_r, rp_i, rp_c, rad_pred, mag_pred, loss_k
-                torch.cuda.empty_cache()
             # Skip the v5-style per-sample loop below
             _skip_v5_body = True
         else:
@@ -1013,9 +1012,14 @@ def train_frame_nvs(scene,
                     normal_ema = None
 
         mean_tc = float(np.mean(per_sample_cc))
+        # Per-iter test cc — v5-compatible metric (chirp-0 |RA| cart_corr
+        # at the held-out test pose). Matches v5/M1 history format so
+        # v5 and v7 runs can be plotted side-by-side.
+        test_cc_iter = _render_and_cart_corr(test_sample)
         history.append({
             'iter': it, 'loss': loss_sum,
             'mean_train_cc': mean_tc,
+            'test_cc': test_cc_iter,
         })
 
         if mean_tc > best_mean_train_cc:
@@ -1144,7 +1148,9 @@ def train_frame_nvs(scene,
     np.savez(os.path.join(output_dir, 'history.npz'),
              iters=np.array([h['iter'] for h in history]),
              loss=np.array([h['loss'] for h in history]),
-             mean_train_cc=np.array([h['mean_train_cc'] for h in history]))
+             mean_train_cc=np.array([h['mean_train_cc'] for h in history]),
+             test_cc=np.array([h.get('test_cc', float('nan'))
+                                for h in history]))
     if best_state is not None:
         torch.save(best_state, os.path.join(output_dir, 'best_model.pt'))
 

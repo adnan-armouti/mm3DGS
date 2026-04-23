@@ -30,6 +30,80 @@ def _hann(n: int, device, dtype):
     return torch.hann_window(n, device=device, dtype=dtype)
 
 
+# =========================================================================
+# Precomputed batched-chirp el=0 projection (plan speedup §B3)
+# =========================================================================
+# Replaces the per-chirp Python loop over ``txrx_to_vx_chirps_torch``
+# with a single matmul. The (RX, TX) → (ele=0, az_bin) mapping with the
+# legacy cumulative-averaging weights is fully determined by
+# ``rx_locations`` / ``tx_locations`` from ``mmir.data.ra_utils``. Build
+# the 86×192 weight matrix once per device and reuse.
+
+_RX_LOCS = [(0, 0), (1, 0), (2, 0), (3, 0), (11, 0), (12, 0), (13, 0),
+            (14, 0), (46, 0), (47, 0), (48, 0), (49, 0), (50, 0),
+            (51, 0), (52, 0), (53, 0)]
+_TX_LOCS = [(0, 0), (4, 0), (8, 0), (9, 1), (10, 4), (11, 6),
+            (12, 0), (16, 0), (20, 0), (24, 0), (28, 0), (32, 0)]
+
+_vx_el0_weights_cache: dict = {}
+
+
+def _vx_el0_weights(device, dtype) -> torch.Tensor:
+    """Return the (86, n_rx·n_tx) complex weight matrix for the el=0
+    row of ``txrx_to_vx_chirps_torch``, with the legacy cumulative-
+    averaging convention (first write wins at weight 1; each subsequent
+    write halves existing coefficients and adds 0.5).
+
+    Flat index into (n_rx·n_tx) is ``rx_id·n_tx + tx_id``, matching the
+    permutation used in the caller.
+    """
+    key = (str(device), str(dtype))
+    cached = _vx_el0_weights_cache.get(key)
+    if cached is not None:
+        return cached
+
+    n_rx, n_tx, n_az = 16, 12, 86
+    # Coefficient table: list of (rx, tx, coef) per az bin.
+    contribs: list[list[tuple[int, int, float]]] = [[] for _ in range(n_az)]
+    for rx_id, rx_loc in enumerate(_RX_LOCS):
+        for tx_id, tx_loc in enumerate(_TX_LOCS):
+            if tx_loc[1] != 0:
+                continue                                    # el != 0
+            az = rx_loc[0] + tx_loc[0]
+            if not contribs[az]:
+                contribs[az].append((rx_id, tx_id, 1.0))
+            else:
+                contribs[az] = [(r, t, c * 0.5)
+                                 for (r, t, c) in contribs[az]]
+                contribs[az].append((rx_id, tx_id, 0.5))
+
+    W = torch.zeros((n_az, n_rx * n_tx), dtype=dtype, device=device)
+    for az in range(n_az):
+        for rx_id, tx_id, coef in contribs[az]:
+            W[az, rx_id * n_tx + tx_id] = coef
+    _vx_el0_weights_cache[key] = W
+    return W
+
+
+def _batch_txrx_to_vx_el0(rp_stack_ch_tx_rx_r: torch.Tensor) -> torch.Tensor:
+    """Batched el=0 projection matching the behaviour of
+    ``txrx_to_vx_chirps_torch(...)[0, 0]`` for every chirp at once.
+
+    Input:  ``(CH, TX=12, RX=16, R=256)`` complex.
+    Output: ``(CH, 86, R)`` complex.
+    """
+    assert rp_stack_ch_tx_rx_r.ndim == 4 and rp_stack_ch_tx_rx_r.is_complex(), (
+        f'expected (CH, TX, RX, R) complex; got '
+        f'{tuple(rp_stack_ch_tx_rx_r.shape)}')
+    n_ch, n_tx, n_rx, n_r = rp_stack_ch_tx_rx_r.shape
+    # Legacy iteration order: rx outer, tx inner → flat = rx·n_tx + tx.
+    rp_flat = rp_stack_ch_tx_rx_r.permute(0, 2, 1, 3).reshape(
+        n_ch, n_rx * n_tx, n_r)                                        # (CH, 192, R)
+    W = _vx_el0_weights(rp_flat.device, rp_flat.dtype)                 # (86, 192)
+    # matmul: (86, 192) · (CH, 192, R) → (CH, 86, R)
+    return torch.matmul(W, rp_flat)
+
+
 def _azimuth_fft_on_vx86(vx86: torch.Tensor) -> torch.Tensor:
     """Apply v5's azimuth FFT chain on a ``(..., 86, R)`` complex input.
     Returns ``(..., 127, R)`` complex.
@@ -75,7 +149,6 @@ def adc_to_rad_complex(adc_ri_all_chirps: torch.Tensor,
 
     Output: ``(D = n_dop - 1, 127, n_range)`` complex.
     """
-    from mmir.data.ra_utils import txrx_to_vx_chirps_torch
     assert adc_ri_all_chirps.ndim == 5 and adc_ri_all_chirps.size(-1) == 2, (
         f'expected (CH, TX, RX, ADC, 2); got {tuple(adc_ri_all_chirps.shape)}')
     n_ch, n_tx, n_rx, n_adc, _ = adc_ri_all_chirps.shape
@@ -91,12 +164,7 @@ def adc_to_rad_complex(adc_ri_all_chirps: torch.Tensor,
     x_c = x_c * win_r[None, None, None, :]
     rp = torch.fft.fft(x_c, n=n_adc, dim=-1)                        # (CH, TX, RX, R)
 
-    per_chirp_vx86 = []
-    for k in range(n_ch):
-        rp_k = rp[k].permute(1, 0, 2).unsqueeze(0)                  # (1, RX, TX, R)
-        vx_k = txrx_to_vx_chirps_torch(rp_k)                        # (1, 7, 86, R)
-        per_chirp_vx86.append(vx_k[0, 0, :, :])                     # (86, R)
-    stack86 = torch.stack(per_chirp_vx86, dim=0)                    # (CH, 86, R)
+    stack86 = _batch_txrx_to_vx_el0(rp)                             # (CH, 86, R)
 
     ra_stack = _azimuth_fft_on_vx86(stack86)                        # (CH, 127, R)
     rad = _doppler_fft_on_chirps(ra_stack, n_dop=n_dop, dim=0)      # (D, 127, R)
@@ -113,18 +181,10 @@ def rp_stack_to_rad_complex(rp_stack: torch.Tensor,
     Output: ``(D = n_dop - 1, 127, R)`` complex, matching
     ``adc_to_rad_complex`` step-for-step.
     """
-    from mmir.data.ra_utils import txrx_to_vx_chirps_torch
     assert rp_stack.ndim == 4 and rp_stack.is_complex(), (
         f'expected (CH, TX, RX, R) complex; got {tuple(rp_stack.shape)}')
-    n_ch, n_tx, n_rx, n_range = rp_stack.shape
 
-    per_chirp_vx86 = []
-    for k in range(n_ch):
-        rp_k = rp_stack[k].permute(1, 0, 2).unsqueeze(0)            # (1, RX, TX, R)
-        vx_k = txrx_to_vx_chirps_torch(rp_k)                        # (1, 7, 86, R)
-        per_chirp_vx86.append(vx_k[0, 0, :, :])
-    stack86 = torch.stack(per_chirp_vx86, dim=0)                    # (CH, 86, R)
-
+    stack86 = _batch_txrx_to_vx_el0(rp_stack)                       # (CH, 86, R)
     ra_stack = _azimuth_fft_on_vx86(stack86)                        # (CH, 127, R)
     rad = _doppler_fft_on_chirps(ra_stack, n_dop=n_dop, dim=0)      # (D, 127, R)
     return rad

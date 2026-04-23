@@ -670,35 +670,56 @@ def _doppler_phase_per_chirp(
     T_a=DOPPLER_T_A,
     wavelength=DOPPLER_LAMBDA,
 ):
-    """Analytic Doppler-+-TDM phase per path (M, n_tx, n_rx) for a
-    single chirp m.
+    """Analytic Doppler-+-TDM phase per path (M, n_tx, 1) for one chirp m.
 
-    Returns a real (M, n_tx, 1) tensor that broadcasts over the
-    n_rx axis (RX are simultaneous within each TX firing, so no
-    Doppler variation across n_rx).
+    Legacy one-shot entry point — kept for scripts/validate_doppler_synthesis.
+    Recomputes ``u_dot_vego`` every call; in the training loop use the
+    hoisted path in ``render_factorized_doppler`` instead. See plan
+    md/mm25dgs_v7_speed_and_ceiling.md §B7.
 
     Formula (plan §1.3):
         φ^(m, i)(p) = −(4π/λ) · ⟨û(p), v_ego⟩ · (m T_c + k(i) T_a)
-    where û(p) = (positions[M] − radar_center) / ||·||.
     """
     device = positions.device
     dtype  = positions.dtype
-    # Unit vector from radar to each path's Gaussian centre
     diff = positions - radar_center.to(device=device, dtype=dtype).view(1, 3)
     r    = diff.norm(dim=-1, keepdim=True).clamp_min(1e-9)
-    u    = diff / r                                                    # (M, 3)
-    # Project onto v_ego
+    u    = diff / r
     v = v_ego.to(device=device, dtype=dtype).view(1, 3)
-    u_dot_vego = (u * v).sum(dim=-1)                                  # (M,)
+    u_dot_vego = (u * v).sum(dim=-1)                                   # (M,)
 
-    # Per-TX time offset within the burst: (m·T_c + k(i)·T_a)
-    k_per_tx = ti_firing_index.to(device=device, dtype=dtype)          # (n_tx,)
+    k_per_tx = ti_firing_index.to(device=device, dtype=dtype)
     t_offset = (float(chirp_index) * T_c
                 + k_per_tx * T_a).view(1, -1)                          # (1, n_tx)
 
-    # φ = -(4π/λ) · u_dot_vego · t_offset  — (M, n_tx)
     phi = -(4.0 * math.pi / wavelength) * u_dot_vego.unsqueeze(-1) * t_offset
     return phi.unsqueeze(-1)                                           # (M, n_tx, 1)
+
+
+def _precompute_doppler_factors(
+    positions, radar_center, v_ego, ti_firing_index,
+    n_chirps, T_c, T_a, wavelength,
+):
+    """Precompute the Doppler phase factors that are constant across
+    chirps: ``A[M] = -(4π/λ) · ⟨û(p), v_ego⟩`` and
+    ``t_off[CH, n_tx] = m·T_c + k(i)·T_a``.
+
+    ``phi_doppler[m, M, t] = A[M] · t_off[m, t]`` — assemble per-chirp
+    inside the loop with a tiny multiply.
+    """
+    device = positions.device
+    dtype  = positions.dtype
+    diff = positions - radar_center.to(device=device, dtype=dtype).view(1, 3)
+    r    = diff.norm(dim=-1, keepdim=True).clamp_min(1e-9)
+    u    = diff / r
+    v    = v_ego.to(device=device, dtype=dtype).view(1, 3)
+    u_dot_vego = (u * v).sum(dim=-1)                                   # (M,)
+    A = (-(4.0 * math.pi / wavelength) * u_dot_vego).detach()          # (M,)
+
+    k_per_tx = ti_firing_index.to(device=device, dtype=dtype)          # (n_tx,)
+    m_idx = torch.arange(n_chirps, device=device, dtype=dtype)         # (CH,)
+    t_off = m_idx.unsqueeze(-1) * T_c + k_per_tx.unsqueeze(0) * T_a    # (CH, n_tx)
+    return A, t_off
 
 
 def render_factorized_doppler(
@@ -754,18 +775,23 @@ def render_factorized_doppler(
     K           = path_data['K']
 
     # Stage 2 — loop over chirps, apply Doppler phase, call step5_fused.
+    # Factor out chirp-independent work (plan md/mm25dgs_v7_speed_and_ceiling §B7).
     device = positions.device
     n_tx = rast.n_tx
     n_rx = rast.n_rx
+
+    A, t_off = _precompute_doppler_factors(
+        positions=positions, radar_center=radar_center, v_ego=v_ego,
+        ti_firing_index=ti_firing_index,
+        n_chirps=n_chirps, T_c=T_c, T_a=T_a, wavelength=wavelength,
+    )                                                                  # (M,), (CH, n_tx)
+
     rad_real_list = []
     rad_imag_list = []
     for m in range(n_chirps):
-        phi_doppler_m = _doppler_phase_per_chirp(
-            positions=positions, radar_center=radar_center, v_ego=v_ego,
-            chirp_index=m, ti_firing_index=ti_firing_index,
-            T_c=T_c, T_a=T_a, wavelength=wavelength,
-        )                                                              # (M, n_tx, 1)
-        phi_m = phi_base + phi_doppler_m.expand(-1, -1, n_rx).detach()
+        # phi_doppler[m, M, n_tx] = A[M] * t_off[m, n_tx]; broadcast → RX.
+        phi_doppler_m = (A.unsqueeze(-1) * t_off[m].unsqueeze(0))      # (M, n_tx)
+        phi_m = phi_base + phi_doppler_m.unsqueeze(-1)                 # (M, n_tx, n_rx) via broadcast
         rp_r, rp_i = _cuda_step5(
             w_full.contiguous(),
             phi_m.contiguous(),
