@@ -21,7 +21,7 @@ Numerical facts (measured, not estimated):
 - **User's 0.70 |RAD| test CC target is also above the ceiling.** The ego-motion-only forward-model ceiling (per-bin proxy) is **0.406**; our v7 single-frame *capacity* for |RAD| is **0.64 mean (3 scenes)** — the best-possible train CC on a single frame, before any NVS generalization loss.
 - **User's 0.85 |RA| train target IS achievable.** v5 single-frame |RA| fit = **0.953 mean (all 6 scenes)** — the BSDF + geometry representation can easily do this when the objective matches the metric.
 - **User's 0.85 |RAD| train target is NOT achievable with the current forward model.** v7 single-frame |RAD| fit = **0.64 mean (3 scenes)**.
-- **The structural blocker for multi-frame performance is coherent-phase error from ~1-mm TX alignment.** At σ = 1 mm jitter, |RA| CC drops from 1.0 to **0.62** (random-phase floor). Our trained test |RA| CC of ~0.56 is **already at or below this floor** — we are bottlenecked by sub-mm alignment precision, not by training, not by loss, not by BSDF.
+- **Pass-3 rigid translation refinement DOES NOT help** (see §6). A warm-started pose_refine (200 iters of v5 material fit first, then bounded pose search) finds Δ ≈ 0 on 9/9 frames, gain +0.0001. **Pass-2 is already sub-mm accurate for rigid translation.** The earlier "1 mm per-TX jitter kills CC to 0.62" finding was about *per-antenna independent jitter*, which is a different failure mode from rigid array translation. The remaining ceiling is NOT from rigid pose error; candidate causes (ranked in §6): per-antenna calibration σ≈0.3-0.5 mm, non-ego dynamic scatterers, LiDAR-radar registration drift, temporal LiDAR aliasing.
 - **C2b multi-task loss works as predicted for |RA|:** +0.04 train, +0.02 test at λ=1.0 on a single scene. Does not help |RAD|. Should become the default when the paper targets |RA|.
 - **v_ego has a systematic ~+0.25 m/s bias in the primary motion direction.** §4.0 refinement captures it; CC impact on init-state is small (~+0.001) but needs testing on a trained model.
 
@@ -206,39 +206,54 @@ Stage 1 (3-D grid ±0.2 m/s in ±0.1 m/s steps) + Stage 2 (Nelder-Mead fine refi
 
 ---
 
-## 6. Pose-alignment headroom (§5 question 6, §2.4)
+## 6. Pose-alignment headroom — REVISED FINDING
 
-**This is the single highest-leverage observation in the entire investigation.**
+**Initial reading (wrong):** §2.4 TX jitter sweep showed σ=1 mm → CC = 0.62, and our trained test CC is 0.56, so we thought rigid mm-scale alignment error was the dominant blocker.
 
-- σ = 0.1 mm jitter → 0.99 CC preserved  
-- σ = 1.0 mm jitter → 0.62 CC (random-phase floor saturation)  
-- Our pass-2 alignment: nominally *roughly* mm-accurate  
-- Our trained test |RA| CC: 0.56 → **we are already on the random-phase floor**
+**Corrected reading after running pose_refine:** *per-antenna random jitter* and *rigid array translation* are different failure modes. The jitter sweep perturbed each of the 12 TX independently — that breaks coherent beamforming because the virtual-array positions become randomised. A **rigid** 1-mm translation of the whole radar, by contrast, only adds a common phase and preserves beamforming coherence. Pass-2's alignment is rigid (6-DOF radar pose per frame). It does NOT correct per-antenna calibration error.
 
-### Proposed pass-3 alignment
+### Pass-3 rigid translation refinement — implemented and tested
 
-1. Bootstrap from pass-2 poses.
-2. Per-frame, per-TX (and per-RX) optimise a tiny position delta (≤ 2 mm box) that **maximises coherent-sum |RA| CC against GT chirp 0**.
-3. Use the same grid + Nelder-Mead pattern as §4.0, but over TX position coordinates.
-4. Cache per-frame.
+Two variants of `mm25DGS_v7/preprocessing/pose_refine.py`:
 
-Expected benefit (from sensitivity curve):
-- σ 1 mm → 0.3 mm would lift the floor from 0.62 to 0.91 — potentially +0.2-0.25 CC across the board.
-- Even if that's half-realised (0.1 CC), that alone closes ~40% of the |RA| train gap.
+**a) init-state pose_refine** (first attempt):
+- ±4 mm search box, 5³ grid → Nelder-Mead.
+- Found "optima" at 2.7–4.4 mm per frame with +0.02 CC gain at init-state.
+- **A/B bench with refined configs: |RA| test = 0.572 vs pass-2 baseline 0.621 (−0.049).**
+- Interpretation: init-state objective (CC ≈ 0.1) is too noisy; optimizer walks to bounds chasing noise.
 
-**Priority:** above everything else in §7 below.
+**b) warm-started pose_refine** (second attempt, correct):
+- 200 iters of v5-style material training first (CC rises from ~0.15 to ~0.45 on warm-started state).
+- Then pose refinement with tightened ±1 mm bound, ±0.75 mm step.
+- Result across 9 frames of seq_0_frame_135: **mean |Δp| = 0.027 mm, Δ mean CC = +0.0001**.
+- **Pass-2 is already sub-mm accurate for rigid translation.** There is no pose refinement to extract.
+
+### What this reveals about the true ceiling
+
+The |RA| test CC of 0.56 is NOT from rigid pose misalignment. Candidate explanations, in priority order:
+
+1. **Per-antenna calibration error.** The 12 TX and 16 RX positions come from factory calibration files. Pass-2 translates the array as a rigid body; it cannot refine individual antenna positions. Per-antenna σ ≈ 0.3–0.5 mm random error would land us right in the observed CC band. High-DOF (84 params), hard to optimise without gradients.
+2. **Missing non-ego scene dynamics.** Moving scatterers (vegetation, traffic, pedestrians) generate per-frame |RA| deltas that a shared-material static mesh cannot reproduce. The F±1 inter-frame coherence ceiling of 0.586 already encodes this.
+3. **LiDAR → radar frame registration drift.** The static LiDAR mesh is loaded once but used for all train frames. If inter-frame radar-trajectory drift is present relative to LiDAR, each frame has a small residual scene shift even with a perfect rigid radar pose.
+4. **Temporal LiDAR aliasing.** LiDAR captures the scene at distinct times; a static mesh cannot represent what moves between LiDAR frames within a cascade capture.
+
+**None of these are fixable by rigid pose refinement.** All are fixable only by either (a) extending the forward model (dynamic scene, per-antenna deltas) or (b) accepting a ceiling that matches physics.
 
 ---
 
-## 7. Ranked next structural moves
+## 7. Ranked next structural moves — REVISED
+
+Based on the pass-3 negative result (§6), the ranking of remaining options is substantially different from the first draft. In priority order:
 
 | # | action | expected CC gain | effort | rationale |
 |---|---|---|---|---|
-| 1 | **Pass-3 sub-mm alignment** | **+0.1 to +0.25 on |RA|/|RAD| train and test** | 1-2 wk | §6 — directly attacks the phase-coherence floor we are hitting |
-| 2 | **C2b multi-task λ = 1.0** | +0.04 |RA| train, +0.02 |RA| test | **already done — flag exists** | §5 — shipped |
-| 3 | §4.0 v_ego refinement deployed in training | +0.01 to +0.03 |RAD| (unknown — needs trained-model ablation) | 1 day | §4 — systematic bias documented; differential effect at trained state is the open test |
-| 4 | Learn bounded position deltas (§2.6.a) | +0.05 to +0.15 on |RA| (if Pass-3 saturates) | 2-3 wk, structural | §3.2 |
-| 5 | Reframe paper targets to what is physically achievable | framing (no CC gain) | < 1 day | §8 |
+| 1 | **Reframe paper claims to what physics allows** | 0 CC — framing | < 1 day | §1 + §8: 0.70 test CC is above F±1 ceiling 0.59; 0.85 |RAD| train is above single-frame ceiling 0.64. The paper must claim what is *defensible*. |
+| 2 | **C2b multi-task λ = 1.0 as default** | +0.04 |RA| train, +0.02 |RA| test | ✅ shipped (`--loss_multitask_lambda 1.0`) | §5 ablation |
+| 3 | Deploy v_ego-refine cache in training (A/B) | +0.01 to +0.03 |RAD| test (unknown) | 1 day | §4 — systematic bias documented |
+| 4 | target_n=90000 multi-frame bench | +0.03 to +0.08 on all metrics (unverified) | 1-2 days of compute | single-frame 0.95 was at 90000; ours is 20000 |
+| 5 | Per-antenna calibration refinement | +0.05 to +0.15 on |RA| if per-antenna σ ≈ 0.3 mm is real | 3-4 wk, structural (84-DOF optimisation) | §6 — the last plausible coherent-phase lever |
+| 6 | Learn bounded position deltas on LiDAR points (§2.6.a) | small (+0.01-0.04) — upper-bounded by §1.1 phase-error dominance | 2-3 wk, structural | only worth it if per-antenna calibration also exhausted |
+| ~~0~~ | ~~Pass-3 rigid translation refinement~~ | ~~+0.1–0.25~~ | tested | **dropped** — warm-started pose_refine finds Δ ≈ 0 |
 
 ---
 

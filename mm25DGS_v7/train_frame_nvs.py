@@ -71,11 +71,31 @@ from mm25DGS_v5.train_chirp_loop_nvs import (
 # Per-scene data loading (train and test frames)
 # ---------------------------------------------------------------------------
 
-def _aligned_config_path(scene, frame, use_pass2, data_root):
+def _aligned_config_path(scene, frame, use_pass2, data_root,
+                          pass_name: str = None):
+    """Resolve the aligned-config path.
+
+    ``pass_name`` (optional) overrides the pass-2 fallback:
+      'pass3' → try `_aligned_pass3` first, fall back to pass-2/pass-1.
+      'pass2' → try `_aligned_pass2`, fall back to pass-1.
+      'pass1' → only `_aligned`.
+      None    → use ``use_pass2`` (legacy behaviour).
+    """
     align_dir = os.path.join(data_root, 'alignment_data', scene, 'cascade')
-    suffix = '_aligned_pass2' if use_pass2 else '_aligned'
-    p = os.path.join(align_dir, f'cascaded_frame_{frame}{suffix}.json')
-    return p if os.path.isfile(p) else None
+    # Build fallback chain (most-refined first)
+    if pass_name == 'pass3':
+        chain = ['_aligned_pass3', '_aligned_pass2', '_aligned']
+    elif pass_name == 'pass2':
+        chain = ['_aligned_pass2', '_aligned']
+    elif pass_name == 'pass1':
+        chain = ['_aligned']
+    else:
+        chain = ['_aligned_pass2', '_aligned'] if use_pass2 else ['_aligned']
+    for suffix in chain:
+        p = os.path.join(align_dir, f'cascaded_frame_{frame}{suffix}.json')
+        if os.path.isfile(p):
+            return p
+    return None
 
 
 def _pass3_config_path(scene, frame, chirp, data_root):
@@ -89,7 +109,8 @@ def _pass3_config_path(scene, frame, chirp, data_root):
 def _build_frame_poses(scene, frame, use_pass2, data_root,
                        loop_dt_s=7.87e-3 / 16.0, frame_period_s=0.1,
                        anchor_source='pass2_lerp',
-                       device=DEVICE):
+                       device=DEVICE,
+                       pass_name: str = None):
     """Return a list of 16 per-loop pose dicts for ``frame``.
 
     ``anchor_source``:
@@ -130,8 +151,10 @@ def _build_frame_poses(scene, frame, use_pass2, data_root,
         # else fall through to pass2_lerp
 
     # Pass-2 LERP path (default / fallback).
-    cfg_A = _aligned_config_path(scene, frame - 1, use_pass2, data_root)
-    cfg_B = _aligned_config_path(scene, frame + 1, use_pass2, data_root)
+    cfg_A = _aligned_config_path(scene, frame - 1, use_pass2, data_root,
+                                   pass_name=pass_name)
+    cfg_B = _aligned_config_path(scene, frame + 1, use_pass2, data_root,
+                                   pass_name=pass_name)
     if cfg_A is not None and cfg_B is not None:
         poses, _ = build_per_loop_poses(
             cfg_A, cfg_B, n_loops=16,
@@ -139,7 +162,8 @@ def _build_frame_poses(scene, frame, use_pass2, data_root,
             device=device)
         return poses, 'interp_neighbours'
 
-    cfg_F = _aligned_config_path(scene, frame, use_pass2, data_root)
+    cfg_F = _aligned_config_path(scene, frame, use_pass2, data_root,
+                                   pass_name=pass_name)
     assert cfg_F is not None, (
         f'{scene} f={frame}: no aligned config (neither neighbour nor '
         f'self); cannot build poses')
@@ -237,6 +261,7 @@ def build_frame_level_dataset(scene, train_frames, test_frame,
                                data_root='/home/adnan/Desktop/mm3DGS/data',
                                device=DEVICE,
                                anchor_source='pass2_lerp',
+                               pass_name=None,
                                verbose=True):
     """Return (train_samples, test_sample, diagnostics).
 
@@ -265,7 +290,8 @@ def build_frame_level_dataset(scene, train_frames, test_frame,
         poses, mode = _build_frame_poses(
             scene, f, use_pass2=use_pass2, data_root=data_root,
             loop_dt_s=loop_dt_s, frame_period_s=frame_period_s,
-            anchor_source=anchor_source, device=device)
+            anchor_source=anchor_source, device=device,
+            pass_name=pass_name)
         if mode != 'interp_neighbours':
             edges.append((f, mode))
         adc_npy = os.path.join(radar_dir, f'cascaded_frame_{f}.npy')
@@ -282,7 +308,8 @@ def build_frame_level_dataset(scene, train_frames, test_frame,
     test_poses, test_mode = _build_frame_poses(
         scene, test_frame, use_pass2=use_pass2, data_root=data_root,
         loop_dt_s=loop_dt_s, frame_period_s=frame_period_s,
-        anchor_source=anchor_source, device=device)
+        anchor_source=anchor_source, device=device,
+        pass_name=pass_name)
     test_adc = os.path.join(radar_dir, f'cascaded_frame_{test_frame}.npy')
     test_gt = _build_per_loop_gt(test_adc, held_out_loop, loss_type, device)
     test_sample = {
@@ -571,6 +598,7 @@ def train_frame_nvs(scene,
                     frame_period_s=0.1,
                     loop_dt_s=7.87e-3 / 16.0,
                     use_pass2_alignment=True,
+                    pass_name=None,        # 'pass3' | 'pass2' | 'pass1' | None
                     anchor_source='pass2_lerp',
                     data_root='/home/adnan/Desktop/mm3DGS/data',
                     verbose=True,
@@ -699,7 +727,7 @@ def train_frame_nvs(scene,
         train_loops=train_loops,
         loss_type=loss_type, loop_dt_s=loop_dt_s,
         frame_period_s=frame_period_s, data_root=data_root,
-        anchor_source=anchor_source,
+        anchor_source=anchor_source, pass_name=pass_name,
         device=DEVICE, verbose=verbose,
     )
 
@@ -714,7 +742,8 @@ def train_frame_nvs(scene,
             poses, _ = _build_frame_poses(
                 scene, f, use_pass2=use_pass2_alignment, data_root=data_root,
                 loop_dt_s=loop_dt_s, frame_period_s=frame_period_s,
-                anchor_source=anchor_source, device=DEVICE)
+                anchor_source=anchor_source, device=DEVICE,
+                pass_name=pass_name)
             v = get_or_compute_v_ego(scene, int(f), data_root=data_root)
             bundle = _build_rad_bundle_for_frame(
                 os.path.join(radar_dir, f'cascaded_frame_{f}.npy'),
@@ -726,7 +755,8 @@ def train_frame_nvs(scene,
             scene, test_frame, use_pass2=use_pass2_alignment,
             data_root=data_root,
             loop_dt_s=loop_dt_s, frame_period_s=frame_period_s,
-            anchor_source=anchor_source, device=DEVICE)
+            anchor_source=anchor_source, device=DEVICE,
+            pass_name=pass_name)
         test_v_ego = get_or_compute_v_ego(
             scene, int(test_frame), data_root=data_root)
         test_rad_bundle = _build_rad_bundle_for_frame(
@@ -1195,6 +1225,10 @@ def train_frame_nvs(scene,
                 tag = f'{tag}p{reg_densify_pos_jitter_m:g}'
         if doppler:
             tag = f'{tag}_v7doppler_norm{loss_norm}'
+        if pass_name is not None:
+            tag = f'{tag}_{pass_name}'
+        if loss_multitask_lambda > 0.0:
+            tag = f'{tag}_mt{loss_multitask_lambda:g}'
         output_dir = os.path.join(
             PROJECT_ROOT, 'mm25DGS_v7', 'output_frame_nvs', f'{scene}_{tag}')
     os.makedirs(output_dir, exist_ok=True)
@@ -1403,6 +1437,12 @@ if __name__ == '__main__':
                          '|RAD| training loss. 0 = |RAD| only (default). '
                          '>0 biases optimizer back toward the chirp-0 |RA| '
                          'metric that v5 was specialised for.')
+    ap.add_argument('--pass_name', default=None,
+                    choices=[None, 'pass3', 'pass2', 'pass1'],
+                    help='Which alignment pass to use. None = legacy '
+                         '(pass-2 if use_pass2 is on, else pass-1). '
+                         '"pass3" prefers `_aligned_pass3.json`, falls '
+                         'back to pass-2 then pass-1 if missing.')
     ap.add_argument('--seed_frame', type=int, default=None,
                     help='Frame whose pose seeds the rasterizer (drives FOV + '
                          'RX visibility before FPS, so it determines the 90k-'
@@ -1449,4 +1489,5 @@ if __name__ == '__main__':
         seed_frame=args.seed_frame,
         doppler=args.doppler,
         loss_norm=args.loss_norm,
-        loss_multitask_lambda=args.loss_multitask_lambda)
+        loss_multitask_lambda=args.loss_multitask_lambda,
+        pass_name=args.pass_name)

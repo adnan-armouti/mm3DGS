@@ -1,0 +1,246 @@
+{
+  "scene": "seq_0_frame_135",
+  "frames": [
+    131,
+    132,
+    133,
+    134,
+    135,
+    136,
+    137,
+    138,
+    139
+  ],
+  "target_n": 20000,
+  "per_frame": {
+    "131": {
+      "seed_cc": 0.5343455076217651,
+      "stage1_best_cc": 0.5343455076217651,
+      "stage1_best_delta_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "final_cc": 0.5343506932258606,
+      "final_delta_mm": [
+        0.0,
+        0.0002500000118743628,
+        0.0
+      ],
+      "\u0394cc": 5.185604095458984e-06,
+      "config_out": "/home/adnan/Desktop/mm3DGS/data/alignment_data/seq_0_frame_135/cascade/cascaded_frame_131_aligned_pass3.json",
+      "sanity": {
+        "max_adj_delta_mm": 0.0002500000118743628,
+        "suspect": false,
+        "neighbours_delta_mm": {
+          "next": 0.0002500000118743628
+        }
+      }
+    },
+    "132": {
+      "seed_cc": 0.4655472934246063,
+      "stage1_best_cc": 0.4655472934246063,
+      "stage1_best_delta_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "final_cc": 0.46554726362228394,
+      "final_delta_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "\u0394cc": -2.9802322387695312e-08,
+      "config_out": "/home/adnan/Desktop/mm3DGS/data/alignment_data/seq_0_frame_135/cascade/cascaded_frame_132_aligned_pass3.json",
+      "sanity": {
+        "max_adj_delta_mm": 0.0002500000118743628,
+        "suspect": false,
+        "neighbours_delta_mm": {
+          "prev": 0.0002500000118743628,
+          "next": 0.0
+        }
+      }
+    },
+    "133": {
+      "seed_cc": 0.39742180705070496,
+      "stage1_best_cc": 0.39742180705070496,
+      "stage1_best_delta_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "final_cc": 0.39742180705070496,
+      "final_delta_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "\u0394cc": 0.0,
+      "config_out": "/home/adnan/Desktop/mm3DGS/data/alignment_data/seq_0_frame_135/cascade/cascaded_frame_133_aligned_pass3.json",
+      "sanity": {
+        "max_adj_delta_mm": 0.0002500000118743628,
+        "suspect": false,
+        "neighbours_delta_mm": {
+          "prev": 0.0,
+          "next": 0.0002500000118743628
+        }
+      }
+    },
+    "134": {
+      "seed_cc": 0.47966358065605164,
+      "stage1_best_cc": 0.47966358065605164,
+      "stage1_best_delta_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "final_cc": 0.479684442281723,
+      "final_delta_mm": [
+        0.0002500000118743628,
+        0.0,
+        0.0
+      ],
+      "\u0394cc": 2.086162567138672e-05,
+      "config_out": "/home/adnan/Desktop/mm3DGS/data/alignment_data/seq_0_frame_135/cascade/cascaded_frame_134_aligned_pass3.json",
+      "sanity": {
+        "max_adj_delta_mm": 0.0003535534073861587,
+        "suspect": false,
+        "neighbours_delta_mm": {
+          "prev": 0.0002500000118743628,
+          "next": 0.0003535534073861587
+        }
+      }
+    },
+    "135": {
+      "seed_cc": 0.37918806076049805,
+      "stage1_best_cc": 0.37918806076049805,
+      "stage1_best_delta_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "final_cc": 0.3791896104812622,
+      "final_delta_mm": [
+        0.0,
+        0.0,
+        0.0002500000118743628
+      ],
+      "\u0394cc": 1.5497207641601562e-06,
+      "config_out": "/home/adnan/Desktop/mm3DGS/data/alignment_data/seq_0_frame_135/cascade/cascaded_frame_135_aligned_pass3.json",
+      "sanity": {
+        "max_adj_delta_mm": 0.0003535534073861587,
+        "suspect": false,
+        "neighbours_delta_mm": {
+          "prev": 0.0003535534073861587,
+          "next": 0.0003535534073861587
+        }
+      }
+    },
+    "136": {
+      "seed_cc": 0.49549177289009094,
+      "stage1_best_cc": 0.49549177289009094,
+      "stage1_best_delta_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "final_cc": 0.49549731612205505,
+      "final_delta_mm": [
+        0.0,
+        0.0002500000118743628,
+        0.0
+      ],
+      "\u0394cc": 5.543231964111328e-06,
+      "config_out": "/home/adnan/Desktop/mm3DGS/data/alignment_data/seq_0_frame_135/cascade/cascaded_frame_136_aligned_pass3.json",
+      "sanity": {
+        "max_adj_delta_mm": 0.0003535534073861587,
+        "suspect": false,
+        "neighbours_delta_mm": {
+          "prev": 0.0003535534073861587,
+          "next": 0.0002500000118743628
+        }
+      }
+    },
+    "137": {
+      "seed_cc": 0.40496331453323364,
+      "stage1_best_cc": 0.40496331453323364,
+      "stage1_best_delta_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "final_cc": 0.40496331453323364,
+      "final_delta_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "\u0394cc": 0.0,
+      "config_out": "/home/adnan/Desktop/mm3DGS/data/alignment_data/seq_0_frame_135/cascade/cascaded_frame_137_aligned_pass3.json",
+      "sanity": {
+        "max_adj_delta_mm": 0.23739190817667227,
+        "suspect": false,
+        "neighbours_delta_mm": {
+          "prev": 0.0002500000118743628,
+          "next": 0.23739190817667227
+        }
+      }
+    },
+    "138": {
+      "seed_cc": 0.3902682662010193,
+      "stage1_best_cc": 0.39061588048934937,
+      "stage1_best_delta_mm": [
+        0.0,
+        0.0,
+        0.375
+      ],
+      "final_cc": 0.3907991051673889,
+      "final_delta_mm": [
+        -0.00021123445185367018,
+        0.001047094352543354,
+        0.23738950490951538
+      ],
+      "\u0394cc": 0.0005308389663696289,
+      "config_out": "/home/adnan/Desktop/mm3DGS/data/alignment_data/seq_0_frame_135/cascade/cascaded_frame_138_aligned_pass3.json",
+      "sanity": {
+        "max_adj_delta_mm": 0.23739226226858887,
+        "suspect": false,
+        "neighbours_delta_mm": {
+          "prev": 0.23739190817667227,
+          "next": 0.23739226226858887
+        }
+      }
+    },
+    "139": {
+      "seed_cc": 0.3691380023956299,
+      "stage1_best_cc": 0.3691380023956299,
+      "stage1_best_delta_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "final_cc": 0.3691447675228119,
+      "final_delta_mm": [
+        0.0002500000118743628,
+        0.0,
+        0.0
+      ],
+      "\u0394cc": 6.765127182006836e-06,
+      "config_out": "/home/adnan/Desktop/mm3DGS/data/alignment_data/seq_0_frame_135/cascade/cascaded_frame_139_aligned_pass3.json",
+      "sanity": {
+        "max_adj_delta_mm": 0.23739226226858887,
+        "suspect": false,
+        "neighbours_delta_mm": {
+          "prev": 0.23739226226858887
+        }
+      }
+    }
+  },
+  "summary": {
+    "mean_seed_cc": 0.43511417839262223,
+    "mean_final_cc": 0.4351775911119249,
+    "mean_\u0394cc": 6.341271930270725e-05,
+    "mean_abs_delta_mm": 0.026515767581782677
+  }
+}
