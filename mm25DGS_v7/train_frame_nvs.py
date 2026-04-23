@@ -594,7 +594,8 @@ def train_frame_nvs(scene,
                     reg_densify_pool_selection='nearest',
                     seed_frame=None,
                     doppler=False,
-                    loss_norm='max'):   # 'max' (legacy) | 'mean' (C1 fix)
+                    loss_norm='max',       # 'max' (legacy) | 'mean' (C1 fix)
+                    loss_multitask_lambda=0.0):  # C2b: λ·mse(|RA|_chirp0)
     assert v5cuda.is_available(), (
         'v5 CUDA extension not built. '
         'cd mm25DGS_v5/cuda && python setup.py build_ext --inplace')
@@ -878,8 +879,27 @@ def train_frame_nvs(scene,
                 gt_scale = (gt_max if loss_norm == 'max'
                              else bundle['gt_rad_mean'])
                 loss_k = (mag_pred - gt_mag).pow(2).mean() / (gt_scale ** 2)
-                (loss_k * loss_scale_doppler).backward()
-                loss_sum += float(loss_k.item()) * loss_scale_doppler
+
+                # C2b — multi-task term on chirp-0 |RA| vs the matching
+                # train_sample's cached GT |RA| (min-max normalized). Free
+                # — re-uses rp_r[0], rp_i[0] from the doppler render stack.
+                loss_total = loss_k
+                if loss_multitask_lambda > 0.0:
+                    # Find the matching (frame, loop=0) train_sample for GT
+                    match_s = None
+                    for s in train_samples:
+                        if (int(s['frame_idx']) == bundle['frame_idx']
+                                and int(s['loop_idx']) == 0):
+                            match_s = s; break
+                    if match_s is not None and 'gt_loss' in match_s:
+                        from mm25DGS_v7.train_gaussian import compute_ra_loss_rp
+                        loss_chirp0, _ = compute_ra_loss_rp(
+                            rp_r[0], rp_i[0], match_s['gt_loss'],
+                            loss_type=loss_type)
+                        loss_total = loss_k + loss_multitask_lambda * loss_chirp0
+
+                (loss_total * loss_scale_doppler).backward()
+                loss_sum += float(loss_total.item()) * loss_scale_doppler
                 # Per-frame chirp-0 cc on v5 |RA| — for mean_train_cc history.
                 with torch.no_grad():
                     rp0_r = rp_r[0].detach()
@@ -1378,6 +1398,11 @@ if __name__ == '__main__':
                          'effectively shrinks the loss ~2500×). "mean" '
                          'matches v5 mse_raw (gt_mag.mean()^2). '
                          'Output dir always tagged with _norm<mode>.')
+    ap.add_argument('--loss_multitask_lambda', type=float, default=0.0,
+                    help='C2b multi-task: add λ·mse(|RA|_chirp0) to the '
+                         '|RAD| training loss. 0 = |RAD| only (default). '
+                         '>0 biases optimizer back toward the chirp-0 |RA| '
+                         'metric that v5 was specialised for.')
     ap.add_argument('--seed_frame', type=int, default=None,
                     help='Frame whose pose seeds the rasterizer (drives FOV + '
                          'RX visibility before FPS, so it determines the 90k-'
@@ -1423,4 +1448,5 @@ if __name__ == '__main__':
         reg_densify_pool_selection=args.reg_densify_pool_selection,
         seed_frame=args.seed_frame,
         doppler=args.doppler,
-        loss_norm=args.loss_norm)
+        loss_norm=args.loss_norm,
+        loss_multitask_lambda=args.loss_multitask_lambda)
