@@ -25,7 +25,20 @@ __all__ = [
     "gram_correlation_mean",
     "virt_positions_adc_order",
     "baseline_class_map",
+    "adc_to_rad_complex",
+    "rp_stack_to_rad_complex",
+    "N_DOP_DEFAULT",
 ]
+
+
+# Default Doppler-FFT size (zero-pad factor ≈ 2 over the 16 physical
+# chirps, mirroring v5's azimuth zero-pad ratio of 128/86 ≈ 1.49×).
+# Per PDF (Li et al., "Signal Processing for TDM MIMO FMCW Millimeter-
+# Wave Radar Sensors") §V.A, zero-padding is a display-friendly
+# interpolation; it does NOT improve Doppler resolution (which is
+# fixed at λ / (2·T_F) with T_F = N_c · T_c). 32 and 64 are both valid;
+# we default to 32 as the v5-most-consistent ratio.
+N_DOP_DEFAULT: int = 32
 
 
 # TX/RX positions from mmir/data/ra_utils.py (source of truth).
@@ -312,3 +325,159 @@ def gram_correlation_mean(
     """Average normalised Gram correlation across range (and any other
     leading axes). Returns a 0-D real tensor in ``[0, 1]``."""
     return gram_correlation_per_range(v_pred, v_gt, eps=eps).mean()
+
+
+# ---------------------------------------------------------------------------
+# v6 M2 — Range-Azimuth-Doppler (RAD) cube helpers.
+#
+# v5 produces a |RA| image from a single chirp:
+#   ADC[1 chirp]  →  range FFT per virt  →  txrx_to_vx_chirps  →  keep el=0
+#                 →  azimuth FFT (Hann + ifftshift + fft n=128 + drop bin 0
+#                    + fftshift)  →  complex (127 az, 256 range).
+#
+# v6 M2 extends this to a |RAD| cube by running the SAME azimuth FFT per
+# chirp and then stacking chirps and applying an identical Hann + ifftshift
+# + fft + drop-first-bin + fftshift chain across the chirp axis.
+# Conventions (per user directive + PDF Li et al., IEEE Access 2021,
+# §IV.A "Doppler-DFT"):
+#
+#   - N_DOP = 32 (defaults).  Valid options are {16, 32, 64}; larger is
+#     redundant interpolation only. 32 matches v5's azimuth zero-pad
+#     ratio (128/86 ≈ 1.49×) most closely.
+#   - Processing chain on the chirp axis is identical to v5 azimuth:
+#         Hann × ifftshift → fft(n=N_DOP) → drop bin 0 → fftshift.
+#     Output D = N_DOP − 1 after the drop (31 with default).
+#   - TDM velocity-induced phase compensation (PDF §VI.B eq. 52–55) is
+#     INTENTIONALLY deferred. v5's renderer does not model TDM intra-
+#     burst TX timing, so GT and pred share the same "TDM phase
+#     ignored" structure at this stage. Revisit if the M2 |RAD| loss
+#     diverges from the v5 |RA| single-chirp metric.
+
+def _hann(n: int, device, dtype):
+    return torch.hann_window(n, device=device, dtype=dtype)
+
+
+def _azimuth_fft_on_vx86(vx86: torch.Tensor) -> torch.Tensor:
+    """Apply v5's azimuth FFT (Hann → ifftshift → fft n=128 → drop
+    bin 0 → fftshift) on a ``(..., 86, R)`` complex tensor.
+
+    Returns ``(..., 127, R)`` complex.
+    """
+    assert vx86.shape[-2] == 86, (
+        f'expected 86 azimuth bins; got {vx86.shape}')
+    n_az = 86
+    win = _hann(n_az, vx86.device, vx86.real.dtype).to(vx86.dtype)
+    # Match v5: window multiplies along the virtual-antenna axis.
+    shape = [1] * vx86.ndim
+    shape[-2] = n_az
+    vx = vx86 * win.view(*shape)
+    vx = torch.fft.ifftshift(vx, dim=-2)
+    vx = torch.fft.fft(vx, n=128, dim=-2)
+    # Drop DC bin (0 after ifftshift→fft ordering) — v5 convention.
+    vx = vx.narrow(-2, 1, 127)
+    vx = torch.fft.fftshift(vx, dim=-2)
+    return vx                                                      # (..., 127, R)
+
+
+def _doppler_fft_on_chirps(stack: torch.Tensor,
+                             n_dop: int = N_DOP_DEFAULT,
+                             dim: int = 0) -> torch.Tensor:
+    """Apply the azimuth-identical FFT chain on an arbitrary axis
+    (intended: the chirp axis, default dim=0).
+
+    Input ``stack``: complex tensor with the chirp axis at ``dim``.
+    Returns a complex tensor with that axis replaced by
+    ``n_dop − 1`` (after drop-bin-0).
+    """
+    assert stack.is_complex()
+    n_ch = stack.shape[dim]
+    assert n_dop >= n_ch, (
+        f'N_DOP ({n_dop}) < n_chirps ({n_ch}); zero-pad only')
+    win = _hann(n_ch, stack.device, stack.real.dtype).to(stack.dtype)
+    shape = [1] * stack.ndim
+    shape[dim] = n_ch
+    x = stack * win.view(*shape)
+    x = torch.fft.ifftshift(x, dim=dim)
+    x = torch.fft.fft(x, n=n_dop, dim=dim)
+    x = x.narrow(dim, 1, n_dop - 1)                                # drop DC bin
+    x = torch.fft.fftshift(x, dim=dim)
+    return x                                                       # D = n_dop - 1
+
+
+def adc_to_rad_complex(adc_ri_all_chirps: torch.Tensor,
+                        n_dop: int = N_DOP_DEFAULT) -> torch.Tensor:
+    """v6 M2 GT path — ADC over all chirps → complex RAD cube.
+
+    Input ``adc_ri_all_chirps``: ``(n_chirps=16, n_tx=12, n_rx=16,
+    n_adc=256, 2)`` real-imag float32.
+
+    Output: ``(D = n_dop - 1, 127, n_range = n_adc)`` complex.
+
+    Chain (per chirp):  range Hann × range FFT → pack virtuals via
+    ``txrx_to_vx_chirps_torch`` → select el=0 row → azimuth FFT.
+    Then stack chirps → Doppler FFT across the chirp axis with the
+    same Hann / ifftshift / drop-bin-0 / fftshift convention as
+    azimuth.
+    """
+    from mmir.data.ra_utils import txrx_to_vx_chirps_torch       # local import
+    assert adc_ri_all_chirps.ndim == 5 and adc_ri_all_chirps.size(-1) == 2, (
+        f'expected (CH, TX, RX, ADC, 2); got {tuple(adc_ri_all_chirps.shape)}')
+    n_ch, n_tx, n_rx, n_adc, _ = adc_ri_all_chirps.shape
+    assert (n_ch, n_tx, n_rx, n_adc) == (16, 12, 16, 256), (
+        f'unexpected shape {tuple(adc_ri_all_chirps.shape)}')
+
+    # Complex  (CH, TX, RX, ADC)
+    x_c = torch.complex(
+        adc_ri_all_chirps[..., 0].contiguous(),
+        adc_ri_all_chirps[..., 1].contiguous(),
+    )
+
+    # Range window + FFT per chirp, per (TX, RX)
+    win_r = _hann(n_adc, x_c.device, x_c.real.dtype).to(x_c.dtype)
+    x_c = x_c * win_r[None, None, None, :]
+    rp = torch.fft.fft(x_c, n=n_adc, dim=-1)                       # (CH, TX, RX, R)
+
+    # v5's txrx_to_vx_chirps_torch expects (1_chirp, RX, TX, ADC)
+    # complex — a SINGLE chirp at a time. Loop over chirps + stack.
+    per_chirp_vx86 = []
+    for k in range(n_ch):
+        rp_k = rp[k].permute(1, 0, 2).unsqueeze(0)                 # (1, RX, TX, R)
+        vx_k = txrx_to_vx_chirps_torch(rp_k)                       # (1, 7, 86, R)
+        per_chirp_vx86.append(vx_k[0, 0, :, :])                    # (86, R)
+    stack86 = torch.stack(per_chirp_vx86, dim=0)                   # (CH, 86, R)
+
+    # Azimuth FFT on each chirp slice → (CH, 127, R).
+    ra_stack = _azimuth_fft_on_vx86(stack86)
+
+    # Doppler FFT across the chirp axis → (D, 127, R).
+    rad = _doppler_fft_on_chirps(ra_stack, n_dop=n_dop, dim=0)
+    return rad                                                     # (D, 127, R) complex
+
+
+def rp_stack_to_rad_complex(rp_stack: torch.Tensor,
+                             n_dop: int = N_DOP_DEFAULT) -> torch.Tensor:
+    """v6 M2 pred path — stacked per-chirp renderer output → complex RAD.
+
+    Input ``rp_stack``: ``(n_chirps, n_tx=12, n_rx=16, R=256)`` complex
+    tensor representing the renderer's per-chirp complex range profiles
+    across chirps (from 16 calls to ``render_gaussians`` at per-chirp
+    LERP-interpolated poses, assembled on the caller side).
+
+    Output: ``(D = n_dop - 1, 127, R)`` complex, matching
+    ``adc_to_rad_complex`` step-for-step.
+    """
+    from mmir.data.ra_utils import txrx_to_vx_chirps_torch
+    assert rp_stack.ndim == 4 and rp_stack.is_complex(), (
+        f'expected (CH, TX, RX, R) complex; got {tuple(rp_stack.shape)} '
+        f'{rp_stack.dtype}')
+    n_ch, n_tx, n_rx, n_range = rp_stack.shape
+    per_chirp_vx86 = []
+    for k in range(n_ch):
+        rp_k = rp_stack[k].permute(1, 0, 2).unsqueeze(0)           # (1, RX, TX, R)
+        vx_k = txrx_to_vx_chirps_torch(rp_k)                        # (1, 7, 86, R)
+        per_chirp_vx86.append(vx_k[0, 0, :, :])
+    stack86 = torch.stack(per_chirp_vx86, dim=0)                   # (CH, 86, R)
+
+    ra_stack = _azimuth_fft_on_vx86(stack86)                       # (CH, 127, R)
+    rad = _doppler_fft_on_chirps(ra_stack, n_dop=n_dop, dim=0)     # (D, 127, R)
+    return rad

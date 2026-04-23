@@ -183,6 +183,54 @@ def _build_per_loop_gt(adc_npy_path, loop_idx, loss_type, device,
     return out
 
 
+def _build_m2_frame_bundle(adc_npy_path, poses_16, frame_idx, device,
+                             n_dop=None):
+    """v6 M2 per-frame supervision bundle.
+
+    Loads all 16 chirps of ``adc_npy_path``, runs
+    ``adc_to_rad_complex`` → |RAD| magnitude (real) — the v5-identical
+    range + azimuth FFT chain extended with a matching Doppler FFT on
+    the chirp axis — and returns a dict consumed by the M2 training
+    loop.
+
+    Pipeline (chirp → range → azimuth → Doppler, all v5-identical
+    convention + Hann windowing + ifftshift/fft/drop-bin-0/fftshift
+    applied across the chirp axis; see mm25DGS_v6/data/ra_utils.py
+    and md/doppler_forward_model_plan.md for the full design).
+
+    Returns a dict with:
+      'frame_idx'       : int
+      'poses_16'        : list of 16 per-chirp poses
+      'gt_rad_mag'      : (D, 127, R) float32 |RAD|
+      'gt_rad_max'      : float, used for mse_raw normalisation
+                           (matches v5's precompute_gt_loss_norm
+                           convention of dividing by max before MSE)
+    """
+    from mm25DGS_v6.data.ra_utils import (
+        adc_to_rad_complex, N_DOP_DEFAULT,
+    )
+    if n_dop is None:
+        n_dop = N_DOP_DEFAULT
+
+    arr = np.load(adc_npy_path)
+    assert arr.ndim == 4 and arr.shape[0] == 16, (
+        f'expected (16, RX, TX, K); got {arr.shape}')
+    # (CH, TX, RX, ADC, 2) real-imag float32 on device
+    adc = arr.transpose(0, 2, 1, 3)                                # (CH, TX, RX, ADC)
+    ri = np.stack([adc.real, adc.imag], axis=-1).astype(np.float32)
+    ri_t = torch.from_numpy(ri).to(device)
+    with torch.no_grad():
+        rad = adc_to_rad_complex(ri_t, n_dop=n_dop)                # (D, 127, R) cpx
+        mag = rad.abs().float()
+        mag_max = mag.amax().clamp_min(1e-30).item()
+    return {
+        'frame_idx': int(frame_idx),
+        'poses_16': list(poses_16),
+        'gt_rad_mag': mag,
+        'gt_rad_max': float(mag_max),
+    }
+
+
 def build_frame_level_dataset(scene, train_frames, test_frame,
                                held_out_loop, use_pass2,
                                train_loops=None,
@@ -216,7 +264,11 @@ def build_frame_level_dataset(scene, train_frames, test_frame,
     # samples (M1.5 chirp 0 only; M2+ all 16 chirps). Stored per sample
     # at ~200 KB — negligible. Also built for hybrid_mag variant which
     # needs per-antenna magnitudes on 192 virts.
-    need_per_virt = str(v6_milestone) in {'M1_5', 'M2', 'M3', 'M4'}
+    need_per_virt = str(v6_milestone) in {'M1_5'}
+    # M2: build one per-frame RAD bundle per train frame. Trainer loops
+    # over bundles instead of per-chirp samples.
+    build_m2_bundles = str(v6_milestone) == 'M2'
+    m2_bundles = []
 
     scene_dir = os.path.join(data_root, scene)
     radar_dir = os.path.join(scene_dir, 'radar')
@@ -239,6 +291,9 @@ def build_frame_level_dataset(scene, train_frames, test_frame,
                 'pose': poses[k],
                 **gt,
             })
+        if build_m2_bundles:
+            m2_bundles.append(_build_m2_frame_bundle(
+                adc_npy, poses, frame_idx=f, device=device))
 
     # Test: one (frame, loop); pose interpolated from test_frame's neighbours
     # (or loaded directly from per-chirp Stage 3 config under anchor_source='pass3_per_chirp').
@@ -265,15 +320,21 @@ def build_frame_level_dataset(scene, train_frames, test_frame,
         'n_train_samples': len(train_samples),
         'edge_frames': edges,
         'test_pose_mode': test_mode,
+        'n_m2_bundles': len(m2_bundles),
     }
     if verbose:
         print(f'  [data] train_samples: {len(train_samples)} '
               f'({len(train_frames)} frames × 16 loops)')
         if edges:
             print(f'  [data] edge frames (fell back to own pose): {edges}')
+        if m2_bundles:
+            print(f'  [data] M2 per-frame RAD bundles: {len(m2_bundles)}  '
+                  f'(each D={m2_bundles[0]["gt_rad_mag"].shape[0]}, '
+                  f'A={m2_bundles[0]["gt_rad_mag"].shape[1]}, '
+                  f'R={m2_bundles[0]["gt_rad_mag"].shape[2]})')
         print(f'  [data] test (frame={test_frame} loop={held_out_loop})  '
               f'pose_mode={test_mode}')
-    return train_samples, test_sample, diag
+    return train_samples, test_sample, diag, m2_bundles
 
 
 # ---------------------------------------------------------------------------
@@ -749,7 +810,7 @@ def train_frame_nvs(scene,
     sample_grid = build_polar_to_cart_grid(127, 256, range_res, 400, DEVICE)
 
     # ── Load train + test data ──
-    train_samples, test_sample, diag = build_frame_level_dataset(
+    train_samples, test_sample, diag, m2_bundles = build_frame_level_dataset(
         scene=scene, train_frames=train_frames, test_frame=test_frame,
         held_out_loop=held_out_loop, use_pass2=use_pass2_alignment,
         train_loops=train_loops,
@@ -843,6 +904,19 @@ def train_frame_nvs(scene,
                       and str(v6_loss_variant) != 'hybrid_mag')
     use_hybrid_mag = (str(v6_milestone) == 'M1_5'
                       and str(v6_loss_variant) == 'hybrid_mag')
+    use_m2 = str(v6_milestone) == 'M2'
+    if use_m2:
+        from mm25DGS_v6.data.ra_utils import (
+            rp_stack_to_rad_complex, N_DOP_DEFAULT,
+        )
+        assert len(m2_bundles) == len(train_frames), (
+            f'expected one M2 bundle per train_frame; got '
+            f'{len(m2_bundles)} vs {len(train_frames)}')
+        if verbose:
+            print(f'  [M2] training loss = v5 mse_raw on |RAD| cube '
+                  f'(D={N_DOP_DEFAULT - 1}, Az=127, R=256); rendering '
+                  f'16 chirps/frame × {len(m2_bundles)} frames per iter')
+        m2_loss_scale = 1.0 / len(m2_bundles)
     gram_loss_fn = None
     gram_loss_kwargs = {}
     if use_hybrid_mag:
@@ -961,7 +1035,65 @@ def train_frame_nvs(scene,
         optimizer.zero_grad(set_to_none=True)
         per_sample_cc = []
         loss_sum = 0.0
-        for s in train_samples:
+
+        if use_m2:
+            # v6 M2 — per-frame RAD-cube training.
+            # For each train frame: render 16 chirps at 16 LERP-
+            # interpolated per-chirp poses, stack → (16, TX, RX, R)
+            # complex, run rp_stack_to_rad_complex (v5 azimuth FFT per
+            # chirp + slow-time Doppler FFT on chirp axis, both with
+            # Hann + ifftshift + drop-bin-0 + fftshift convention) →
+            # (D, 127, R) complex → magnitude → mse_raw vs GT |RAD|.
+            # Backward per frame to keep peak memory bounded (16-chirp
+            # render graph ≈ 1.6 GB per frame, vs 8×16=128 chirps
+            # retained simultaneously).
+            for bundle in m2_bundles:
+                poses_16 = bundle['poses_16']
+                rp_list = []
+                for k in range(16):
+                    apply_pose(rast, poses_16[k])
+                    rp_r, rp_i = render_gaussians(
+                        model, rast, vertex_areas=vertex_areas,
+                        active_mask=active_mask, shadow_mask=None,
+                        bsdf_mode='full', disabled_components=None)
+                    rp_list.append(torch.complex(rp_r, rp_i))
+                rp_stack = torch.stack(rp_list, dim=0)
+                # (16, TX, RX, R) complex → (D, 127, R) complex
+                rad_pred = rp_stack_to_rad_complex(rp_stack,
+                                                    n_dop=N_DOP_DEFAULT)
+                mag_pred = rad_pred.abs()
+                gt_max  = bundle['gt_rad_max']
+                gt_mag  = bundle['gt_rad_mag']
+                # mse_raw convention (v5's): normalise both pred and GT
+                # by GT's max before MSE. Equivalent to mean((p − g)²) /
+                # gt_max². Kept scale-comparable to v5's |RA|-only loss.
+                loss_k = (mag_pred - gt_mag).pow(2).mean() / (gt_max ** 2)
+                (loss_k * m2_loss_scale).backward()
+                loss_sum += float(loss_k.item()) * m2_loss_scale
+                # Chirp-0 RA for per-sample cc tracking (matches v5 /
+                # mean_train_cc history).
+                with torch.no_grad():
+                    rp0_r = rp_list[0].real
+                    rp0_i = rp_list[0].imag
+                    ra_polar = range_profile_to_ra_mag(rp0_r, rp0_i)
+                    ra_cart = polar_to_cart_torch(ra_polar, sample_grid)
+                    # Find the matching train_sample for this frame's chirp
+                    # 0 to get gt_cart_norm (built by _finalize_cart at init).
+                    # train_samples is sorted (frame, loop); frame's first
+                    # entry corresponds to loop 0.
+                    for s in train_samples:
+                        if (int(s['frame_idx']) == bundle['frame_idx']
+                                and int(s['loop_idx']) == 0):
+                            cc = cart_corr_torch(ra_cart, s['gt_cart_norm']).item()
+                            per_sample_cc.append(cc)
+                            break
+                del rp_stack, rad_pred, mag_pred, loss_k, rp_list
+                torch.cuda.empty_cache()
+
+            # Fall through to regularisers / optimiser step below.
+            # Skip the per-sample loop.
+            pass
+        for s in (train_samples if not use_m2 else []):
             apply_pose(rast, s['pose'])
             rp_real, rp_imag = render_gaussians(
                 model, rast, vertex_areas=vertex_areas,
