@@ -20,6 +20,7 @@ loss that uses every pairwise relative-phase relationship across all
 | # | Change | Side | Expected 7-scene HO_8 mean-cc lift | Cost |
 |---|---|---|---:|---|
 | 1 | Plumb the renderer's per-virtual complex range-profile output + GT computation. **Loss unchanged.** | radar/code | 0 (scaffolding) | ~80 LOC |
+| 1.5 | Activate the **complex Gram loss on 192 virtuals, no Doppler** (uses M1's per-virt tensor; chirp 0 only) — isolates the 86→192 antenna-GT shift before unlocking Doppler | radar | **+0.02 – 0.08** | ~60 LOC |
 | 2 | Slow-time Doppler FFT (analytic per-point synthesis) + Gram-matrix loss on the per-(d, virt, r) cube | radar | **+0.06 – 0.15** | ~250 LOC |
 | 3 | Doppler-envelope gating from ego-velocity (no per-azimuth mapping needed) | radar | +0.01 – 0.03 | ~30 LOC |
 | 4 | SSIM on \|RD-cube\| magnitude per-Doppler-slice | radar | +0.01 – 0.02 | ~20 LOC |
@@ -244,8 +245,9 @@ Add to `train_frame_nvs.py`:
   - `diag_normalised_gram_cc_test = mean over r of |v_pred[:, r]^H v_gt[:, r]|² / (‖v_pred[:,r]‖² ‖v_gt[:,r]‖²)`
 - Persist to `results.json` alongside the existing `final_test_cc`.
 
-CLI flag `--v6_milestone {M1,M2,M3,M4}` (default `M1` for v6 runs).
-At M1 only the diagnostic is added; loss code path is untouched.
+CLI flag `--v6_milestone {M1,M1_5,M2,M3,M4}` (default `M1` for v6
+runs). At M1 only the diagnostic is added; loss code path is
+untouched.
 
 ### 1.3 Validation
 
@@ -277,6 +279,138 @@ MC noise (±0.003). Also report the new
 **M1 is a scaffolding milestone**: passing it means the new GT path
 is plumbed correctly without touching the v5 metric. M2 then swaps
 the loss.
+
+---
+
+## 1.5 M1.5 — complex Gram loss on 192 virtuals (no Doppler axis)
+
+### 1.5.1 Why (and why before M2)
+
+M2 makes **two** changes simultaneously: (a) swap magnitude-RA
+supervision for complex Gram supervision over all 192 virtuals (vs
+v5's 86-virtual subset after averaging duplicates), and (b) add a
+16-bin slow-time Doppler axis with analytic per-point synthesis and
+a rasterizer scatter-loop change. Those two changes have very
+different risk/cost profiles:
+
+- The 86→192 shift is **loss-only** (no renderer change) and cheap
+  to implement (M1's per-virt GT and per-virt render outputs are
+  already plumbed). It isolates the "does more-GT-DOF help?" effect.
+- The Doppler axis requires the B1 analytic-synthesis scatter loop
+  (§2.2) and its own §2.2.1 validation; it's where most of the M2
+  risk lives.
+
+M1.5 pulls apart these two concerns. Passing M1.5 is evidence that
+per-virtual complex supervision is itself a useful signal before we
+commit engineering to the Doppler axis. If M1.5's lift is
+surprisingly small, that's an early signal that the FFT-null-space
+complement is mostly noise for our scenes (cf. §2.1 honest range),
+and M2's lever will live in the Doppler axis rather than the Gram
+itself.
+
+### 1.5.2 What's in M1.5, what's not
+
+**In**:
+- Training loss swaps from v5 `mse_raw` on FFT-RA magnitude to the
+  normalised Gram correlation loss of §2.3 **with D = 1** (chirp 0
+  only, no Doppler FFT).
+- Uses the per-virtual complex tensor plumbed in M1 on both sides:
+  - GT: `adc_to_per_virt_range_profile(adc_chirp_0)` →
+    `(N=192, R=256)` complex.
+  - Pred: renderer's per-(TX, RX, K) complex output →
+    `reorder_rendered_to_adc` → reshape to `(N=192, R=256)` complex.
+- Supervision tensor (stored for autograd) shape: `(N=192, R=256)`
+  complex per frame. Memory: ~0.4 MB/frame, 3 MB/iter at 8 train
+  frames. Trivial.
+- Loss form (degenerates §2.3 to D = 1):
+  $$L_{M1.5} = \sum_{r=0}^{R-1}
+               \bigl(1 - g_r(v_{p,r}, v_{g,r})\bigr),\quad
+     g_r = \frac{|v_{p,r}^H v_{g,r}|^2}{\|v_{p,r}\|^2 \|v_{g,r}\|^2}.$$
+- Test-time `final_test_cc` unchanged (still v5 FFT-RA path).
+- Diagnostic metrics unchanged — `diag_normalised_gram_cc_test` now
+  reads out the quantity the loss is directly optimising at D = 1.
+
+**Not in**:
+- No Doppler axis, no analytic per-point Doppler synthesis, no
+  rasterizer scatter-loop modification. That's all M2.
+- No gating (M3), no SSIM (M4).
+- No phase-gradient enablement (see §2.X optional subsection —
+  future work, not default).
+
+### 1.5.3 Relationship to surrounding milestones
+
+| Milestone | Pred per-virt tensor | GT per-virt tensor | Loss | Rasterizer touch |
+|---|---|---|---|---|
+| v5 baseline | 86 virtuals (azimuth FFT → magnitude) | 86 virtuals (azimuth FFT → magnitude) | `mse_raw` on \|RA\| | none |
+| M1 | `(192, 256)` complex (diagnostic only) | `(192, 256)` complex (diagnostic only) | v5 `mse_raw` on \|RA\| (unchanged) | none |
+| **M1.5** | **`(192, 256)` complex (loss-active)** | **`(192, 256)` complex (loss-active)** | **Normalised Gram (D = 1)** | **none** |
+| M2 | `(D=16, 192, 256)` complex | `(D=16, 192, 256)` complex | Normalised Gram (D = 16) | B1 scatter-loop unrolled across chirps |
+| M3 | — | — | + Doppler envelope gate | none |
+| M4 | — | — | + SSIM on \|RD\| | none |
+
+M1.5 sits on top of M1's plumbing and strictly underneath M2. No
+rasterizer change is required in M1.5 — this is the lowest-risk way
+to get a first read on Gram-loss training.
+
+### 1.5.4 Ablation question answered by M1.5
+
+> "How much of the expected M2 lift comes from using all 192 virtuals
+> (vs v5's 86-subset FFT-magnitude) and how much comes from the
+> slow-time Doppler axis?"
+
+Concretely:
+- M1.5 `final_test_cc` − v5 baseline `final_test_cc` = contribution
+  of the 86→192 GT-DOF shift alone (loss is on chirp 0 only).
+- M2 `final_test_cc` − M1.5 `final_test_cc` = contribution of the
+  Doppler axis on top of the 192-virt complex Gram.
+
+Expected (subject to empirical check, these are my current priors):
+- M1.5 lift: **+0.02 – 0.08** mean cc. Bounded above by the SNR of
+  the FFT-null-space complement (§2.1); realistically more toward
+  the low end if the null-space is mostly calibration residual and
+  noise. Bounded below by 0 (no regression allowed — if M1.5
+  regresses v5, the loss has a bug or the FFT-null-space component
+  is net noise and should be downweighted).
+- M2 incremental lift above M1.5: **+0.04 – 0.10** mean cc from the
+  Doppler axis (HO_8 pose robustness argument of §2.1).
+
+### 1.5.5 Implementation scope
+
+Everything needed is already in place from M1 except:
+
+1. **`mm25DGS_v6/losses/rd_losses.py`** (new): `normalised_gram_loss`
+   that takes two `(..., N, R)` complex tensors and returns the
+   scalar `L_{M1.5}` defined above. Uses the per-range
+   `gram_correlation_per_range` helper from
+   `mm25DGS_v6/data/ra_utils.py`. Complex autograd works natively
+   (§2.3).
+2. **`train_frame_nvs.py`**: when `v6_milestone == "M1_5"`, replace
+   the `mse_raw`-on-FFT-RA training loss with the Gram loss defined
+   above. Test-time `final_test_cc` path is unchanged.
+3. **`run_v6_M1_5.sh`**: 7-scene HO_8 benchmark driver (parallel
+   mirror of `run_v6_M1.sh`).
+
+Expected LOC: ~60 (loss module + CLI branch + benchmark driver).
+
+### 1.5.6 M1.5 benchmark
+
+7-scene HO_8 with Gram loss at D = 1. Metrics to compare per-scene
+and 7-scene-mean:
+- `final_test_cc` (v5 FFT-RA path) — vs v5 baseline, vs M1
+  diagnostic-only run.
+- `diag_normalised_gram_cc_test` (now the quantity directly optimised).
+- `diag_normalised_gram_cc_test_mag` (magnitude-only variant for
+  sanity-checking whether the lift is coming from phase agreement
+  or magnitude agreement).
+
+Pass criterion to unblock M2:
+- M1.5 mean `final_test_cc` ≥ v5 baseline 0.524 (no regression); AND
+- M1.5 `diag_normalised_gram_cc_test` strictly higher than M1's
+  diagnostic reading on the same scenes (loss is actually being
+  driven down by training).
+
+If M1.5 regresses v5's `final_test_cc`, pause M2 and investigate
+before adding the Doppler axis on top of a broken loss.
 
 ---
 
@@ -473,7 +607,146 @@ In addition, M2 also logs:
   `final_test_cc` closely; deviation indicates phase issues that
   magnitude-only cart_corr can't see.
 
-### 2.6 M2 benchmark
+### 2.6 Optional — phase-gradient enablement (future work, NOT default)
+
+**Status**: documented for visibility. Not implemented by default in
+M1.5, M2, M3, or M4. This subsection exists so future-us (or another
+contributor) can find the analysis already done rather than
+re-deriving it. Any activation must be explicitly scoped as a
+separate experiment.
+
+#### 2.6.1 Background: where phase gradients enter the model
+
+The factorised rasterizer
+([`mm25DGS_v6/rasterizer_factorized.py:488-491`](../mm25DGS_v6/rasterizer_factorized.py#L488-L491))
+currently runs with `detach_phase=True`, which detaches two phase
+terms in the per-point complex contribution: the peak-subsample
+refinement `n_peak` and the carrier-phase factor `phi_carrier`.
+
+On close reading, both detached terms only depend on per-point
+positions, and positions are **frozen** in v5/v6 (LiDAR-FPS). That
+makes the detach effectively a no-op for the parameters that
+actually learn today (rotations and the 6-param ITU materials) —
+those feed the factorised BSDF / antenna-gain / Fresnel branches
+without running through `n_peak` or `phi_carrier`.
+
+Where phase gradients still reach the learnable parameters:
+
+- **Material → phase coupling**: permittivity enters the Fresnel
+  coefficient, which multiplies the coherent contribution with a
+  complex scalar. Real and imaginary parts of permittivity change
+  both magnitude and phase of the per-point contribution.
+- **Rotation → phase coupling**: surface normal = rotate(base_normal,
+  q); the incidence angle (and thus the Fresnel branch + Kirchhoff
+  / BSDF directivity) depends on the normal. Small normal rotations
+  primarily modulate magnitude but also shift phase via the Fresnel
+  branch (especially near Brewster).
+
+Under v5's magnitude-RA loss, these phase gradients get partially
+projected out by the `|·|` operator (only the component of phase
+that changes the angular-FFT magnitude survives; §2.1). Under a
+complex Gram loss (M1.5 and M2), phase gradients flow end-to-end
+through the complex tensor and the Hermitian inner product.
+
+#### 2.6.2 Why we are NOT enabling phase gradients by default
+
+Three concerns, in decreasing order of severity:
+
+1. **Sub-wavelength sensitivity at 77 GHz** (λ ≈ 3.9 mm). A 1-mm
+   position error translates to ~1.6 rad of phase error at the
+   nearest range bin. Our rotations are learnable but our positions
+   are frozen at LiDAR-FPS accuracy (~few mm), so the phase
+   reference is itself uncertain. Training phase against a drifting
+   geometric reference risks the optimiser chasing
+   calibration-residual artefacts.
+2. **2π wrapping in gradient paths**. If any scalar in the gradient
+   graph is computed as an explicit phase angle (e.g.
+   `torch.angle(·)`), the Jacobian is discontinuous at the ±π
+   branch cut. The current v6 Gram loss **does not** take any
+   explicit angle: it stays in the complex-tensor algebra (conj,
+   inner product, abs²), so the loss itself is smooth / real-analytic
+   in the complex tensor. Any future phase-gradient work must
+   preserve that property.
+3. **Optimiser stability**. Gradient magnitudes through the
+   material/rotation→phase coupling are harder to bound than through
+   the magnitude-only Fresnel path, and we have seen v5 require RMS
+   gradient clipping just to train magnitude. Phase gradients are
+   likely to require tighter clipping and possibly a different
+   LR schedule.
+
+#### 2.6.3 Why the Gram loss is 2π-wrap-robust *by construction*
+
+This is the main positive signal for eventual phase-gradient
+enablement:
+
+- $g_{d,r} = |v_p^H v_g|^2 / (\|v_p\|^2 \|v_g\|^2)$ is a real-analytic
+  function of the complex entries of `v_p` and `v_g`. It never
+  evaluates `arg(·)` or anything else with a branch cut.
+- A global phase rotation `v_p → e^{jα} v_p` leaves `g_{d,r}`
+  invariant — matching the user's "absolute phase doesn't matter"
+  constraint exactly.
+- Consequence: even if some internal per-point phase wraps during
+  training, the loss surface does not develop a discontinuity at the
+  wrap boundary. The optimiser gradient remains well-defined on
+  either side.
+
+So the wrap-robustness concern of (2) above applies to *how phase
+gradients are computed inside the model*, not to the loss itself.
+
+#### 2.6.4 If we do enable it — suggested approach
+
+If a future experiment activates phase gradients, the minimal-risk
+path is:
+
+1. **Un-detach `phi_carrier`, leave `n_peak` detached.** `phi_carrier`
+   is the first-order phase-reference term and flows through
+   positions (frozen) only, so un-detaching it is a no-op for
+   learnable parameters today. But it's a cheap way to verify the
+   code path handles complex autograd correctly. `n_peak` is a
+   peak-refinement subsample offset whose gradient would be noisy
+   at best; keep it detached.
+2. **Soft-start curriculum.** For the first ~50 – 100 iters, train
+   the Gram loss in a magnitude-only mode (use `g_{d,r}` computed
+   from `|v_p|` and `|v_g|`, not the complex `v_p` and `v_g`). Then
+   ramp to the full complex Gram over the next ~50 iters. This lets
+   the optimiser first find a coarse magnitude-correct minimum
+   before the richer phase signal comes online.
+3. **Magnitude-weighted Gram loss.** Weight each per-bin Gram term
+   by `max(‖v_p‖ · ‖v_g‖, eps)` so low-energy bins (where phase is
+   pure noise) contribute less to the total loss. Prevents the
+   optimiser from over-fitting to phase residuals in TX-RX coupling
+   bins or DFT-wrap-around bins.
+4. **Keep v5's RMS gradient clipping.** Adjust the clip threshold
+   downward if training shows spikes.
+
+#### 2.6.5 Fallbacks if training becomes unstable
+
+In order of increasing severity:
+
+- **Reduce `λ_gram`** (loss weight) from 1.0 → 0.1 with a linear
+  ramp-up across the first 100 iters. Gives the optimiser a gentler
+  transition into the complex loss.
+- **Coarse-to-fine binning**: downsample range (256 → 64 bins) and
+  Doppler (16 → 4 bins) for the first half of training, restore
+  full resolution afterwards.
+- **Revert to magnitude-only Gram** and treat the complex-Gram work
+  as a v7 experiment. This returns us to the safe regime where
+  phase is only supervised via its projection onto |RA|.
+
+#### 2.6.6 Validation plan (if ever activated)
+
+Run all of M1.5, M2, M3, M4 in two variants — `phase_grad=off`
+(default) and `phase_grad=on` (un-detach `phi_carrier`, soft-start
+curriculum, magnitude-weighted Gram). 7-scene HO_8 benchmark in each
+case. Pass criterion: `phase_grad=on` does not regress
+`final_test_cc` on **any** of the 7 scenes, and improves mean cc by
+at least +0.01. Regression on any scene is evidence that phase
+gradients are destabilising the optimiser; report and debug before
+promoting the flag.
+
+---
+
+### 2.7 M2 benchmark
 
 7-scene HO_8 with Gram loss replacing v5 mse_raw. Expected:
 `final_test_cc` mean lifts from 0.524 (v5 baseline) to **0.60–0.70**.
@@ -577,12 +850,18 @@ Stack on M3. Expected: +0.01 – 0.02 mean cc.
 | v5 baseline | — | 0.5236 | — |
 | v5 + S4 (current best) | pool_knn annulus [0.02, 0.10] | 0.5312 | +0.008 |
 | **v6 M1** | + per-virt path plumbed (loss unchanged; scaffolding) | ≈ 0.524 (matches v5) | ≈ 0 |
-| **v6 M2** | + Gram loss on (D, N, R) cube | **0.60 – 0.70** | +0.08 – 0.18 |
+| **v6 M1.5** | + Gram loss on (N=192, R) complex, **no Doppler** | **0.55 – 0.60** | +0.02 – 0.08 |
+| **v6 M2** | + Gram loss on (D, N, R) cube (Doppler added) | **0.60 – 0.70** | +0.08 – 0.18 |
 | **v6 M3** | + Doppler-envelope gating | 0.61 – 0.72 | +0.09 – 0.20 |
 | **v6 M4** | + SSIM loss | 0.62 – 0.74 | +0.10 – 0.22 |
 
 **Step 2 (Gram + Doppler) is the dominant lever.** If M2 lands in
 the upper range (≥ 0.68), M3 + M4 push comfortably past 0.70.
+
+M1.5 is a **diagnostic milestone inserted between M1 and M2** to
+quantify the 86→192 GT-DOF contribution in isolation before the
+Doppler axis comes online (§1.5). M1.5 must not regress v5 on any
+scene; if it does, M2 is paused until the loss is debugged.
 
 ---
 
@@ -590,8 +869,10 @@ the upper range (≥ 0.68), M3 + M4 push comfortably past 0.70.
 
 Strict dependencies:
 - **M1** (per-virt path + diagnostic) — independent. Ship first.
-- **M2** (Doppler synthesis + Gram loss) — depends on M1's per-virt
-  output infrastructure.
+- **M1.5** (complex Gram loss, D = 1) — depends on M1's per-virt
+  output infrastructure only. No rasterizer change.
+- **M2** (Doppler synthesis + Gram loss, D = 16) — depends on M1.5
+  loss code and adds the B1 scatter-loop change in the rasterizer.
 - **M3** (Doppler gating) — depends on M2's RD cube.
 - **M4** (SSIM) — depends on M2's RD cube.
 
@@ -602,18 +883,20 @@ Suggested sequencing (single developer):
 2. **M1**: implement per-virt GT + render path + diagnostic;
    validate against v5 FFT-RA bit-identity; 7-scene benchmark.
    ~half day.
-3. **M2**:
+3. **M1.5**: add `normalised_gram_loss` + CLI branch; 7-scene HO_8
+   benchmark; must not regress v5 on any scene. ~half day.
+4. **M2**:
    a. Write `validate_doppler_synthesis.py`, run, confirm Option B1
       meets the > 0.95 threshold. ~1–2 hours.
    b. Implement Doppler-rotated scatter in renderer + slow-time
-      FFT + Gram loss. ~1 day.
-   c. 7-scene benchmark. Ablation: D=1 (no Doppler) vs D=16. ~30
+      FFT + extend Gram loss to D axis. ~1 day.
+   c. 7-scene benchmark. Ablation: D=1 (= M1.5) vs D=16. ~30
       min wallclock.
-4. **M3** layer. ~half day.
-5. **M4** layer. ~half day.
-6. Final 7-scene sweep + commit. ~half day.
+5. **M3** layer. ~half day.
+6. **M4** layer. ~half day.
+7. Final 7-scene sweep + commit. ~half day.
 
-Total: **3–4 developer-days**.
+Total: **3.5 – 4.5 developer-days**.
 
 ---
 
@@ -678,7 +961,8 @@ scene.
 
 Scripts:
 - `run_v6_M1.sh` — 7 scenes with per-virt diagnostic plumbed
-- `run_v6_M2.sh` — adds Gram loss
+- `run_v6_M1_5.sh` — activates complex Gram loss on (192, 256), no Doppler
+- `run_v6_M2.sh` — adds Doppler axis to Gram loss
 - `run_v6_M3.sh` — adds Doppler gate
 - `run_v6_M4.sh` — adds SSIM
 
@@ -686,9 +970,13 @@ Scripts:
 
 - **M1**: `final_test_cc` must be bit-identical to v5 (within MC
   noise). Drift signals a bug in per-virt plumbing.
-- **M2**: ablate D=1 vs D=16 (no Doppler vs full Doppler). The
-  D=16 variant must beat D=1 by ≥ +0.03 cc on ≥ 5 of 7 scenes; if
-  not, the Doppler analytic synthesis has a bug or the ego-velocity
+- **M1.5**: `final_test_cc` mean must be ≥ v5 baseline (no
+  regression on any scene); `diag_normalised_gram_cc_test` must be
+  strictly higher than the M1 diagnostic reading (loss is being
+  driven down). Regression gates M2.
+- **M2**: ablate D=1 (= M1.5) vs D=16 (full Doppler). The D=16
+  variant must beat M1.5 by ≥ +0.03 cc on ≥ 5 of 7 scenes; if not,
+  the Doppler analytic synthesis has a bug or the ego-velocity
   estimate is wrong.
 - **M3**: ablate `gate_tolerance_bins ∈ {0.5, 1.5, 5.0}`.
   tolerance→∞ must recover M2.

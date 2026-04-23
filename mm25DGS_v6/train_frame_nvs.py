@@ -154,10 +154,15 @@ def _build_frame_poses(scene, frame, use_pass2, data_root,
     return [pose] * 16, 'frame_own_pose'
 
 
-def _build_per_loop_gt(adc_npy_path, loop_idx, loss_type, device):
+def _build_per_loop_gt(adc_npy_path, loop_idx, loss_type, device,
+                       compute_per_virt=False):
     """Load a single (frame, loop) GT as a dict with 'gt_loss' +
     'gt_ra_polar' (magnitude). Caller converts polar→cart later once the
     sample_grid is built.
+
+    ``compute_per_virt=True`` additionally returns ``gt_per_virt``, the
+    ``(N_virt=192, N_range=256)`` complex per-virtual range-profile
+    tensor in ADC channel order. Required by v6 M1.5+ (Gram loss).
     """
     arr = np.load(adc_npy_path)
     assert arr.ndim == 4 and arr.shape[0] == 16, (
@@ -170,7 +175,12 @@ def _build_per_loop_gt(adc_npy_path, loop_idx, loss_type, device):
     with torch.no_grad():
         ra_c = adc_to_ra_complex(gt_adc_ri)
         ra_mag = torch.abs(ra_c).float()
-    return {'gt_loss': gt_loss, 'gt_ra_polar': ra_mag}
+    out = {'gt_loss': gt_loss, 'gt_ra_polar': ra_mag}
+    if compute_per_virt:
+        from mm25DGS_v6.data.ra_utils import adc_to_per_virt_range_profile
+        with torch.no_grad():
+            out['gt_per_virt'] = adc_to_per_virt_range_profile(gt_adc_ri)
+    return out
 
 
 def build_frame_level_dataset(scene, train_frames, test_frame,
@@ -182,6 +192,7 @@ def build_frame_level_dataset(scene, train_frames, test_frame,
                                data_root='/home/adnan/Desktop/mm3DGS/data',
                                device=DEVICE,
                                anchor_source='pass2_lerp',
+                               v6_milestone='M1',
                                verbose=True):
     """Return (train_samples, test_sample, diagnostics).
 
@@ -201,6 +212,12 @@ def build_frame_level_dataset(scene, train_frames, test_frame,
         train_loops = list(range(16))
     train_loops = list(train_loops)
 
+    # M1.5+: precompute the per-virtual complex GT for the training
+    # samples (M1.5 chirp 0 only; M2+ all 16 chirps). Stored per sample
+    # at ~200 KB — negligible. Also built for hybrid_mag variant which
+    # needs per-antenna magnitudes on 192 virts.
+    need_per_virt = str(v6_milestone) in {'M1_5', 'M2', 'M3', 'M4'}
+
     scene_dir = os.path.join(data_root, scene)
     radar_dir = os.path.join(scene_dir, 'radar')
 
@@ -215,7 +232,8 @@ def build_frame_level_dataset(scene, train_frames, test_frame,
             edges.append((f, mode))
         adc_npy = os.path.join(radar_dir, f'cascaded_frame_{f}.npy')
         for k in train_loops:
-            gt = _build_per_loop_gt(adc_npy, k, loss_type, device)
+            gt = _build_per_loop_gt(adc_npy, k, loss_type, device,
+                                     compute_per_virt=need_per_virt)
             train_samples.append({
                 'frame_idx': int(f), 'loop_idx': int(k),
                 'pose': poses[k],
@@ -510,6 +528,97 @@ def _densify_step(model, optimizer, fisher_per_pt, split_n, prune_n,
 # Main trainer
 # ---------------------------------------------------------------------------
 
+def _save_ra_pngs_and_cc_history(
+    output_dir, train_samples, test_sample, sample_grid, range_res,
+    history, best_iter, model, rast, vertex_areas, active_mask, verbose,
+):
+    """Save per-frame rendered + GT RA Cartesian PNGs (linear + dB) for
+    each train/test sample at the **best iteration's** model state, plus
+    a cc_history.png plotting train mean cc and test cc over iters.
+
+    Output layout (mirrors /home/adnan/Desktop/mm3DGS/output/RA/
+    <scene>/):
+      <output_dir>/frame_<F>_{train|test}/
+          gt_ra_dB.png, gt_ra_linear.png
+          rasterized_ra_dB.png, rasterized_ra_linear.png
+          ra_gt_cart.npy, ra_rendered_cart.npy
+      <output_dir>/cc_history.png
+    """
+    from mmir.data.ra_utils import save_ra_cartesian_png
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    def _render_and_cart(sample):
+        apply_pose(rast, sample['pose'])
+        with torch.no_grad():
+            rp_real, rp_imag = render_gaussians(
+                model, rast, vertex_areas=vertex_areas,
+                active_mask=active_mask, shadow_mask=None,
+                bsdf_mode='full', disabled_components=None)
+            ra_polar = range_profile_to_ra_mag(rp_real, rp_imag)
+            ra_cart = polar_to_cart_torch(ra_polar, sample_grid)
+        return ra_cart.cpu().numpy()
+
+    def _gt_cart(sample):
+        with torch.no_grad():
+            ra_cart = polar_to_cart_torch(sample['gt_ra_polar'], sample_grid)
+        return ra_cart.cpu().numpy()
+
+    def _save_frame(sample, tag):
+        f = int(sample['frame_idx'])
+        frame_dir = os.path.join(output_dir, f'frame_{f:03d}_{tag}')
+        os.makedirs(frame_dir, exist_ok=True)
+        ra_rend = _render_and_cart(sample)
+        ra_gt = _gt_cart(sample)
+        np.save(os.path.join(frame_dir, 'ra_rendered_cart.npy'), ra_rend)
+        np.save(os.path.join(frame_dir, 'ra_gt_cart.npy'), ra_gt)
+        for scale in ('dB', 'linear'):
+            save_ra_cartesian_png(
+                ra_gt,
+                os.path.join(frame_dir, f'gt_ra_{scale}.png'),
+                range_res=range_res, scale=scale,
+                title=f'GT ({scale}) — frame {f} ({tag})',
+            )
+            save_ra_cartesian_png(
+                ra_rend,
+                os.path.join(frame_dir, f'rasterized_ra_{scale}.png'),
+                range_res=range_res, scale=scale,
+                title=f'Rasterized ({scale}) — frame {f} ({tag}) '
+                      f'[best iter {best_iter}]',
+            )
+        return frame_dir
+
+    for s in train_samples:
+        _save_frame(s, 'train')
+    _save_frame(test_sample, 'test')
+
+    # cc history plot
+    iters_np = np.array([h['iter'] for h in history])
+    tcc_np = np.array([h.get('mean_train_cc', float('nan')) for h in history])
+    ecc_np = np.array([h.get('test_cc', float('nan')) for h in history])
+    fig, ax = plt.subplots(1, 1, figsize=(7, 4.2))
+    ax.plot(iters_np, tcc_np, '-', color='tab:blue', label='train mean cc',
+            linewidth=1.3)
+    ax.plot(iters_np, ecc_np, '-', color='tab:red', label='test cc',
+            linewidth=1.3)
+    ax.axvline(best_iter, color='gray', linestyle=':', linewidth=1,
+               label=f'best iter ({best_iter})')
+    ax.set_xlabel('iteration')
+    ax.set_ylabel('cart_corr')
+    ax.set_title('CC history')
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc='best', fontsize=9)
+    fig.tight_layout()
+    fig.savefig(os.path.join(output_dir, 'cc_history.png'), dpi=100,
+                bbox_inches='tight')
+    plt.close(fig)
+
+    if verbose:
+        print(f'  [ra] saved {len(train_samples) + 1} frame-dirs + '
+              f'cc_history.png under {output_dir}')
+
+
 def train_frame_nvs(scene,
                     train_frames,
                     test_frame,
@@ -545,7 +654,10 @@ def train_frame_nvs(scene,
                     reg_densify_pool_radius_min_m=0.0,
                     reg_densify_pool_selection='nearest',
                     seed_frame=None,
-                    v6_milestone='M1'):
+                    v6_milestone='M1',
+                    v6_loss_variant='frobenius',
+                    lambda_mag=1.0,
+                    save_ra_pngs=False):
     assert v5cuda.is_available(), (
         'v5 CUDA extension not built. '
         'cd mm25DGS_v5/cuda && python setup.py build_ext --inplace')
@@ -644,6 +756,7 @@ def train_frame_nvs(scene,
         loss_type=loss_type, loop_dt_s=loop_dt_s,
         frame_period_s=frame_period_s, data_root=data_root,
         anchor_source=anchor_source,
+        v6_milestone=v6_milestone,
         device=DEVICE, verbose=verbose,
     )
 
@@ -717,6 +830,127 @@ def train_frame_nvs(scene,
                   f'threshold_deg={reg_fisher_rot_threshold_deg}')
 
     # ── Training loop (full-batch: every sample every iter) ──
+    # v6 M1.5: swap the v5 FFT-RA ``mse_raw`` training loss for the
+    # un-normalised Gram Frobenius² loss on the per-virtual complex
+    # range profile (chirp 0 only; no Doppler axis at M1.5). This
+    # supervises the full rank-1 per-range Gram matrix C = v v^H:
+    # diagonal ⇒ per-antenna magnitude, upper-tri ⇒ pairwise relative
+    # phase. cart_corr is still reported per-sample for history /
+    # best-state selection, but NOT used as the training objective.
+    # final_test_cc (v5 FFT-RA path) is still the promotion metric —
+    # unchanged from v5.
+    use_gram_loss = (str(v6_milestone) == 'M1_5'
+                      and str(v6_loss_variant) != 'hybrid_mag')
+    use_hybrid_mag = (str(v6_milestone) == 'M1_5'
+                      and str(v6_loss_variant) == 'hybrid_mag')
+    gram_loss_fn = None
+    gram_loss_kwargs = {}
+    if use_hybrid_mag:
+        from mm25DGS_v6.data.ra_utils import reorder_rendered_to_adc
+        if verbose:
+            print(f'  [M1.5] training loss = v5 mse_raw + '
+                  f'{lambda_mag:g} · per-antenna magnitude MSE on '
+                  f'192 virts')
+    if use_gram_loss:
+        from mm25DGS_v6.losses import rd_losses as _rdl
+        from mm25DGS_v6.data.ra_utils import (
+            reorder_rendered_to_adc,
+            virt_positions_adc_order,
+            baseline_class_map,
+        )
+        variant = str(v6_loss_variant)
+        if variant == 'frobenius':
+            gram_loss_fn = _rdl.gram_frobenius_loss
+        elif variant == 'coarray':
+            _virt_pos = virt_positions_adc_order()
+            _pi, _pj, _bi, _nb = baseline_class_map(_virt_pos)
+            gram_loss_kwargs = dict(
+                pair_i=_pi.to(DEVICE), pair_j=_pj.to(DEVICE),
+                baseline_idx=_bi.to(DEVICE), n_baselines=_nb,
+            )
+            gram_loss_fn = _rdl.coarray_loss
+        elif variant == 'smooth_alpha':
+            gram_loss_kwargs = dict(smooth_k=11)
+            gram_loss_fn = _rdl.smooth_alpha_gram_loss
+        elif variant == 'mag_weighted':
+            gram_loss_fn = _rdl.mag_weighted_gram_loss
+        elif variant == 'baseline_weighted':
+            _virt_pos = virt_positions_adc_order().to(DEVICE)
+            gram_loss_kwargs = dict(virt_positions=_virt_pos, sigma=30.0)
+            gram_loss_fn = _rdl.baseline_weighted_gram_loss
+        elif variant == 'inv_variance':
+            _virt_pos = virt_positions_adc_order().to(DEVICE)
+            gram_loss_kwargs = dict(virt_positions=_virt_pos, L_scale=30.0)
+            gram_loss_fn = _rdl.inv_variance_gram_loss
+        elif variant == 'diag_offdiag':
+            gram_loss_kwargs = dict(lambda_diag=1.0, lambda_off=0.0)
+            gram_loss_fn = _rdl.diag_offdiag_gram_loss
+        elif variant == 'range_integrated':
+            gram_loss_fn = _rdl.range_integrated_gram_loss
+        elif variant == 'modulus':
+            gram_loss_fn = _rdl.modulus_gram_loss
+        elif variant in ('baseline_binned',
+                         'baseline_binned_wiener',
+                         'baseline_binned_wiener_skipb0'):
+            import math
+            _virt_pos = virt_positions_adc_order()
+            _pi, _pj, _bi, _nb = baseline_class_map(_virt_pos)
+            # Multiplicity per bin
+            mult = torch.zeros(_nb, dtype=torch.long)
+            mult.scatter_add_(0, _bi, torch.ones_like(_bi))
+            # b0 bin = baseline (0, 0)
+            b0_rows = ((_virt_pos[_pi] == _virt_pos[_pj]).all(dim=-1))
+            b0_bin = int(_bi[b0_rows][0].item())
+            # Compute per-bin baseline magnitudes (grid units; 1 grid
+            # unit = λ/2 for MMWCAS) for the Wiener weighting.
+            unique_b = torch.zeros(_nb, 2, dtype=torch.float32)
+            # Build unique baseline vectors by iterating over pairs once
+            # — simpler than torch.unique on the 2D array.
+            baseline_vecs = (_virt_pos[_pj].to(torch.float32)
+                             - _virt_pos[_pi].to(torch.float32))
+            # For each bin, pick any pair's baseline (they're all equal).
+            seen = torch.zeros(_nb, dtype=torch.bool)
+            for k in range(_pi.shape[0]):
+                b = int(_bi[k].item())
+                if not seen[b]:
+                    unique_b[b] = baseline_vecs[k]
+                    seen[b] = True
+            # |Δ| in units of λ/2
+            b_norm = unique_b.norm(dim=-1)
+            if variant == 'baseline_binned':
+                bw = None
+            else:
+                # Wiener-style baseline weight, σ_θ in radians.
+                # At our HO_8 pose error ~5 cm, λ ≈ 4 mm, and typical
+                # scatterer distance ~10 m: σ_θ ~ arctan(0.05/10) ~ 5
+                # mrad (~0.3°). But the phase-error variance depends on
+                # pose error and baseline length together (see
+                # baseline_binned_loss_design.md §'Pose noise'). A
+                # practical range to test is σ_θ in [0.01, 0.1] rad; we
+                # pick 0.03 rad ≈ 1.7° as the default midpoint.
+                sigma_theta = 0.03
+                lam_grid = 2.0  # baseline is in units of λ/2, so "λ" = 2 grid units
+                arg = (2.0 * math.pi * b_norm * sigma_theta / lam_grid)
+                bw = 1.0 / (1.0 + arg.pow(2))
+                # Boost b=0 weight to keep magnitude term fully weighted
+                bw[b0_bin] = 1.0
+
+            gram_loss_kwargs = dict(
+                pair_i=_pi.to(DEVICE), pair_j=_pj.to(DEVICE),
+                bin_idx=_bi.to(DEVICE),
+                multiplicity=mult.to(DEVICE),
+                baseline_weights=(None if bw is None else bw.to(DEVICE)),
+                skip_b0=(variant == 'baseline_binned_wiener_skipb0'),
+                b0_bin=b0_bin,
+            )
+            gram_loss_fn = _rdl.baseline_binned_loss
+        else:
+            raise ValueError(f'unknown v6_loss_variant: {variant}')
+        if verbose:
+            print(f'  [M1.5] training loss = {variant!r} on '
+                  f'(N_virt=192, R=256) complex per-virt tensor '
+                  f'(chirp 0 only; no Doppler axis)')
+
     best_mean_train_cc = -1.0
     best_iter = 0
     best_state = None
@@ -733,8 +967,39 @@ def train_frame_nvs(scene,
                 model, rast, vertex_areas=vertex_areas,
                 active_mask=active_mask, shadow_mask=None,
                 bsdf_mode='full', disabled_components=None)
-            loss_k, _ = compute_ra_loss_rp(
-                rp_real, rp_imag, s['gt_loss'], loss_type=loss_type)
+            if use_gram_loss:
+                # Renderer emits (n_tx=12, n_rx=16, K=256) in CONFIG TX
+                # order. Reorder to ADC channel order, reshape to
+                # (192, 256) complex to match GT layout from
+                # adc_to_per_virt_range_profile.
+                rend_c = torch.complex(rp_real, rp_imag)
+                rend_c = reorder_rendered_to_adc(rend_c)
+                n_tx_r, n_rx_r, n_range_r = rend_c.shape
+                rend_per_virt = rend_c.reshape(n_tx_r * n_rx_r, n_range_r)
+                loss_k = gram_loss_fn(
+                    rend_per_virt, s['gt_per_virt'], **gram_loss_kwargs)
+            elif use_hybrid_mag:
+                # L = L_v5 + λ · per-antenna magnitude MSE on 192 virts.
+                # Preserves v5's pose-robust FFT-magnitude inductive bias
+                # and adds the learnable 192-virt per-antenna magnitude
+                # signal on top. Per-antenna magnitude IS learnable at
+                # HO_8 (diag_gram_mag rises above v5 in every Gram
+                # variant tested); phase is not.
+                loss_v5, _ = compute_ra_loss_rp(
+                    rp_real, rp_imag, s['gt_loss'], loss_type=loss_type)
+                rend_c = torch.complex(rp_real, rp_imag)
+                rend_c = reorder_rendered_to_adc(rend_c)
+                rend_per_virt = rend_c.reshape(12 * 16, rend_c.shape[-1])
+                mag_p = (rend_per_virt.real.pow(2)
+                         + rend_per_virt.imag.pow(2)).sqrt()
+                gt_pv = s['gt_per_virt']
+                mag_g = (gt_pv.real.pow(2) + gt_pv.imag.pow(2)).sqrt()
+                mag_denom = mag_g.pow(2).sum().clamp_min(1e-20)
+                loss_mag = (mag_p - mag_g).pow(2).sum() / mag_denom
+                loss_k = loss_v5 + lambda_mag * loss_mag
+            else:
+                loss_k, _ = compute_ra_loss_rp(
+                    rp_real, rp_imag, s['gt_loss'], loss_type=loss_type)
             (loss_k * loss_scale).backward()
             with torch.no_grad():
                 ra_polar = range_profile_to_ra_mag(rp_real.detach(), rp_imag.detach())
@@ -901,9 +1166,15 @@ def train_frame_nvs(scene,
                     normal_ema = None
 
         mean_tc = float(np.mean(per_sample_cc))
+        # Per-iter test cc (held-out pose) — needed for the CC history
+        # plot and for best-state selection under save_ra_pngs when the
+        # user wants test-leading selection. Kept no-grad. Cheap: one
+        # extra render per iter.
+        test_cc_iter = _render_and_cart_corr(test_sample)
         history.append({
             'iter': it, 'loss': loss_sum,
             'mean_train_cc': mean_tc,
+            'test_cc': test_cc_iter,
         })
 
         if mean_tc > best_mean_train_cc:
@@ -1018,11 +1289,17 @@ def train_frame_nvs(scene,
         print(f'  [final] train mean cc = {final_train_mean:.4f}  '
               f'(best iter {best_iter})')
         if diag_gram_cc_test is not None:
+            if str(v6_milestone) == 'M1_5':
+                _tag_c = '[v6 M1.5 diag; this is the quantity the loss is directly driving]'
+                _tag_m = '[v6 M1.5 diag; magnitude-only variant for sanity]'
+            else:
+                _tag_c = ('[v6 M1 diag; ~1/N_virt ≈ 0.005 expected — FFT-null-'
+                          'space phase is unsupervised under v5 mag-RA loss]')
+                _tag_m = '[v6 M1 diag; should track final_test_cc]'
             print(f'  [final] diag gram cc (test, complex)   = {diag_gram_cc_test:.4f}  '
-                  f'[v6 M1 diag; ~1/N_virt = 0.005 expected — FFT-null-'
-                  f'space phase is unsupervised under v5 mag-RA loss]')
+                  f'{_tag_c}')
             print(f'  [final] diag gram cc (test, magnitude) = {diag_gram_cc_test_mag:.4f}  '
-                  f'[v6 M1 diag; should track final_test_cc]')
+                  f'{_tag_m}')
         print(f'  [final] elapsed {train_elapsed:.0f}s '
               f'({train_elapsed*1000/num_iters:.1f} ms/iter)')
 
@@ -1063,6 +1340,8 @@ def train_frame_nvs(scene,
         # v6: tag runs with their milestone label + write under v6/
         # output_frame_nvs/ (v5's dir stays untouched — design-doc invariant).
         tag = f'{tag}_v6{v6_milestone}'
+        if str(v6_milestone) == 'M1_5' and str(v6_loss_variant) != 'frobenius':
+            tag = f'{tag}_{v6_loss_variant}'
         output_dir = os.path.join(
             PROJECT_ROOT, 'mm25DGS_v6', 'output_frame_nvs', f'{scene}_{tag}')
     os.makedirs(output_dir, exist_ok=True)
@@ -1090,6 +1369,8 @@ def train_frame_nvs(scene,
             else float(diag_gram_cc_test_mag)
         ),
         'v6_milestone': str(v6_milestone),
+        'v6_loss_variant': str(v6_loss_variant),
+        'lambda_mag': float(lambda_mag),
         'init_train_mean_cc': float(np.mean(init_train_ccs)),
         'final_train_mean_cc': float(final_train_mean),
         'init_train_std_cc': float(np.std(init_train_ccs)),
@@ -1132,9 +1413,25 @@ def train_frame_nvs(scene,
     np.savez(os.path.join(output_dir, 'history.npz'),
              iters=np.array([h['iter'] for h in history]),
              loss=np.array([h['loss'] for h in history]),
-             mean_train_cc=np.array([h['mean_train_cc'] for h in history]))
+             mean_train_cc=np.array([h['mean_train_cc'] for h in history]),
+             test_cc=np.array([h.get('test_cc', float('nan'))
+                                for h in history]))
     if best_state is not None:
         torch.save(best_state, os.path.join(output_dir, 'best_model.pt'))
+
+    if save_ra_pngs:
+        _save_ra_pngs_and_cc_history(
+            output_dir=output_dir,
+            train_samples=train_samples,
+            test_sample=test_sample,
+            sample_grid=sample_grid,
+            range_res=range_res,
+            history=history,
+            best_iter=best_iter,
+            model=model, rast=rast, vertex_areas=vertex_areas,
+            active_mask=active_mask,
+            verbose=verbose,
+        )
 
     if verbose:
         print(f'\n  results saved to: {output_dir}')
@@ -1247,12 +1544,44 @@ if __name__ == '__main__':
                          'uniform-random pick within [radius_min_m, radius_m) — '
                          'matches jitter-scale diversity while keeping children '
                          'on real LiDAR surfaces.')
+    ap.add_argument('--v6_loss_variant', default='frobenius',
+                    choices=['frobenius', 'coarray', 'smooth_alpha',
+                             'mag_weighted', 'baseline_weighted',
+                             'inv_variance', 'diag_offdiag',
+                             'range_integrated', 'modulus',
+                             'hybrid_mag',
+                             'baseline_binned',
+                             'baseline_binned_wiener',
+                             'baseline_binned_wiener_skipb0'],
+                    help='v6 M1.5 loss variant (ignored unless '
+                         '--v6_milestone=M1_5). frobenius = baseline Gram '
+                         'Frob²; others apply Tier-1/2/5 variants from the '
+                         'design doc (coarray, smooth_alpha, mag_weighted, '
+                         'baseline_weighted, inv_variance, diag_offdiag, '
+                         'range_integrated, modulus).')
+    ap.add_argument('--data_root', default='/home/adnan/Desktop/mm3DGS/data',
+                    help='Root of preprocessed data (contains seq_* '
+                         'dirs + alignment_data). Switch to '
+                         '`/home/adnan/Desktop/mm3DGS/data_v2` to use '
+                         'the extended-window ported preprocessing '
+                         '(see md/extended_window_data_v2_plan.md).')
+    ap.add_argument('--lambda_mag', type=float, default=1.0,
+                    help='(hybrid_mag variant only) weight of the '
+                         'per-antenna magnitude MSE term added to v5 '
+                         'mse_raw.')
+    ap.add_argument('--save_ra_pngs', action='store_true',
+                    help='Save best-iter rendered + GT RA Cartesian '
+                         'PNGs (linear + dB) per train/test frame, '
+                         'plus cc_history.png.')
     ap.add_argument('--v6_milestone', default='M1',
-                    choices=['M1', 'M2', 'M3', 'M4'],
-                    help='v6 milestone label (used for output-dir tag and '
-                         'future code paths). M1 only adds a diagnostic '
-                         'gram-cc metric; the v5 mse_raw loss stays unchanged '
-                         '(final_test_cc must match v5 within MC noise).')
+                    choices=['M1', 'M1_5', 'M2', 'M3', 'M4'],
+                    help='v6 milestone label. M1: plumb per-virt tensor + '
+                         'log diagnostic gram-cc; training loss stays v5 '
+                         'mse_raw (final_test_cc must match v5 within MC '
+                         'noise). M1_5: activate the complex Gram loss on '
+                         'the (192, 256) per-virt tensor (chirp 0 only, no '
+                         'Doppler axis); final_test_cc must not regress v5 '
+                         'baseline on any scene.')
     ap.add_argument('--seed_frame', type=int, default=None,
                     help='Frame whose pose seeds the rasterizer (drives FOV + '
                          'RX visibility before FPS, so it determines the 90k-'
@@ -1297,4 +1626,8 @@ if __name__ == '__main__':
         reg_densify_pool_radius_min_m=args.reg_densify_pool_radius_min_m,
         reg_densify_pool_selection=args.reg_densify_pool_selection,
         seed_frame=args.seed_frame,
+        v6_loss_variant=args.v6_loss_variant,
+        lambda_mag=args.lambda_mag,
+        save_ra_pngs=args.save_ra_pngs,
+        data_root=args.data_root,
         v6_milestone=args.v6_milestone)

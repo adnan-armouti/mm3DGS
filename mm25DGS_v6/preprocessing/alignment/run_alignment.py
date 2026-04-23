@@ -225,6 +225,14 @@ def main():
                          'instead of aborting')
     args = ap.parse_args()
 
+    # If --pass1-output-root was left at its default but --data-root is
+    # overridden (e.g. data_v2), auto-route the pass-1 alignment outputs
+    # under the new data root. This is the cleanest way to support an
+    # alternate data tree without requiring the caller to pass both
+    # flags.
+    if args.pass1_output_root == 'data/alignment_data' and args.data_root != 'data':
+        args.pass1_output_root = f'{args.data_root}/alignment_data'
+
     if args.skip_pass_1 and args.skip_pass_2 and not args.run_pass_3:
         ap.error('--skip-pass-1 and --skip-pass-2 together do nothing '
                  '(pass --run-pass-3 to run only pass 3)')

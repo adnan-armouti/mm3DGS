@@ -23,7 +23,92 @@ __all__ = [
     "reorder_rendered_to_adc",
     "gram_correlation_per_range",
     "gram_correlation_mean",
+    "virt_positions_adc_order",
+    "baseline_class_map",
 ]
+
+
+# TX/RX positions from mmir/data/ra_utils.py (source of truth).
+# y>0 means elevated row (TX3=y1, TX4=y4, TX5=y6).
+_TX_LOCATIONS = (
+    (0, 0), (4, 0), (8, 0), (9, 1), (10, 4), (11, 6),
+    (12, 0), (16, 0), (20, 0), (24, 0), (28, 0), (32, 0),
+)
+_RX_LOCATIONS = (
+    (0, 0), (1, 0), (2, 0), (3, 0), (11, 0), (12, 0), (13, 0), (14, 0),
+    (46, 0), (47, 0), (48, 0), (49, 0), (50, 0), (51, 0), (52, 0), (53, 0),
+)
+
+
+def virt_positions_adc_order() -> torch.Tensor:
+    """Return the 192 virtual-antenna (x, y) positions in **ADC channel
+    order** (matching ``adc_to_per_virt_range_profile`` output channel
+    index ``v = adc_tx * 16 + adc_rx``).
+
+    The ADC TX axis is in physical-ascending-azimuth order (TX1, TX2,
+    TX3, TX10, TX11, TX12, TX4..TX9 on the config side). See
+    ``CONFIG_TX_TO_ADC_TX_PERM`` docstring above for the mapping. Here
+    we go directly: for ADC tx index ``a``, the physical TX config slot
+    is ``CONFIG_TX_TO_ADC_TX_PERM[a]`` — so that's the ``_TX_LOCATIONS``
+    slot whose position we use.
+
+    Returns ``(192, 2)`` int64 positions in grid (half-wavelength) units.
+    """
+    positions = []
+    for adc_tx in range(12):
+        # ADC-tx index a -> physical-TX config slot
+        tx_cfg_slot = CONFIG_TX_TO_ADC_TX_PERM[adc_tx]
+        tx_pos = _TX_LOCATIONS[tx_cfg_slot]
+        for rx in range(16):
+            rx_pos = _RX_LOCATIONS[rx]
+            positions.append(
+                (tx_pos[0] + rx_pos[0], tx_pos[1] + rx_pos[1])
+            )
+    return torch.as_tensor(positions, dtype=torch.long)            # (192, 2)
+
+
+def baseline_class_map(
+    positions: torch.Tensor,
+) -> tuple:
+    """Enumerate unique **ordered-pair** baseline vectors and map each
+    pair ``(i, j)`` (i ≤ j, including ``i == j``) to a unique
+    baseline-class index.
+
+    ``positions``: ``(N, 2)`` integer positions of the N virtual
+    antennas.
+
+    Returns ``(pair_i, pair_j, baseline_idx, n_baselines)`` where
+      - ``pair_i, pair_j``: int64 ``(P,)`` tensors listing ordered pairs
+        with ``i ≤ j`` (so ``P = N*(N+1)/2``).
+      - ``baseline_idx``: int64 ``(P,)`` class index in ``[0, n_baselines)``.
+      - ``n_baselines``: number of unique baseline classes.
+
+    Baseline vector for pair ``(i, j)`` is ``positions[j] - positions[i]``.
+    Pairs with ``i < j`` and with ``j < i`` (reversed baseline) are NOT
+    both represented — we keep only ``i <= j`` so each unordered pair
+    appears once. The diagonal (``i == j``) gives the zero baseline
+    ``(0, 0)`` which aggregates ``|v[i]|²`` (the per-range total power).
+    """
+    N = positions.shape[0]
+    pair_i_list = []
+    pair_j_list = []
+    baseline_to_idx: dict = {}
+    baseline_idx_list = []
+    for i in range(N):
+        for j in range(i, N):
+            dx = int(positions[j, 0] - positions[i, 0])
+            dy = int(positions[j, 1] - positions[i, 1])
+            key = (dx, dy)
+            if key not in baseline_to_idx:
+                baseline_to_idx[key] = len(baseline_to_idx)
+            pair_i_list.append(i)
+            pair_j_list.append(j)
+            baseline_idx_list.append(baseline_to_idx[key])
+    pair_i = torch.as_tensor(pair_i_list, dtype=torch.long)
+    pair_j = torch.as_tensor(pair_j_list, dtype=torch.long)
+    baseline_idx = torch.as_tensor(baseline_idx_list, dtype=torch.long)
+    n_baselines = len(baseline_to_idx)
+    return pair_i, pair_j, baseline_idx, n_baselines
 
 
 # ---------------------------------------------------------------------------
