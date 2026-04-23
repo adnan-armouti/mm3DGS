@@ -748,9 +748,12 @@ def render_factorized_doppler(
     NOTE: v_ego is treated as a FROZEN input (not learnable) per plan
     §5. The Doppler phase term is .detach()ed inside render_factorized
     so no gradient flows through v_ego or the firing-order permutation.
-    """
-    from mm25DGS_v5.cuda import step5_fused as _cuda_step5
 
+    Fused vs. loop path: when the ``mm25dgs_v7_cuda`` extension is
+    available we issue a single ``step5_doppler_fused`` kernel (plan
+    §B2a). Falls back to the 16-way ``step5_fused`` loop if the v7
+    extension hasn't been built.
+    """
     if ti_firing_index is None:
         ti_firing_index = torch.as_tensor(
             TI_FIRING_INDEX_FROM_ADC_CH, dtype=torch.long,
@@ -786,12 +789,37 @@ def render_factorized_doppler(
         n_chirps=n_chirps, T_c=T_c, T_a=T_a, wavelength=wavelength,
     )                                                                  # (M,), (CH, n_tx)
 
+    # Fast path — fused v7 kernel (plan §B2a).
+    _use_cuda_doppler = use_cuda_kernels
+    if _use_cuda_doppler:
+        try:
+            from mm25DGS_v7 import cuda as _v7cuda
+            _use_cuda_doppler = _v7cuda.is_available()
+        except Exception:
+            _use_cuda_doppler = False
+
+    if _use_cuda_doppler:
+        from mm25DGS_v7.cuda import step5_doppler_fused as _cuda_step5_doppler
+        rad_real, rad_imag = _cuda_step5_doppler(
+            w_full.contiguous(),
+            phi_base.contiguous(),
+            n_peak.contiguous(),
+            A.contiguous(),
+            t_off.contiguous(),
+            psf_table.psf_real, psf_table.psf_imag,
+            K, 1e-20,
+        )                                                              # (CH, T, R, K)
+        return rad_real, rad_imag
+
+    # Fallback — per-chirp Python loop around mm25DGS_v5's step5_fused.
+    from mm25DGS_v5.cuda import step5_fused as _cuda_step5
+    n_tx = rast.n_tx
+    n_rx = rast.n_rx
     rad_real_list = []
     rad_imag_list = []
     for m in range(n_chirps):
-        # phi_doppler[m, M, n_tx] = A[M] * t_off[m, n_tx]; broadcast → RX.
         phi_doppler_m = (A.unsqueeze(-1) * t_off[m].unsqueeze(0))      # (M, n_tx)
-        phi_m = phi_base + phi_doppler_m.unsqueeze(-1)                 # (M, n_tx, n_rx) via broadcast
+        phi_m = phi_base + phi_doppler_m.unsqueeze(-1)                 # broadcast → (M, n_tx, n_rx)
         rp_r, rp_i = _cuda_step5(
             w_full.contiguous(),
             phi_m.contiguous(),
@@ -801,6 +829,6 @@ def render_factorized_doppler(
         )
         rad_real_list.append(rp_r)
         rad_imag_list.append(rp_i)
-    rad_real = torch.stack(rad_real_list, dim=0)                       # (n_chirps, n_tx, n_rx, K)
+    rad_real = torch.stack(rad_real_list, dim=0)
     rad_imag = torch.stack(rad_imag_list, dim=0)
     return rad_real, rad_imag

@@ -153,6 +153,22 @@ i.e. v7 within ~1.5-2× of v5. This is the ceiling for correct
 16-chirp rendering; you'll never hit exact v5 parity because v5
 renders one chirp and v7 renders sixteen.
 
+### 1.2.1 Landed — measured
+
+| pass | fixes | ms/iter | ×baseline |
+|---|---|---:|---:|
+| baseline | — | 2999 | 1.0× |
+| pass 1 | B1 + B3 + B7 | 649 | 4.6× |
+| pass 2 | + B2a (fused step5_doppler CUDA kernel) | 558 | 5.4× |
+
+B2a shipped as a separate v7 extension (`mm25DGS_v7/cuda/`
+→ `mm25dgs_v7_cuda`) rather than folding into the v5 extension, so
+v5 stays stable. Unit-test vs 16× step5_fused reference passes at
+~5e-6 rel forward / ~2e-5 rel backward (well under the ±0.03 MC floor).
+At 558 ms/iter the new bottleneck is the BSDF path (step 1–4), not
+step 5 — further wins require B5 (cross-bundle accumulation, gated on
+peak memory) or B6 (gate per-iter test_cc tracking). B2b/B4 superseded.
+
 ### 1.3 Proposed order of work
 
 1. **Ship B1, B4, B7 today** (edits in existing files; run a one-scene
