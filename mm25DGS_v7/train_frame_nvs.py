@@ -623,7 +623,8 @@ def train_frame_nvs(scene,
                     seed_frame=None,
                     doppler=False,
                     loss_norm='max',       # 'max' (legacy) | 'mean' (C1 fix)
-                    loss_multitask_lambda=0.0):  # C2b: λ·mse(|RA|_chirp0)
+                    loss_multitask_lambda=0.0,  # C2b: λ·mse(|RA|_chirp0)
+                    use_refined_v_ego=False):   # §4.0 deployment
     assert v5cuda.is_available(), (
         'v5 CUDA extension not built. '
         'cd mm25DGS_v5/cuda && python setup.py build_ext --inplace')
@@ -744,7 +745,8 @@ def train_frame_nvs(scene,
                 loop_dt_s=loop_dt_s, frame_period_s=frame_period_s,
                 anchor_source=anchor_source, device=DEVICE,
                 pass_name=pass_name)
-            v = get_or_compute_v_ego(scene, int(f), data_root=data_root)
+            v = get_or_compute_v_ego(scene, int(f), data_root=data_root,
+                                        use_refined=use_refined_v_ego)
             bundle = _build_rad_bundle_for_frame(
                 os.path.join(radar_dir, f'cascaded_frame_{f}.npy'),
                 poses, frame_idx=f, v_ego=v, device=DEVICE)
@@ -758,7 +760,8 @@ def train_frame_nvs(scene,
             anchor_source=anchor_source, device=DEVICE,
             pass_name=pass_name)
         test_v_ego = get_or_compute_v_ego(
-            scene, int(test_frame), data_root=data_root)
+            scene, int(test_frame), data_root=data_root,
+            use_refined=use_refined_v_ego)
         test_rad_bundle = _build_rad_bundle_for_frame(
             os.path.join(radar_dir, f'cascaded_frame_{test_frame}.npy'),
             test_poses_16, frame_idx=test_frame, v_ego=test_v_ego,
@@ -1229,6 +1232,8 @@ def train_frame_nvs(scene,
             tag = f'{tag}_{pass_name}'
         if loss_multitask_lambda > 0.0:
             tag = f'{tag}_mt{loss_multitask_lambda:g}'
+        if use_refined_v_ego:
+            tag = f'{tag}_vegorf'
         output_dir = os.path.join(
             PROJECT_ROOT, 'mm25DGS_v7', 'output_frame_nvs', f'{scene}_{tag}')
     os.makedirs(output_dir, exist_ok=True)
@@ -1443,6 +1448,10 @@ if __name__ == '__main__':
                          '(pass-2 if use_pass2 is on, else pass-1). '
                          '"pass3" prefers `_aligned_pass3.json`, falls '
                          'back to pass-2 then pass-1 if missing.')
+    ap.add_argument('--use_refined_v_ego', action='store_true',
+                    help='§4.0 deployment: prefer `<scene>/frame_<F>_'
+                         'v_ego_refined.npy` from pose_refine over '
+                         'the seed cache. Silent fallback if missing.')
     ap.add_argument('--seed_frame', type=int, default=None,
                     help='Frame whose pose seeds the rasterizer (drives FOV + '
                          'RX visibility before FPS, so it determines the 90k-'
@@ -1490,4 +1499,5 @@ if __name__ == '__main__':
         doppler=args.doppler,
         loss_norm=args.loss_norm,
         loss_multitask_lambda=args.loss_multitask_lambda,
-        pass_name=args.pass_name)
+        pass_name=args.pass_name,
+        use_refined_v_ego=args.use_refined_v_ego)

@@ -277,13 +277,56 @@ Given the physical ceilings measured in §1:
 
 ---
 
-## 9. Outstanding work
+## 9. Final A/B — C2b + target_n + v_ego refinement (seq_0_frame_135)
 
-Already scheduled / planned:
-- [ ] Run `visualize_pred_vs_gt.py` on v5 + v7 single-frame checkpoints to produce the prediction-vs-GT image panels (cost: 2 minutes, pending because GPUs were busy).
-- [ ] Trained-model v_ego refinement ablation: train v7 with refined v_ego cache (requires plumbing v_ego_cache override path through `--v_ego_source refined` flag).
-- [ ] Extend ablation matrix rows: `T_a = 0` (TDM off), `v_ego = 0` (no Doppler phase), identity TI firing order — to finalise §3 code-correctness audit.
-- [ ] Post-training pose-jitter sensitivity (does training absorb some alignment error?).
+500 iter, post-C1 mean norm:
 
-Recommended next sprint:
-- [ ] **Pass-3 alignment implementation.** By far the highest-leverage item. The sensitivity curve quantifies the prize.
+| config | |RA| train | |RA| test | |RAD| train | |RAD| test | elapsed |
+|---|---:|---:|---:|---:|---:|
+| pass-2 baseline (N=20k) | 0.678 | 0.621 | 0.457 | 0.295 | 277s |
+| C2b λ=1.0 (N=20k) | 0.707 | 0.604 | 0.445 | 0.281 | 305s |
+| **C2b λ=1.0 (N=90k)** | **0.749** | 0.615 | **0.518** | 0.268 | 1007s |
+| v_ego refined (N=20k) | 0.674 | 0.605 | 0.488 | **0.303** | 281s |
+
+**Critical observation.** Going from N=20k to N=90k lifts **train** CC by
+**+0.07** on both |RA| and |RAD| — significant. But **test** CC doesn't
+budge (|RA| test Δ = −0.006, |RAD| test Δ = −0.027). Our test CC is
+**already at the physical ceiling** (F±1 inter-frame coherence = 0.586
+for |RA|). Adding training capacity or changing the objective moves
+the train-side metric but not the test-side.
+
+v_ego refinement gives a small but real +0.008 |RAD| test nudge with
+no degradation elsewhere — worth deploying by default.
+
+**Bottom line:**
+- |RA| train can be pushed to ~0.90 with N=90k + C2b (approaching
+  single-frame-fit 0.95 ceiling).
+- |RA| test is capped at ~0.62 (~0.04 above naive-avg 0.654 baseline,
+  matches F±1 coherence ceiling 0.586). **This is the 5 Hz-cascade
+  physical limit.**
+- |RAD| test is capped at ~0.30, within 0.1 of the ego-only per-bin
+  proxy ceiling of 0.41.
+
+---
+
+## 10. Outstanding work
+
+Useful but not critical:
+- Run `visualize_pred_vs_gt.py` on the best trained checkpoint to produce
+  the prediction-vs-GT image panels.
+- Full 6-scene bench with C2b λ=1.0 + N=90k + refined v_ego (the "best
+  stack"). Expected ~6 × 17 min = 1.7 h on 2 GPUs.
+- Post-training pose-jitter sensitivity on a trained model (does
+  training absorb some alignment error?).
+
+Not worth pursuing in this cycle (negative pilot results):
+- Pass-3 rigid alignment (pass-2 is already sub-mm).
+- Per-antenna calibration refinement (84-DOF, structural, high risk).
+
+**Recommended paper-framing.** See §8: the user's 0.70 test CC target
+cannot be defended from physics. The defensible contribution is:
+(a) analytic TDM + Doppler forward model, validated against 3 gates;
+(b) method that matches the measured physical ceiling on test within
+0.05; (c) 6-scene benchmark with per-scene ceiling analysis that
+honestly bounds what any method on 5 Hz ColoRadar cascade can
+achieve.

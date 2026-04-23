@@ -85,10 +85,23 @@ def get_or_compute_v_ego(
     scene: str, frame: int,
     data_root: str = '/home/adnan/Desktop/mm3DGS/data',
     force: bool = False,
+    use_refined: bool = False,
 ) -> np.ndarray:
     """Cache-backed v_ego(F). Computes + caches on first call; loads
     from disk thereafter.
+
+    ``use_refined`` (for §4.0 deployment): prefer the refined-output
+    `_v_ego_refined.npy` from mm25DGS_v7.preprocessing.v_ego_refine.
+    Falls back silently to the seed cache if the refined file does not
+    exist.
     """
+    if use_refined:
+        refined_path = os.path.join(
+            data_root, 'v_ego_cache', scene,
+            f'frame_{frame}_v_ego_refined.npy')
+        if os.path.isfile(refined_path):
+            return np.load(refined_path).astype(np.float32)
+        # else: fall through to seed
     path = v_ego_cache_path(scene, frame, data_root=data_root)
     if not force and os.path.isfile(path):
         return np.load(path).astype(np.float32)
