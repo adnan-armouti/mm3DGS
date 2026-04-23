@@ -9,7 +9,9 @@ cd /home/adnan/Desktop/mm3DGS
 PY=/home/adnan/.conda/envs/mmir/bin/python
 export PYTHONUNBUFFERED=1
 
-LOG=/home/adnan/Desktop/mm3DGS/logs_v7
+LOSS_NORM="${LOSS_NORM:-max}"    # override via: LOSS_NORM=mean ./run_v7_bench.sh
+
+LOG=/home/adnan/Desktop/mm3DGS/logs_v7/norm_${LOSS_NORM}
 mkdir -p "$LOG"
 
 TRAIN_LOOPS="0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15"
@@ -17,13 +19,13 @@ TRAIN_LOOPS="0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15"
 run_one() {
     local scene="$1" F="$2" gpu="$3"
     local TRAIN="$((F-4)),$((F-3)),$((F-2)),$((F-1)),$((F+1)),$((F+2)),$((F+3)),$((F+4))"
-    local tag="${scene}__v7doppler"
+    local tag="${scene}__v7doppler_norm${LOSS_NORM}"
     echo "[gpu $gpu] $tag starting"
     CUDA_VISIBLE_DEVICES="$gpu" $PY -m mm25DGS_v7.train_frame_nvs \
         --scene "$scene" --test_frame "$F" --train_frames "$TRAIN" \
         --train_loops "$TRAIN_LOOPS" \
         --iters 500 --loss_type mse_raw --target_n 20000 \
-        --doppler \
+        --doppler --loss_norm "$LOSS_NORM" \
         > "$LOG/${tag}.log" 2>&1
     echo "[gpu $gpu] $tag done (exit=$?)"
 }

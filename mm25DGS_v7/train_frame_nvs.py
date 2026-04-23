@@ -154,6 +154,21 @@ def _build_frame_poses(scene, frame, use_pass2, data_root,
     return [pose] * 16, 'frame_own_pose'
 
 
+def _flat_pearson(a: torch.Tensor, b: torch.Tensor) -> float:
+    """Flattened Pearson correlation between two real tensors.
+
+    Used as a "|RAD| cc" diagnostic next to the chirp-0 |RA| cart_corr
+    (plan md/mm25dgs_v7_training_ceiling.md §C2a). Scale/shift-invariant.
+    """
+    a = a.reshape(-1).float()
+    b = b.reshape(-1).float()
+    am = a - a.mean()
+    bm = b - b.mean()
+    num = (am * bm).sum()
+    den = torch.sqrt((am * am).sum() * (bm * bm).sum()).clamp_min(1e-30)
+    return float((num / den).item())
+
+
 def _build_rad_bundle_for_frame(adc_npy_path, poses_16, frame_idx,
                                   v_ego, device, n_dop=None):
     """v7 Doppler per-frame supervision bundle.
@@ -183,12 +198,14 @@ def _build_rad_bundle_for_frame(adc_npy_path, poses_16, frame_idx,
         rad = adc_to_rad_complex(ri_t, n_dop=n_dop)                # (D, 127, R) cpx
         mag = rad.abs().float()
         mag_max = mag.amax().clamp_min(1e-30).item()
+        mag_mean = mag.mean().clamp_min(1e-30).item()
     return {
         'frame_idx': int(frame_idx),
         'pose_F':    poses_16[0],            # chirp-0 anchor pose
         'v_ego':     torch.as_tensor(v_ego, dtype=torch.float32, device=device),
         'gt_rad_mag': mag,
         'gt_rad_max': float(mag_max),
+        'gt_rad_mean': float(mag_mean),
     }
 
 
@@ -576,7 +593,8 @@ def train_frame_nvs(scene,
                     reg_densify_pool_radius_min_m=0.0,
                     reg_densify_pool_selection='nearest',
                     seed_frame=None,
-                    doppler=False):
+                    doppler=False,
+                    loss_norm='max'):   # 'max' (legacy) | 'mean' (C1 fix)
     assert v5cuda.is_available(), (
         'v5 CUDA extension not built. '
         'cd mm25DGS_v5/cuda && python setup.py build_ext --inplace')
@@ -687,6 +705,7 @@ def train_frame_nvs(scene,
     # v7 Doppler: build per-frame RAD bundles in addition to per-(frame,
     # loop) train_samples. Each bundle carries GT |RAD| + v_ego.
     train_rad_bundles = []
+    test_rad_bundle = None
     if doppler:
         from mm25DGS_v7.preprocessing.v_ego import get_or_compute_v_ego
         radar_dir = os.path.join(data_root, scene, 'radar')
@@ -700,6 +719,19 @@ def train_frame_nvs(scene,
                 os.path.join(radar_dir, f'cascaded_frame_{f}.npy'),
                 poses, frame_idx=f, v_ego=v, device=DEVICE)
             train_rad_bundles.append(bundle)
+        # Also build a test RAD bundle so we can log |RAD| cc at the
+        # held-out frame each iter (C2a diagnostic).
+        test_poses_16, _ = _build_frame_poses(
+            scene, test_frame, use_pass2=use_pass2_alignment,
+            data_root=data_root,
+            loop_dt_s=loop_dt_s, frame_period_s=frame_period_s,
+            anchor_source=anchor_source, device=DEVICE)
+        test_v_ego = get_or_compute_v_ego(
+            scene, int(test_frame), data_root=data_root)
+        test_rad_bundle = _build_rad_bundle_for_frame(
+            os.path.join(radar_dir, f'cascaded_frame_{test_frame}.npy'),
+            test_poses_16, frame_idx=test_frame, v_ego=test_v_ego,
+            device=DEVICE)
         if verbose:
             d0 = train_rad_bundles[0]
             print(f'  [v7 doppler] {len(train_rad_bundles)} RAD bundles  '
@@ -735,6 +767,32 @@ def train_frame_nvs(scene,
 
     init_test_cc = _render_and_cart_corr(test_sample)
     init_train_ccs = [_render_and_cart_corr(s) for s in train_samples]
+
+    # C2a diagnostic — |RAD| cc at init. Only evaluated when doppler mode
+    # is on (we have the bundles). Does a full 16-chirp doppler render
+    # per bundle (fused on supported GPUs — O(BSDF)).
+    def _render_and_rad_corr(bundle):
+        apply_pose(rast, bundle['pose_F'])
+        with torch.no_grad():
+            from mm25DGS_v7.train_gaussian import render_gaussians_doppler
+            from mm25DGS_v7.data.ra_utils import rp_stack_to_rad_complex
+            rp_r, rp_i = render_gaussians_doppler(
+                model, rast, bundle['v_ego'],
+                vertex_areas=vertex_areas,
+                active_mask=active_mask, shadow_mask=None,
+                bsdf_mode='full', disabled_components=None, n_chirps=16)
+            rp_c = torch.complex(rp_r, rp_i)
+            rad_pred = rp_stack_to_rad_complex(rp_c).abs()
+        return _flat_pearson(rad_pred, bundle['gt_rad_mag'])
+
+    init_test_rad_cc = None
+    init_train_rad_cc_mean = None
+    if test_rad_bundle is not None:
+        init_test_rad_cc = _render_and_rad_corr(test_rad_bundle)
+        init_train_rad_ccs = [_render_and_rad_corr(b)
+                               for b in train_rad_bundles]
+        init_train_rad_cc_mean = float(np.mean(init_train_rad_ccs))
+
     if verbose:
         print(f'\n  [init] test  cc = {init_test_cc:.4f}')
         print(f'  [init] train mean cc = {np.mean(init_train_ccs):.4f} '
@@ -794,6 +852,7 @@ def train_frame_nvs(scene,
     for it in range(num_iters):
         optimizer.zero_grad(set_to_none=True)
         per_sample_cc = []
+        per_sample_rad_cc = []   # C2a diagnostic — |RAD| cc per bundle.
         loss_sum = 0.0
 
         if doppler:
@@ -816,7 +875,9 @@ def train_frame_nvs(scene,
                 mag_pred = rad_pred.abs()
                 gt_mag   = bundle['gt_rad_mag']
                 gt_max   = bundle['gt_rad_max']
-                loss_k = (mag_pred - gt_mag).pow(2).mean() / (gt_max ** 2)
+                gt_scale = (gt_max if loss_norm == 'max'
+                             else bundle['gt_rad_mean'])
+                loss_k = (mag_pred - gt_mag).pow(2).mean() / (gt_scale ** 2)
                 (loss_k * loss_scale_doppler).backward()
                 loss_sum += float(loss_k.item()) * loss_scale_doppler
                 # Per-frame chirp-0 cc on v5 |RA| — for mean_train_cc history.
@@ -832,6 +893,9 @@ def train_frame_nvs(scene,
                             cc = cart_corr_torch(ra_cart, s['gt_cart_norm']).item()
                             per_sample_cc.append(cc)
                             break
+                    # C2a — |RAD| cc is free: mag_pred already computed.
+                    per_sample_rad_cc.append(
+                        _flat_pearson(mag_pred.detach(), gt_mag))
                 del rp_r, rp_i, rp_c, rad_pred, mag_pred, loss_k
             # Skip the v5-style per-sample loop below
             _skip_v5_body = True
@@ -1016,10 +1080,19 @@ def train_frame_nvs(scene,
         # at the held-out test pose). Matches v5/M1 history format so
         # v5 and v7 runs can be plotted side-by-side.
         test_cc_iter = _render_and_cart_corr(test_sample)
+        # C2a — |RAD| metrics alongside |RA|. Test RAD cc is one extra
+        # fused doppler render per iter (~50–80 ms); train RAD cc is
+        # free (reuses per-bundle mag_pred).
+        mean_rad_tc = (float(np.mean(per_sample_rad_cc))
+                        if per_sample_rad_cc else float('nan'))
+        test_rad_cc_iter = (_render_and_rad_corr(test_rad_bundle)
+                             if test_rad_bundle is not None else float('nan'))
         history.append({
             'iter': it, 'loss': loss_sum,
             'mean_train_cc': mean_tc,
             'test_cc': test_cc_iter,
+            'mean_train_rad_cc': mean_rad_tc,
+            'test_rad_cc': test_rad_cc_iter,
         })
 
         if mean_tc > best_mean_train_cc:
@@ -1046,11 +1119,23 @@ def train_frame_nvs(scene,
     final_train_ccs = [_render_and_cart_corr(s) for s in train_samples]
     final_train_mean = float(np.mean(final_train_ccs))
 
+    final_test_rad_cc = None
+    final_train_rad_cc_mean = None
+    if test_rad_bundle is not None:
+        final_test_rad_cc = _render_and_rad_corr(test_rad_bundle)
+        final_train_rad_ccs = [_render_and_rad_corr(b)
+                                for b in train_rad_bundles]
+        final_train_rad_cc_mean = float(np.mean(final_train_rad_ccs))
+
     if verbose:
         print(f'\n  [final] test  cc = {final_test_cc:.4f} '
               f'(init was {init_test_cc:.4f}, Δ {final_test_cc-init_test_cc:+.4f})')
         print(f'  [final] train mean cc = {final_train_mean:.4f}  '
               f'(best iter {best_iter})')
+        if final_test_rad_cc is not None:
+            print(f'  [final] |RAD| test cc = {final_test_rad_cc:.4f}  '
+                  f'train mean = {final_train_rad_cc_mean:.4f}  '
+                  f'(init test={init_test_rad_cc:.4f})')
         print(f'  [final] elapsed {train_elapsed:.0f}s '
               f'({train_elapsed*1000/num_iters:.1f} ms/iter)')
 
@@ -1089,7 +1174,7 @@ def train_frame_nvs(scene,
             else:
                 tag = f'{tag}p{reg_densify_pos_jitter_m:g}'
         if doppler:
-            tag = f'{tag}_v7doppler'
+            tag = f'{tag}_v7doppler_norm{loss_norm}'
         output_dir = os.path.join(
             PROJECT_ROOT, 'mm25DGS_v7', 'output_frame_nvs', f'{scene}_{tag}')
     os.makedirs(output_dir, exist_ok=True)
@@ -1108,6 +1193,15 @@ def train_frame_nvs(scene,
         'final_test_cc': float(final_test_cc),
         'init_train_mean_cc': float(np.mean(init_train_ccs)),
         'final_train_mean_cc': float(final_train_mean),
+        # C2a — |RAD| cc (None when --doppler is off).
+        'init_test_rad_cc': (None if init_test_rad_cc is None
+                              else float(init_test_rad_cc)),
+        'final_test_rad_cc': (None if final_test_rad_cc is None
+                               else float(final_test_rad_cc)),
+        'init_train_rad_cc_mean': (None if init_train_rad_cc_mean is None
+                                    else float(init_train_rad_cc_mean)),
+        'final_train_rad_cc_mean': (None if final_train_rad_cc_mean is None
+                                     else float(final_train_rad_cc_mean)),
         'init_train_std_cc': float(np.std(init_train_ccs)),
         'final_train_std_cc': float(np.std(final_train_ccs)),
         'n_train_samples': int(len(train_samples)),
@@ -1150,7 +1244,13 @@ def train_frame_nvs(scene,
              loss=np.array([h['loss'] for h in history]),
              mean_train_cc=np.array([h['mean_train_cc'] for h in history]),
              test_cc=np.array([h.get('test_cc', float('nan'))
-                                for h in history]))
+                                for h in history]),
+             mean_train_rad_cc=np.array(
+                 [h.get('mean_train_rad_cc', float('nan'))
+                  for h in history]),
+             test_rad_cc=np.array(
+                 [h.get('test_rad_cc', float('nan'))
+                  for h in history]))
     if best_state is not None:
         torch.save(best_state, os.path.join(output_dir, 'best_model.pt'))
 
@@ -1271,6 +1371,13 @@ if __name__ == '__main__':
                          'scatter kernel, train on v5 mse_raw applied to '
                          'the 3-D |RAD| cube. See '
                          'md/mm25dgs_v7_doppler_plan.md.')
+    ap.add_argument('--loss_norm', default='max', choices=['max', 'mean'],
+                    help='Doppler |RAD| loss normalisation (plan '
+                         'md/mm25dgs_v7_training_ceiling.md §C1). '
+                         '"max" is the legacy path (gt_mag.amax()^2, '
+                         'effectively shrinks the loss ~2500×). "mean" '
+                         'matches v5 mse_raw (gt_mag.mean()^2). '
+                         'Output dir always tagged with _norm<mode>.')
     ap.add_argument('--seed_frame', type=int, default=None,
                     help='Frame whose pose seeds the rasterizer (drives FOV + '
                          'RX visibility before FPS, so it determines the 90k-'
@@ -1315,4 +1422,5 @@ if __name__ == '__main__':
         reg_densify_pool_radius_min_m=args.reg_densify_pool_radius_min_m,
         reg_densify_pool_selection=args.reg_densify_pool_selection,
         seed_frame=args.seed_frame,
-        doppler=args.doppler)
+        doppler=args.doppler,
+        loss_norm=args.loss_norm)
