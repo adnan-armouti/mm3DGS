@@ -1,20 +1,30 @@
 #!/usr/bin/env bash
-# v7 Doppler bench — 6 scenes, data/ tree, F±4 HO_8 training window,
-# all 16 chirps per train frame via analytic Doppler phase modulation
-# (no 16× physical re-render). v5 mse_raw loss on the 3D |RAD| cube.
+# v7 Doppler production bench — 6 scenes, F±4 HO_8 training window,
+# all 16 chirps per train frame via analytic Doppler phase modulation,
+# 5.4×-fused step5_doppler CUDA kernel, post-C1 loss_norm=mean,
+# refined v_ego pipeline ON.
 #
-# See md/mm25dgs_v7_doppler_plan.md for the plan.
+# 6-scene mean from this configuration (md/diagnostics/RESULTS.md §11):
+#   |RA|  train = 0.684    |RA|  test = 0.590
+#   |RAD| train = 0.610    |RAD| test = 0.400
+# Wall-clock: ~5–6 min/scene at target_n=20000 on a 4090.
+#
+# Override loss_norm for the legacy path via: LOSS_NORM=max ./run_v7_bench.sh
 set -u
 cd /home/adnan/Desktop/mm3DGS
 PY=/home/adnan/.conda/envs/mmir/bin/python
 export PYTHONUNBUFFERED=1
 
-LOSS_NORM="${LOSS_NORM:-max}"    # override via: LOSS_NORM=mean ./run_v7_bench.sh
+LOSS_NORM="${LOSS_NORM:-mean}"   # C1 default; override to 'max' for legacy
 
 LOG=/home/adnan/Desktop/mm3DGS/logs_v7/norm_${LOSS_NORM}
 mkdir -p "$LOG"
 
 TRAIN_LOOPS="0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15"
+
+# NOTE: --use_refined_v_ego is the trainer's default. To opt out of
+# refined v_ego (legacy seed cache), add --no-use_refined_v_ego below
+# and drop the `_vegorf` implicit suffix in the output dir tagging.
 
 run_one() {
     local scene="$1" F="$2" gpu="$3"

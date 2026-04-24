@@ -622,9 +622,9 @@ def train_frame_nvs(scene,
                     reg_densify_pool_selection='nearest',
                     seed_frame=None,
                     doppler=False,
-                    loss_norm='max',       # 'max' (legacy) | 'mean' (C1 fix)
+                    loss_norm='mean',      # C1 fix (was 'max' pre-2026-04)
                     loss_multitask_lambda=0.0,  # C2b: λ·mse(|RA|_chirp0)
-                    use_refined_v_ego=False):   # §4.0 deployment
+                    use_refined_v_ego=True):    # §4.0: +0.026 RA te / +0.043 RAD te
     assert v5cuda.is_available(), (
         'v5 CUDA extension not built. '
         'cd mm25DGS_v5/cuda && python setup.py build_ext --inplace')
@@ -1430,13 +1430,13 @@ if __name__ == '__main__':
                          'scatter kernel, train on v5 mse_raw applied to '
                          'the 3-D |RAD| cube. See '
                          'md/mm25dgs_v7_doppler_plan.md.')
-    ap.add_argument('--loss_norm', default='max', choices=['max', 'mean'],
+    ap.add_argument('--loss_norm', default='mean', choices=['max', 'mean'],
                     help='Doppler |RAD| loss normalisation (plan '
                          'md/mm25dgs_v7_training_ceiling.md §C1). '
-                         '"max" is the legacy path (gt_mag.amax()^2, '
-                         'effectively shrinks the loss ~2500×). "mean" '
-                         'matches v5 mse_raw (gt_mag.mean()^2). '
-                         'Output dir always tagged with _norm<mode>.')
+                         'Default "mean" matches v5 mse_raw '
+                         '(gt_mag.mean()^2). "max" is the legacy path '
+                         '(gt_mag.amax()^2, effectively shrinks the loss '
+                         '~2500×). Output dir always tagged with _norm<mode>.')
     ap.add_argument('--loss_multitask_lambda', type=float, default=0.0,
                     help='C2b multi-task: add λ·mse(|RA|_chirp0) to the '
                          '|RAD| training loss. 0 = |RAD| only (default). '
@@ -1448,10 +1448,14 @@ if __name__ == '__main__':
                          '(pass-2 if use_pass2 is on, else pass-1). '
                          '"pass3" prefers `_aligned_pass3.json`, falls '
                          'back to pass-2 then pass-1 if missing.')
-    ap.add_argument('--use_refined_v_ego', action='store_true',
+    ap.add_argument('--use_refined_v_ego', action=argparse.BooleanOptionalAction,
+                    default=True,
                     help='§4.0 deployment: prefer `<scene>/frame_<F>_'
-                         'v_ego_refined.npy` from pose_refine over '
-                         'the seed cache. Silent fallback if missing.')
+                         'v_ego_refined.npy` from v_ego_refine over the '
+                         'seed cache. ON by default (6-scene bench: +0.026 '
+                         'on |RA| test, +0.043 on |RAD| test). Silent '
+                         'fallback to seed when the refined file is absent. '
+                         'Disable with --no-use_refined_v_ego.')
     ap.add_argument('--seed_frame', type=int, default=None,
                     help='Frame whose pose seeds the rasterizer (drives FOV + '
                          'RX visibility before FPS, so it determines the 90k-'
