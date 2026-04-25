@@ -1,0 +1,15 @@
+# Upstream clones (pinned via UPSTREAM_COMMIT.txt; recreate with git clone)
+*/upstream/
+
+# Regeneratable adapter outputs and training results (multi-GB)
+*/data_radarsplat/
+*/data_radarfields/
+*/data_dart/
+*/upstream_results/
+
+# Intermediate per-scene arrays (regeneratable from checkpoints)
+**/results/**/*.npy
+
+# Python bytecode
+__pycache__/
+*.pyc

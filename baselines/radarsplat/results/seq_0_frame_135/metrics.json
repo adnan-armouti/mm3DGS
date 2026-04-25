@@ -1,0 +1,39 @@
+{
+  "baseline": "radarsplat",
+  "scene": "seq_0_frame_135",
+  "ra_corr": 0.4211238796270946,
+  "range_profile_corr": 0.6096787826246987,
+  "cart_mse": 0.0013983951648697257,
+  "cart_rmse": 0.037395122206909895,
+  "cart_psnr": 28.54370086335836,
+  "cart_ssim": 0.5571955354113742,
+  "test_frame": 135,
+  "train_frames": [
+    131,
+    132,
+    133,
+    134,
+    136,
+    137,
+    138,
+    139
+  ],
+  "wall_time_seconds": 1289.5330464839935,
+  "peak_gpu_mem_mib": 13781.07470703125,
+  "deviations_from_reference": [
+    "Synthetic 9-frame sequence rather than Boreas 40-frame window.",
+    "sin-space \u2192 uniform-angle azimuth resample (adapter only).",
+    "Pose rotation +90\u00b0 CCW about world-Z to align the 180\u00b0 cascade wedge with the first 200 rows of the rendered 360\u00b0 polar.",
+    "Sensor_type 'scanning_radar' with azimuth_coverage=180 plus upstream patch (patches/wedge_crop_guard.patch) to crop L1+SSIM+occ loss to the populated wedge rows.",
+    "Degenerate radar_average_map_polar (all zeros); --l1occloss_lambda 0 to zero out its contribution.",
+    "Degenerate multipath_model (empty dict); --multipath_weight 0.",
+    "Per-frame lidar uses scene/pcl.npy (no 5-frame-window fusion).",
+    "Training iterations: 2000 (upstream default 2000).",
+    "init_num_pts: 20000 (upstream default 20000).",
+    "multipath_weight=0, l1occloss_lambda=0 (components shipped degenerate; see adapter)."
+  ],
+  "upstream_commit": "ea9c8f530c708622cc3b1b560436b5557ac6a49b",
+  "upstream_result_dir": "/home/adnan/Desktop/mm3DGS/baselines/radarsplat/upstream_results/seq_0_frame_135/seq_0_frame_135_frame_0_9_20260424_205229",
+  "max_steps": 2000,
+  "init_num_pts": 20000
+}
