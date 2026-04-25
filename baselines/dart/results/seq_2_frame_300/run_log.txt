@@ -1,0 +1,1290 @@
+# seq_2_frame_300 on GPU 0, started 2026-04-25 09:29:22
+# cmd: /home/adnan/.conda/envs/dart/bin/python -m baselines.dart.runner.run_dart_scene --scene seq_2_frame_300 --data-root /home/adnan/Desktop/mm3DGS/baselines/dart/data_dart --out-dir /home/adnan/Desktop/mm3DGS/baselines/dart/results/seq_2_frame_300 --epochs 300 --batch 8
+
+2026-04-25 09:29:24.526929: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+Setting up...
+{"sensor": {"r": [0.0, 15.120070366162683, 256], "d": [-5.0, 5.0, 16], "k": 128, "gain": "awr1843boost_az8"}, "shuffle_buffer": 500000, "lr": 0.01, "batch": 8, "epochs": 300, "key": 42, "out": "/home/adnan/Desktop/mm3DGS/baselines/dart/results/seq_2_frame_300", "loss": {"weight": null, "loss": "l1", "eps": 1e-06, "delta": 1.0}, "dataset": {"pval": 0.15, "iid_val": false, "path": "/home/adnan/Desktop/mm3DGS/baselines/dart/data_dart/seq_2_frame_300/data.h5", "doppler_decimation": 0}, "schedules": {"alpha_clip": {"func": "linear_piecewise", "args": {"values": [-1.0, 0.0, 0.05], "steps": [100, 500]}}}, "field_name": "NGPSH", "field": {"levels": 12, "exponent": 0.43, "base": 4.0, "size": 16, "features": 2, "units": [64, 32], "alpha_scale": 0.1, "harmonics": 25}, "adjustment_name": "Identity", "adjustment": {}}
+Loaded dataset : (18, 256, 8) valid columns
+Train split    : (16, 256, 8) columns
+Test split     : (2, 256, 8) columns
+Done setting up (0.9s).
+Training...
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00,  1.74batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00,  1.73batch/s]
+Val: 563.01416015625
+Schedule: {'alpha_clip': -1.0, 'epoch': 0, 'step': 0}
+Epoch 0:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 0:   0%|          | 0/2 [00:00<?, ?batch/s, loss=280]Epoch 0:  50%|█████     | 1/2 [00:00<00:00,  1.00batch/s, loss=280]Epoch 0:  50%|█████     | 1/2 [00:01<00:00,  1.00batch/s, loss=293]Epoch 0: 100%|██████████| 2/2 [00:01<00:00,  1.98batch/s, loss=293]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 155.25batch/s]
+Val: 550.8969116210938
+Schedule: {'alpha_clip': -0.98, 'epoch': 1, 'step': 2}
+Epoch 1:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 1:   0%|          | 0/2 [00:00<?, ?batch/s, loss=287]Epoch 1:   0%|          | 0/2 [00:00<?, ?batch/s, loss=267]Epoch 1: 100%|██████████| 2/2 [00:00<00:00, 77.28batch/s, loss=267]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 146.68batch/s]
+Val: 550.227783203125
+Schedule: {'alpha_clip': -0.96, 'epoch': 2, 'step': 4}
+Epoch 2:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 2:   0%|          | 0/2 [00:00<?, ?batch/s, loss=253]Epoch 2:   0%|          | 0/2 [00:00<?, ?batch/s, loss=265]Epoch 2: 100%|██████████| 2/2 [00:00<00:00, 81.31batch/s, loss=265]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 147.19batch/s]
+Val: 551.8099365234375
+Schedule: {'alpha_clip': -0.94, 'epoch': 3, 'step': 6}
+Epoch 3:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 3:   0%|          | 0/2 [00:00<?, ?batch/s, loss=289]Epoch 3:   0%|          | 0/2 [00:00<?, ?batch/s, loss=264]Epoch 3: 100%|██████████| 2/2 [00:00<00:00, 81.13batch/s, loss=264]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.18batch/s]
+Val: 551.19921875
+Schedule: {'alpha_clip': -0.92, 'epoch': 4, 'step': 8}
+Epoch 4:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 4:   0%|          | 0/2 [00:00<?, ?batch/s, loss=245]Epoch 4:   0%|          | 0/2 [00:00<?, ?batch/s, loss=262]Epoch 4: 100%|██████████| 2/2 [00:00<00:00, 87.68batch/s, loss=262]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.74batch/s]
+Val: 549.9777221679688
+Schedule: {'alpha_clip': -0.9, 'epoch': 5, 'step': 10}
+Epoch 5:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 5:   0%|          | 0/2 [00:00<?, ?batch/s, loss=208]Epoch 5:   0%|          | 0/2 [00:00<?, ?batch/s, loss=260]Epoch 5: 100%|██████████| 2/2 [00:00<00:00, 84.33batch/s, loss=260]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.44batch/s]
+Val: 549.5684814453125
+Schedule: {'alpha_clip': -0.88, 'epoch': 6, 'step': 12}
+Epoch 6:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 6:   0%|          | 0/2 [00:00<?, ?batch/s, loss=313]Epoch 6:   0%|          | 0/2 [00:00<?, ?batch/s, loss=258]Epoch 6: 100%|██████████| 2/2 [00:00<00:00, 87.74batch/s, loss=258]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 156.80batch/s]
+Val: 549.2930297851562
+Schedule: {'alpha_clip': -0.86, 'epoch': 7, 'step': 14}
+Epoch 7:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 7:   0%|          | 0/2 [00:00<?, ?batch/s, loss=351]Epoch 7:   0%|          | 0/2 [00:00<?, ?batch/s, loss=256]Epoch 7: 100%|██████████| 2/2 [00:00<00:00, 83.39batch/s, loss=256]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 156.79batch/s]
+Val: 548.6406860351562
+Schedule: {'alpha_clip': -0.84, 'epoch': 8, 'step': 16}
+Epoch 8:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 8:   0%|          | 0/2 [00:00<?, ?batch/s, loss=238]Epoch 8:   0%|          | 0/2 [00:00<?, ?batch/s, loss=253]Epoch 8: 100%|██████████| 2/2 [00:00<00:00, 64.26batch/s, loss=253]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 145.37batch/s]
+Val: 547.3567504882812
+Schedule: {'alpha_clip': -0.8200000000000001, 'epoch': 9, 'step': 18}
+Epoch 9:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 9:   0%|          | 0/2 [00:00<?, ?batch/s, loss=275]Epoch 9:   0%|          | 0/2 [00:00<?, ?batch/s, loss=248]Epoch 9: 100%|██████████| 2/2 [00:00<00:00, 81.42batch/s, loss=248]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.55batch/s]
+Val: 546.9723510742188
+Schedule: {'alpha_clip': -0.8, 'epoch': 10, 'step': 20}
+Epoch 10:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 10:   0%|          | 0/2 [00:00<?, ?batch/s, loss=228]Epoch 10:   0%|          | 0/2 [00:00<?, ?batch/s, loss=245]Epoch 10: 100%|██████████| 2/2 [00:00<00:00, 90.02batch/s, loss=245]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 150.70batch/s]
+Val: 546.3208618164062
+Schedule: {'alpha_clip': -0.78, 'epoch': 11, 'step': 22}
+Epoch 11:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 11:   0%|          | 0/2 [00:00<?, ?batch/s, loss=221]Epoch 11:   0%|          | 0/2 [00:00<?, ?batch/s, loss=240]Epoch 11: 100%|██████████| 2/2 [00:00<00:00, 82.98batch/s, loss=240]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 151.15batch/s]
+Val: 545.4871826171875
+Schedule: {'alpha_clip': -0.76, 'epoch': 12, 'step': 24}
+Epoch 12:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 12:   0%|          | 0/2 [00:00<?, ?batch/s, loss=218]Epoch 12:   0%|          | 0/2 [00:00<?, ?batch/s, loss=236]Epoch 12: 100%|██████████| 2/2 [00:00<00:00, 86.82batch/s, loss=236]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 150.74batch/s]
+Val: 545.1678466796875
+Schedule: {'alpha_clip': -0.74, 'epoch': 13, 'step': 26}
+Epoch 13:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 13:   0%|          | 0/2 [00:00<?, ?batch/s, loss=290]Epoch 13:   0%|          | 0/2 [00:00<?, ?batch/s, loss=231]Epoch 13: 100%|██████████| 2/2 [00:00<00:00, 80.81batch/s, loss=231]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 147.81batch/s]
+Val: 545.4178466796875
+Schedule: {'alpha_clip': -0.72, 'epoch': 14, 'step': 28}
+Epoch 14:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 14:   0%|          | 0/2 [00:00<?, ?batch/s, loss=285]Epoch 14:   0%|          | 0/2 [00:00<?, ?batch/s, loss=226]Epoch 14: 100%|██████████| 2/2 [00:00<00:00, 82.03batch/s, loss=226]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 151.51batch/s]
+Val: 544.6646728515625
+Schedule: {'alpha_clip': -0.7, 'epoch': 15, 'step': 30}
+Epoch 15:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 15:   0%|          | 0/2 [00:00<?, ?batch/s, loss=278]Epoch 15:   0%|          | 0/2 [00:00<?, ?batch/s, loss=221]Epoch 15: 100%|██████████| 2/2 [00:00<00:00, 81.71batch/s, loss=221]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.79batch/s]
+Val: 550.2330932617188
+Schedule: {'alpha_clip': -0.6799999999999999, 'epoch': 16, 'step': 32}
+Epoch 16:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 16:   0%|          | 0/2 [00:00<?, ?batch/s, loss=166]Epoch 16:   0%|          | 0/2 [00:00<?, ?batch/s, loss=218]Epoch 16: 100%|██████████| 2/2 [00:00<00:00, 80.80batch/s, loss=218]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 164.64batch/s]
+Val: 544.9979858398438
+Schedule: {'alpha_clip': -0.6599999999999999, 'epoch': 17, 'step': 34}
+Epoch 17:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 17:   0%|          | 0/2 [00:00<?, ?batch/s, loss=198]Epoch 17:   0%|          | 0/2 [00:00<?, ?batch/s, loss=215]Epoch 17: 100%|██████████| 2/2 [00:00<00:00, 83.17batch/s, loss=215]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 144.49batch/s]
+Val: 547.7501220703125
+Schedule: {'alpha_clip': -0.64, 'epoch': 18, 'step': 36}
+Epoch 18:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 18:   0%|          | 0/2 [00:00<?, ?batch/s, loss=231]Epoch 18:   0%|          | 0/2 [00:00<?, ?batch/s, loss=206]Epoch 18: 100%|██████████| 2/2 [00:00<00:00, 87.16batch/s, loss=206]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 163.72batch/s]
+Val: 546.8004150390625
+Schedule: {'alpha_clip': -0.62, 'epoch': 19, 'step': 38}
+Epoch 19:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 19:   0%|          | 0/2 [00:00<?, ?batch/s, loss=141]Epoch 19:   0%|          | 0/2 [00:00<?, ?batch/s, loss=198]Epoch 19: 100%|██████████| 2/2 [00:00<00:00, 87.52batch/s, loss=198]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 141.23batch/s]
+Val: 545.3252563476562
+Schedule: {'alpha_clip': -0.6, 'epoch': 20, 'step': 40}
+Epoch 20:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 20:   0%|          | 0/2 [00:00<?, ?batch/s, loss=223]Epoch 20:   0%|          | 0/2 [00:00<?, ?batch/s, loss=190]Epoch 20: 100%|██████████| 2/2 [00:00<00:00, 85.50batch/s, loss=190]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 158.25batch/s]
+Val: 547.6544799804688
+Schedule: {'alpha_clip': -0.5800000000000001, 'epoch': 21, 'step': 42}
+Epoch 21:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 21:   0%|          | 0/2 [00:00<?, ?batch/s, loss=180]Epoch 21:   0%|          | 0/2 [00:00<?, ?batch/s, loss=182]Epoch 21: 100%|██████████| 2/2 [00:00<00:00, 87.75batch/s, loss=182]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.68batch/s]
+Val: 546.4265747070312
+Schedule: {'alpha_clip': -0.56, 'epoch': 22, 'step': 44}
+Epoch 22:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 22:   0%|          | 0/2 [00:00<?, ?batch/s, loss=209]Epoch 22:   0%|          | 0/2 [00:00<?, ?batch/s, loss=179]Epoch 22: 100%|██████████| 2/2 [00:00<00:00, 86.67batch/s, loss=179]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 156.22batch/s]
+Val: 546.3901977539062
+Schedule: {'alpha_clip': -0.54, 'epoch': 23, 'step': 46}
+Epoch 23:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 23:   0%|          | 0/2 [00:00<?, ?batch/s, loss=195]Epoch 23:   0%|          | 0/2 [00:00<?, ?batch/s, loss=171]Epoch 23: 100%|██████████| 2/2 [00:00<00:00, 88.23batch/s, loss=171]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 156.86batch/s]
+Val: 549.103759765625
+Schedule: {'alpha_clip': -0.52, 'epoch': 24, 'step': 48}
+Epoch 24:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 24:   0%|          | 0/2 [00:00<?, ?batch/s, loss=207]Epoch 24:   0%|          | 0/2 [00:00<?, ?batch/s, loss=173]Epoch 24: 100%|██████████| 2/2 [00:00<00:00, 82.02batch/s, loss=173]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 161.33batch/s]
+Val: 546.7225952148438
+Schedule: {'alpha_clip': -0.5, 'epoch': 25, 'step': 50}
+Epoch 25:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 25:   0%|          | 0/2 [00:00<?, ?batch/s, loss=92.6]Epoch 25:   0%|          | 0/2 [00:00<?, ?batch/s, loss=164] Epoch 25: 100%|██████████| 2/2 [00:00<00:00, 88.18batch/s, loss=164]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.74batch/s]
+Val: 545.272705078125
+Schedule: {'alpha_clip': -0.48, 'epoch': 26, 'step': 52}
+Epoch 26:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 26:   0%|          | 0/2 [00:00<?, ?batch/s, loss=129]Epoch 26:   0%|          | 0/2 [00:00<?, ?batch/s, loss=160]Epoch 26: 100%|██████████| 2/2 [00:00<00:00, 88.28batch/s, loss=160]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 159.86batch/s]
+Val: 547.5444946289062
+Schedule: {'alpha_clip': -0.45999999999999996, 'epoch': 27, 'step': 54}
+Epoch 27:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 27:   0%|          | 0/2 [00:00<?, ?batch/s, loss=191]Epoch 27:   0%|          | 0/2 [00:00<?, ?batch/s, loss=156]Epoch 27: 100%|██████████| 2/2 [00:00<00:00, 85.97batch/s, loss=156]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.45batch/s]
+Val: 546.3687133789062
+Schedule: {'alpha_clip': -0.43999999999999995, 'epoch': 28, 'step': 56}
+Epoch 28:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 28:   0%|          | 0/2 [00:00<?, ?batch/s, loss=180]Epoch 28:   0%|          | 0/2 [00:00<?, ?batch/s, loss=149]Epoch 28: 100%|██████████| 2/2 [00:00<00:00, 86.96batch/s, loss=149]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 143.80batch/s]
+Val: 545.4992065429688
+Schedule: {'alpha_clip': -0.42000000000000004, 'epoch': 29, 'step': 58}
+Epoch 29:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 29:   0%|          | 0/2 [00:00<?, ?batch/s, loss=106]Epoch 29:   0%|          | 0/2 [00:00<?, ?batch/s, loss=144]Epoch 29: 100%|██████████| 2/2 [00:00<00:00, 88.10batch/s, loss=144]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 142.87batch/s]
+Val: 547.4555053710938
+Schedule: {'alpha_clip': -0.4, 'epoch': 30, 'step': 60}
+Epoch 30:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 30:   0%|          | 0/2 [00:00<?, ?batch/s, loss=127]Epoch 30:   0%|          | 0/2 [00:00<?, ?batch/s, loss=140]Epoch 30: 100%|██████████| 2/2 [00:00<00:00, 87.21batch/s, loss=140]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 150.01batch/s]
+Val: 546.3055419921875
+Schedule: {'alpha_clip': -0.38, 'epoch': 31, 'step': 62}
+Epoch 31:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 31:   0%|          | 0/2 [00:00<?, ?batch/s, loss=176]Epoch 31:   0%|          | 0/2 [00:00<?, ?batch/s, loss=133]Epoch 31: 100%|██████████| 2/2 [00:00<00:00, 86.23batch/s, loss=133]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 155.78batch/s]
+Val: 546.5031127929688
+Schedule: {'alpha_clip': -0.36, 'epoch': 32, 'step': 64}
+Epoch 32:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 32:   0%|          | 0/2 [00:00<?, ?batch/s, loss=99.1]Epoch 32:   0%|          | 0/2 [00:00<?, ?batch/s, loss=129] Epoch 32: 100%|██████████| 2/2 [00:00<00:00, 88.02batch/s, loss=129]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 156.96batch/s]
+Val: 546.8579711914062
+Schedule: {'alpha_clip': -0.33999999999999997, 'epoch': 33, 'step': 66}
+Epoch 33:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 33:   0%|          | 0/2 [00:00<?, ?batch/s, loss=170]Epoch 33:   0%|          | 0/2 [00:00<?, ?batch/s, loss=125]Epoch 33: 100%|██████████| 2/2 [00:00<00:00, 86.51batch/s, loss=125]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 166.46batch/s]
+Val: 546.7282104492188
+Schedule: {'alpha_clip': -0.31999999999999995, 'epoch': 34, 'step': 68}
+Epoch 34:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 34:   0%|          | 0/2 [00:00<?, ?batch/s, loss=156]Epoch 34:   0%|          | 0/2 [00:00<?, ?batch/s, loss=120]Epoch 34: 100%|██████████| 2/2 [00:00<00:00, 89.18batch/s, loss=120]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 149.78batch/s]
+Val: 547.8934326171875
+Schedule: {'alpha_clip': -0.30000000000000004, 'epoch': 35, 'step': 70}
+Epoch 35:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 35:   0%|          | 0/2 [00:00<?, ?batch/s, loss=170]Epoch 35:   0%|          | 0/2 [00:00<?, ?batch/s, loss=120]Epoch 35: 100%|██████████| 2/2 [00:00<00:00, 82.45batch/s, loss=120]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 151.00batch/s]
+Val: 545.8465576171875
+Schedule: {'alpha_clip': -0.28, 'epoch': 36, 'step': 72}
+Epoch 36:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 36:   0%|          | 0/2 [00:00<?, ?batch/s, loss=145]Epoch 36:   0%|          | 0/2 [00:00<?, ?batch/s, loss=119]Epoch 36: 100%|██████████| 2/2 [00:00<00:00, 83.95batch/s, loss=119]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 161.40batch/s]
+Val: 545.17724609375
+Schedule: {'alpha_clip': -0.26, 'epoch': 37, 'step': 74}
+Epoch 37:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 37:   0%|          | 0/2 [00:00<?, ?batch/s, loss=150]Epoch 37:   0%|          | 0/2 [00:00<?, ?batch/s, loss=117]Epoch 37: 100%|██████████| 2/2 [00:00<00:00, 82.71batch/s, loss=117]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 161.34batch/s]
+Val: 546.7420043945312
+Schedule: {'alpha_clip': -0.24, 'epoch': 38, 'step': 76}
+Epoch 38:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 38:   0%|          | 0/2 [00:00<?, ?batch/s, loss=151]Epoch 38:   0%|          | 0/2 [00:00<?, ?batch/s, loss=112]Epoch 38: 100%|██████████| 2/2 [00:00<00:00, 80.38batch/s, loss=112]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.28batch/s]
+Val: 545.6780395507812
+Schedule: {'alpha_clip': -0.21999999999999997, 'epoch': 39, 'step': 78}
+Epoch 39:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 39:   0%|          | 0/2 [00:00<?, ?batch/s, loss=68.1]Epoch 39:   0%|          | 0/2 [00:00<?, ?batch/s, loss=110] Epoch 39: 100%|██████████| 2/2 [00:00<00:00, 81.63batch/s, loss=110]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.80batch/s]
+Val: 544.7993774414062
+Schedule: {'alpha_clip': -0.19999999999999996, 'epoch': 40, 'step': 80}
+Epoch 40:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 40:   0%|          | 0/2 [00:00<?, ?batch/s, loss=147]Epoch 40:   0%|          | 0/2 [00:00<?, ?batch/s, loss=108]Epoch 40: 100%|██████████| 2/2 [00:00<00:00, 89.35batch/s, loss=108]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 160.99batch/s]
+Val: 544.0413818359375
+Schedule: {'alpha_clip': -0.18000000000000005, 'epoch': 41, 'step': 82}
+Epoch 41:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 41:   0%|          | 0/2 [00:00<?, ?batch/s, loss=137]Epoch 41:   0%|          | 0/2 [00:00<?, ?batch/s, loss=104]Epoch 41: 100%|██████████| 2/2 [00:00<00:00, 82.20batch/s, loss=104]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 155.75batch/s]
+Val: 545.2459106445312
+Schedule: {'alpha_clip': -0.16000000000000003, 'epoch': 42, 'step': 84}
+Epoch 42:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 42:   0%|          | 0/2 [00:00<?, ?batch/s, loss=144]Epoch 42:   0%|          | 0/2 [00:00<?, ?batch/s, loss=102]Epoch 42: 100%|██████████| 2/2 [00:00<00:00, 89.83batch/s, loss=102]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 161.85batch/s]
+Val: 546.1566162109375
+Schedule: {'alpha_clip': -0.14, 'epoch': 43, 'step': 86}
+Epoch 43:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 43:   0%|          | 0/2 [00:00<?, ?batch/s, loss=64.9]Epoch 43:   0%|          | 0/2 [00:00<?, ?batch/s, loss=102] Epoch 43: 100%|██████████| 2/2 [00:00<00:00, 87.75batch/s, loss=102]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.67batch/s]
+Val: 544.2222290039062
+Schedule: {'alpha_clip': -0.12, 'epoch': 44, 'step': 88}
+Epoch 44:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 44:   0%|          | 0/2 [00:00<?, ?batch/s, loss=146]Epoch 44:   0%|          | 0/2 [00:00<?, ?batch/s, loss=100]Epoch 44: 100%|██████████| 2/2 [00:00<00:00, 82.08batch/s, loss=100]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.08batch/s]
+Val: 546.0867919921875
+Schedule: {'alpha_clip': -0.09999999999999998, 'epoch': 45, 'step': 90}
+Epoch 45:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 45:   0%|          | 0/2 [00:00<?, ?batch/s, loss=57.2]Epoch 45:   0%|          | 0/2 [00:00<?, ?batch/s, loss=104] Epoch 45: 100%|██████████| 2/2 [00:00<00:00, 82.69batch/s, loss=104]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.74batch/s]
+Val: 546.381591796875
+Schedule: {'alpha_clip': -0.07999999999999996, 'epoch': 46, 'step': 92}
+Epoch 46:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 46:   0%|          | 0/2 [00:00<?, ?batch/s, loss=58.3]Epoch 46:   0%|          | 0/2 [00:00<?, ?batch/s, loss=97.9]Epoch 46: 100%|██████████| 2/2 [00:00<00:00, 80.08batch/s, loss=97.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 158.66batch/s]
+Val: 544.7550048828125
+Schedule: {'alpha_clip': -0.06000000000000005, 'epoch': 47, 'step': 94}
+Epoch 47:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 47:   0%|          | 0/2 [00:00<?, ?batch/s, loss=132]Epoch 47:   0%|          | 0/2 [00:00<?, ?batch/s, loss=97.7]Epoch 47: 100%|██████████| 2/2 [00:00<00:00, 84.83batch/s, loss=97.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 146.97batch/s]
+Val: 547.0985107421875
+Schedule: {'alpha_clip': -0.040000000000000036, 'epoch': 48, 'step': 96}
+Epoch 48:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 48:   0%|          | 0/2 [00:00<?, ?batch/s, loss=62.2]Epoch 48:   0%|          | 0/2 [00:00<?, ?batch/s, loss=99]  Epoch 48: 100%|██████████| 2/2 [00:00<00:00, 88.56batch/s, loss=99]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.63batch/s]
+Val: 545.614990234375
+Schedule: {'alpha_clip': -0.020000000000000018, 'epoch': 49, 'step': 98}
+Epoch 49:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 49:   0%|          | 0/2 [00:00<?, ?batch/s, loss=55.7]Epoch 49:   0%|          | 0/2 [00:00<?, ?batch/s, loss=94.7]Epoch 49: 100%|██████████| 2/2 [00:00<00:00, 84.53batch/s, loss=94.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 151.34batch/s]
+Val: 545.3365478515625
+Schedule: {'alpha_clip': 0.0, 'epoch': 50, 'step': 100}
+Epoch 50:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 50:   0%|          | 0/2 [00:00<?, ?batch/s, loss=135]Epoch 50:   0%|          | 0/2 [00:00<?, ?batch/s, loss=95.1]Epoch 50: 100%|██████████| 2/2 [00:00<00:00, 87.43batch/s, loss=95.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 150.56batch/s]
+Val: 546.1878051757812
+Schedule: {'alpha_clip': 0.0002, 'epoch': 51, 'step': 102}
+Epoch 51:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 51:   0%|          | 0/2 [00:00<?, ?batch/s, loss=55]Epoch 51:   0%|          | 0/2 [00:00<?, ?batch/s, loss=91.5]Epoch 51: 100%|██████████| 2/2 [00:00<00:00, 87.75batch/s, loss=91.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 158.46batch/s]
+Val: 544.1796875
+Schedule: {'alpha_clip': 0.0004, 'epoch': 52, 'step': 104}
+Epoch 52:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 52:   0%|          | 0/2 [00:00<?, ?batch/s, loss=129]Epoch 52:   0%|          | 0/2 [00:00<?, ?batch/s, loss=95.5]Epoch 52: 100%|██████████| 2/2 [00:00<00:00, 88.55batch/s, loss=95.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.08batch/s]
+Val: 546.66943359375
+Schedule: {'alpha_clip': 0.0006000000000000001, 'epoch': 53, 'step': 106}
+Epoch 53:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 53:   0%|          | 0/2 [00:00<?, ?batch/s, loss=57]Epoch 53:   0%|          | 0/2 [00:00<?, ?batch/s, loss=92.6]Epoch 53: 100%|██████████| 2/2 [00:00<00:00, 89.12batch/s, loss=92.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.25batch/s]
+Val: 547.1546020507812
+Schedule: {'alpha_clip': 0.0008, 'epoch': 54, 'step': 108}
+Epoch 54:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 54:   0%|          | 0/2 [00:00<?, ?batch/s, loss=58.3]Epoch 54:   0%|          | 0/2 [00:00<?, ?batch/s, loss=95.6]Epoch 54: 100%|██████████| 2/2 [00:00<00:00, 87.72batch/s, loss=95.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.26batch/s]
+Val: 545.1541137695312
+Schedule: {'alpha_clip': 0.001, 'epoch': 55, 'step': 110}
+Epoch 55:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 55:   0%|          | 0/2 [00:00<?, ?batch/s, loss=124]Epoch 55:   0%|          | 0/2 [00:00<?, ?batch/s, loss=95.9]Epoch 55: 100%|██████████| 2/2 [00:00<00:00, 88.05batch/s, loss=95.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 150.45batch/s]
+Val: 546.7155151367188
+Schedule: {'alpha_clip': 0.0012000000000000001, 'epoch': 56, 'step': 112}
+Epoch 56:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 56:   0%|          | 0/2 [00:00<?, ?batch/s, loss=129]Epoch 56:   0%|          | 0/2 [00:00<?, ?batch/s, loss=91.6]Epoch 56: 100%|██████████| 2/2 [00:00<00:00, 88.57batch/s, loss=91.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 155.06batch/s]
+Val: 546.8790893554688
+Schedule: {'alpha_clip': 0.0014000000000000002, 'epoch': 57, 'step': 114}
+Epoch 57:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 57:   0%|          | 0/2 [00:00<?, ?batch/s, loss=130]Epoch 57:   0%|          | 0/2 [00:00<?, ?batch/s, loss=89.8]Epoch 57: 100%|██████████| 2/2 [00:00<00:00, 88.58batch/s, loss=89.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 146.63batch/s]
+Val: 545.4147338867188
+Schedule: {'alpha_clip': 0.0016, 'epoch': 58, 'step': 116}
+Epoch 58:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 58:   0%|          | 0/2 [00:00<?, ?batch/s, loss=127]Epoch 58:   0%|          | 0/2 [00:00<?, ?batch/s, loss=89.1]Epoch 58: 100%|██████████| 2/2 [00:00<00:00, 83.16batch/s, loss=89.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 159.77batch/s]
+Val: 546.427734375
+Schedule: {'alpha_clip': 0.0018, 'epoch': 59, 'step': 118}
+Epoch 59:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 59:   0%|          | 0/2 [00:00<?, ?batch/s, loss=45.3]Epoch 59:   0%|          | 0/2 [00:00<?, ?batch/s, loss=87.3]Epoch 59: 100%|██████████| 2/2 [00:00<00:00, 88.01batch/s, loss=87.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 137.54batch/s]
+Val: 547.313720703125
+Schedule: {'alpha_clip': 0.002, 'epoch': 60, 'step': 120}
+Epoch 60:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 60:   0%|          | 0/2 [00:00<?, ?batch/s, loss=124]Epoch 60:   0%|          | 0/2 [00:00<?, ?batch/s, loss=85.6]Epoch 60: 100%|██████████| 2/2 [00:00<00:00, 80.00batch/s, loss=85.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 159.93batch/s]
+Val: 545.4075317382812
+Schedule: {'alpha_clip': 0.0022, 'epoch': 61, 'step': 122}
+Epoch 61:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 61:   0%|          | 0/2 [00:00<?, ?batch/s, loss=52.9]Epoch 61:   0%|          | 0/2 [00:00<?, ?batch/s, loss=89.1]Epoch 61: 100%|██████████| 2/2 [00:00<00:00, 86.71batch/s, loss=89.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.27batch/s]
+Val: 545.8704223632812
+Schedule: {'alpha_clip': 0.0024000000000000002, 'epoch': 62, 'step': 124}
+Epoch 62:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 62:   0%|          | 0/2 [00:00<?, ?batch/s, loss=126]Epoch 62:   0%|          | 0/2 [00:00<?, ?batch/s, loss=86.3]Epoch 62: 100%|██████████| 2/2 [00:00<00:00, 80.90batch/s, loss=86.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 156.07batch/s]
+Val: 546.65576171875
+Schedule: {'alpha_clip': 0.0026, 'epoch': 63, 'step': 126}
+Epoch 63:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 63:   0%|          | 0/2 [00:00<?, ?batch/s, loss=123]Epoch 63:   0%|          | 0/2 [00:00<?, ?batch/s, loss=83.2]Epoch 63: 100%|██████████| 2/2 [00:00<00:00, 77.62batch/s, loss=83.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.11batch/s]
+Val: 545.7627563476562
+Schedule: {'alpha_clip': 0.0028000000000000004, 'epoch': 64, 'step': 128}
+Epoch 64:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 64:   0%|          | 0/2 [00:00<?, ?batch/s, loss=116]Epoch 64:   0%|          | 0/2 [00:00<?, ?batch/s, loss=82.7]Epoch 64: 100%|██████████| 2/2 [00:00<00:00, 77.05batch/s, loss=82.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 151.22batch/s]
+Val: 545.36865234375
+Schedule: {'alpha_clip': 0.003, 'epoch': 65, 'step': 130}
+Epoch 65:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 65:   0%|          | 0/2 [00:00<?, ?batch/s, loss=122]Epoch 65:   0%|          | 0/2 [00:00<?, ?batch/s, loss=81] Epoch 65: 100%|██████████| 2/2 [00:00<00:00, 82.25batch/s, loss=81]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.74batch/s]
+Val: 546.3203125
+Schedule: {'alpha_clip': 0.0032, 'epoch': 66, 'step': 132}
+Epoch 66:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 66:   0%|          | 0/2 [00:00<?, ?batch/s, loss=118]Epoch 66:   0%|          | 0/2 [00:00<?, ?batch/s, loss=80] Epoch 66: 100%|██████████| 2/2 [00:00<00:00, 87.69batch/s, loss=80]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 147.93batch/s]
+Val: 545.5814819335938
+Schedule: {'alpha_clip': 0.0034000000000000002, 'epoch': 67, 'step': 134}
+Epoch 67:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 67:   0%|          | 0/2 [00:00<?, ?batch/s, loss=119]Epoch 67:   0%|          | 0/2 [00:00<?, ?batch/s, loss=79.3]Epoch 67: 100%|██████████| 2/2 [00:00<00:00, 87.25batch/s, loss=79.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 155.38batch/s]
+Val: 545.7620239257812
+Schedule: {'alpha_clip': 0.0036, 'epoch': 68, 'step': 136}
+Epoch 68:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 68:   0%|          | 0/2 [00:00<?, ?batch/s, loss=122]Epoch 68:   0%|          | 0/2 [00:00<?, ?batch/s, loss=79.8]Epoch 68: 100%|██████████| 2/2 [00:00<00:00, 83.42batch/s, loss=79.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 156.90batch/s]
+Val: 546.4151000976562
+Schedule: {'alpha_clip': 0.0038, 'epoch': 69, 'step': 138}
+Epoch 69:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 69:   0%|          | 0/2 [00:00<?, ?batch/s, loss=122]Epoch 69:   0%|          | 0/2 [00:00<?, ?batch/s, loss=82.3]Epoch 69: 100%|██████████| 2/2 [00:00<00:00, 79.10batch/s, loss=82.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.63batch/s]
+Val: 545.5802001953125
+Schedule: {'alpha_clip': 0.004, 'epoch': 70, 'step': 140}
+Epoch 70:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 70:   0%|          | 0/2 [00:00<?, ?batch/s, loss=43.5]Epoch 70:   0%|          | 0/2 [00:00<?, ?batch/s, loss=80.2]Epoch 70: 100%|██████████| 2/2 [00:00<00:00, 81.38batch/s, loss=80.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.69batch/s]
+Val: 546.1429443359375
+Schedule: {'alpha_clip': 0.004200000000000001, 'epoch': 71, 'step': 142}
+Epoch 71:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 71:   0%|          | 0/2 [00:00<?, ?batch/s, loss=39.6]Epoch 71:   0%|          | 0/2 [00:00<?, ?batch/s, loss=81.2]Epoch 71: 100%|██████████| 2/2 [00:00<00:00, 88.79batch/s, loss=81.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 158.49batch/s]
+Val: 545.8521118164062
+Schedule: {'alpha_clip': 0.0044, 'epoch': 72, 'step': 144}
+Epoch 72:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 72:   0%|          | 0/2 [00:00<?, ?batch/s, loss=119]Epoch 72:   0%|          | 0/2 [00:00<?, ?batch/s, loss=79.4]Epoch 72: 100%|██████████| 2/2 [00:00<00:00, 82.00batch/s, loss=79.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 155.81batch/s]
+Val: 546.694091796875
+Schedule: {'alpha_clip': 0.0046, 'epoch': 73, 'step': 146}
+Epoch 73:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 73:   0%|          | 0/2 [00:00<?, ?batch/s, loss=115]Epoch 73:   0%|          | 0/2 [00:00<?, ?batch/s, loss=78.1]Epoch 73: 100%|██████████| 2/2 [00:00<00:00, 88.24batch/s, loss=78.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 164.13batch/s]
+Val: 546.0127563476562
+Schedule: {'alpha_clip': 0.0048000000000000004, 'epoch': 74, 'step': 148}
+Epoch 74:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 74:   0%|          | 0/2 [00:00<?, ?batch/s, loss=46.2]Epoch 74:   0%|          | 0/2 [00:00<?, ?batch/s, loss=78.5]Epoch 74: 100%|██████████| 2/2 [00:00<00:00, 88.50batch/s, loss=78.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 150.18batch/s]
+Val: 546.134765625
+Schedule: {'alpha_clip': 0.005000000000000001, 'epoch': 75, 'step': 150}
+Epoch 75:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 75:   0%|          | 0/2 [00:00<?, ?batch/s, loss=112]Epoch 75:   0%|          | 0/2 [00:00<?, ?batch/s, loss=76.7]Epoch 75: 100%|██████████| 2/2 [00:00<00:00, 87.17batch/s, loss=76.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 150.41batch/s]
+Val: 546.5174560546875
+Schedule: {'alpha_clip': 0.0052, 'epoch': 76, 'step': 152}
+Epoch 76:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 76:   0%|          | 0/2 [00:00<?, ?batch/s, loss=39.6]Epoch 76:   0%|          | 0/2 [00:00<?, ?batch/s, loss=78.4]Epoch 76: 100%|██████████| 2/2 [00:00<00:00, 84.25batch/s, loss=78.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.74batch/s]
+Val: 544.4900512695312
+Schedule: {'alpha_clip': 0.0054, 'epoch': 77, 'step': 154}
+Epoch 77:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 77:   0%|          | 0/2 [00:00<?, ?batch/s, loss=47.2]Epoch 77:   0%|          | 0/2 [00:00<?, ?batch/s, loss=80.5]Epoch 77: 100%|██████████| 2/2 [00:00<00:00, 88.34batch/s, loss=80.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 151.20batch/s]
+Val: 547.288818359375
+Schedule: {'alpha_clip': 0.005600000000000001, 'epoch': 78, 'step': 156}
+Epoch 78:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 78:   0%|          | 0/2 [00:00<?, ?batch/s, loss=119]Epoch 78:   0%|          | 0/2 [00:00<?, ?batch/s, loss=83.3]Epoch 78: 100%|██████████| 2/2 [00:00<00:00, 85.61batch/s, loss=83.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 141.71batch/s]
+Val: 545.7365112304688
+Schedule: {'alpha_clip': 0.0058000000000000005, 'epoch': 79, 'step': 158}
+Epoch 79:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 79:   0%|          | 0/2 [00:00<?, ?batch/s, loss=40.8]Epoch 79:   0%|          | 0/2 [00:00<?, ?batch/s, loss=77.8]Epoch 79: 100%|██████████| 2/2 [00:00<00:00, 88.71batch/s, loss=77.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 160.94batch/s]
+Val: 545.9169921875
+Schedule: {'alpha_clip': 0.006, 'epoch': 80, 'step': 160}
+Epoch 80:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 80:   0%|          | 0/2 [00:00<?, ?batch/s, loss=114]Epoch 80:   0%|          | 0/2 [00:00<?, ?batch/s, loss=75.9]Epoch 80: 100%|██████████| 2/2 [00:00<00:00, 89.21batch/s, loss=75.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 162.24batch/s]
+Val: 546.238525390625
+Schedule: {'alpha_clip': 0.006200000000000001, 'epoch': 81, 'step': 162}
+Epoch 81:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 81:   0%|          | 0/2 [00:00<?, ?batch/s, loss=111]Epoch 81:   0%|          | 0/2 [00:00<?, ?batch/s, loss=75.3]Epoch 81: 100%|██████████| 2/2 [00:00<00:00, 88.63batch/s, loss=75.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 146.06batch/s]
+Val: 545.7236328125
+Schedule: {'alpha_clip': 0.0064, 'epoch': 82, 'step': 164}
+Epoch 82:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 82:   0%|          | 0/2 [00:00<?, ?batch/s, loss=38.6]Epoch 82:   0%|          | 0/2 [00:00<?, ?batch/s, loss=77.2]Epoch 82: 100%|██████████| 2/2 [00:00<00:00, 84.96batch/s, loss=77.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 145.03batch/s]
+Val: 546.0775756835938
+Schedule: {'alpha_clip': 0.006600000000000001, 'epoch': 83, 'step': 166}
+Epoch 83:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 83:   0%|          | 0/2 [00:00<?, ?batch/s, loss=34.8]Epoch 83:   0%|          | 0/2 [00:00<?, ?batch/s, loss=76]  Epoch 83: 100%|██████████| 2/2 [00:00<00:00, 87.88batch/s, loss=76]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 158.43batch/s]
+Val: 545.839111328125
+Schedule: {'alpha_clip': 0.0068000000000000005, 'epoch': 84, 'step': 168}
+Epoch 84:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 84:   0%|          | 0/2 [00:00<?, ?batch/s, loss=116]Epoch 84:   0%|          | 0/2 [00:00<?, ?batch/s, loss=77.3]Epoch 84: 100%|██████████| 2/2 [00:00<00:00, 88.53batch/s, loss=77.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.06batch/s]
+Val: 545.9010620117188
+Schedule: {'alpha_clip': 0.007000000000000001, 'epoch': 85, 'step': 170}
+Epoch 85:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 85:   0%|          | 0/2 [00:00<?, ?batch/s, loss=113]Epoch 85:   0%|          | 0/2 [00:00<?, ?batch/s, loss=76.6]Epoch 85: 100%|██████████| 2/2 [00:00<00:00, 89.62batch/s, loss=76.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 165.17batch/s]
+Val: 546.3096313476562
+Schedule: {'alpha_clip': 0.0072, 'epoch': 86, 'step': 172}
+Epoch 86:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 86:   0%|          | 0/2 [00:00<?, ?batch/s, loss=116]Epoch 86:   0%|          | 0/2 [00:00<?, ?batch/s, loss=78.5]Epoch 86: 100%|██████████| 2/2 [00:00<00:00, 88.62batch/s, loss=78.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.73batch/s]
+Val: 545.7999877929688
+Schedule: {'alpha_clip': 0.0074, 'epoch': 87, 'step': 174}
+Epoch 87:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 87:   0%|          | 0/2 [00:00<?, ?batch/s, loss=110]Epoch 87:   0%|          | 0/2 [00:00<?, ?batch/s, loss=77] Epoch 87: 100%|██████████| 2/2 [00:00<00:00, 75.78batch/s, loss=77]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 150.04batch/s]
+Val: 546.6868286132812
+Schedule: {'alpha_clip': 0.0076, 'epoch': 88, 'step': 176}
+Epoch 88:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 88:   0%|          | 0/2 [00:00<?, ?batch/s, loss=115]Epoch 88:   0%|          | 0/2 [00:00<?, ?batch/s, loss=79.5]Epoch 88: 100%|██████████| 2/2 [00:00<00:00, 88.19batch/s, loss=79.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.36batch/s]
+Val: 544.3541259765625
+Schedule: {'alpha_clip': 0.0078000000000000005, 'epoch': 89, 'step': 178}
+Epoch 89:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 89:   0%|          | 0/2 [00:00<?, ?batch/s, loss=40.2]Epoch 89:   0%|          | 0/2 [00:00<?, ?batch/s, loss=79.5]Epoch 89: 100%|██████████| 2/2 [00:00<00:00, 82.67batch/s, loss=79.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 158.97batch/s]
+Val: 545.1834716796875
+Schedule: {'alpha_clip': 0.008, 'epoch': 90, 'step': 180}
+Epoch 90:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 90:   0%|          | 0/2 [00:00<?, ?batch/s, loss=38.2]Epoch 90:   0%|          | 0/2 [00:00<?, ?batch/s, loss=76.9]Epoch 90: 100%|██████████| 2/2 [00:00<00:00, 88.37batch/s, loss=76.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 141.44batch/s]
+Val: 548.2067260742188
+Schedule: {'alpha_clip': 0.0082, 'epoch': 91, 'step': 182}
+Epoch 91:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 91:   0%|          | 0/2 [00:00<?, ?batch/s, loss=115]Epoch 91:   0%|          | 0/2 [00:00<?, ?batch/s, loss=78.7]Epoch 91: 100%|██████████| 2/2 [00:00<00:00, 12.99batch/s, loss=78.7]Epoch 91: 100%|██████████| 2/2 [00:00<00:00, 12.78batch/s, loss=78.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 143.57batch/s]
+Val: 545.7890625
+Schedule: {'alpha_clip': 0.008400000000000001, 'epoch': 92, 'step': 184}
+Epoch 92:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 92:   0%|          | 0/2 [00:00<?, ?batch/s, loss=119]Epoch 92:   0%|          | 0/2 [00:00<?, ?batch/s, loss=78.2]Epoch 92: 100%|██████████| 2/2 [00:00<00:00, 90.21batch/s, loss=78.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 161.52batch/s]
+Val: 545.7485961914062
+Schedule: {'alpha_clip': 0.0086, 'epoch': 93, 'step': 186}
+Epoch 93:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 93:   0%|          | 0/2 [00:00<?, ?batch/s, loss=118]Epoch 93:   0%|          | 0/2 [00:00<?, ?batch/s, loss=77.2]Epoch 93: 100%|██████████| 2/2 [00:00<00:00, 82.92batch/s, loss=77.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 149.02batch/s]
+Val: 545.951904296875
+Schedule: {'alpha_clip': 0.0088, 'epoch': 94, 'step': 188}
+Epoch 94:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 94:   0%|          | 0/2 [00:00<?, ?batch/s, loss=112]Epoch 94:   0%|          | 0/2 [00:00<?, ?batch/s, loss=77.2]Epoch 94: 100%|██████████| 2/2 [00:00<00:00, 86.30batch/s, loss=77.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.81batch/s]
+Val: 546.889892578125
+Schedule: {'alpha_clip': 0.009, 'epoch': 95, 'step': 190}
+Epoch 95:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 95:   0%|          | 0/2 [00:00<?, ?batch/s, loss=41.6]Epoch 95:   0%|          | 0/2 [00:00<?, ?batch/s, loss=75]  Epoch 95: 100%|██████████| 2/2 [00:00<00:00, 89.36batch/s, loss=75]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 165.36batch/s]
+Val: 545.8550415039062
+Schedule: {'alpha_clip': 0.0092, 'epoch': 96, 'step': 192}
+Epoch 96:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 96:   0%|          | 0/2 [00:00<?, ?batch/s, loss=113]Epoch 96:   0%|          | 0/2 [00:00<?, ?batch/s, loss=75.6]Epoch 96: 100%|██████████| 2/2 [00:00<00:00, 86.84batch/s, loss=75.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 149.07batch/s]
+Val: 545.7883911132812
+Schedule: {'alpha_clip': 0.0094, 'epoch': 97, 'step': 194}
+Epoch 97:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 97:   0%|          | 0/2 [00:00<?, ?batch/s, loss=114]Epoch 97:   0%|          | 0/2 [00:00<?, ?batch/s, loss=74.1]Epoch 97: 100%|██████████| 2/2 [00:00<00:00, 86.55batch/s, loss=74.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 158.41batch/s]
+Val: 547.5782470703125
+Schedule: {'alpha_clip': 0.009600000000000001, 'epoch': 98, 'step': 196}
+Epoch 98:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 98:   0%|          | 0/2 [00:00<?, ?batch/s, loss=110]Epoch 98:   0%|          | 0/2 [00:00<?, ?batch/s, loss=73.8]Epoch 98: 100%|██████████| 2/2 [00:00<00:00, 89.62batch/s, loss=73.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 161.20batch/s]
+Val: 546.130126953125
+Schedule: {'alpha_clip': 0.009800000000000001, 'epoch': 99, 'step': 198}
+Epoch 99:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 99:   0%|          | 0/2 [00:00<?, ?batch/s, loss=113]Epoch 99:   0%|          | 0/2 [00:00<?, ?batch/s, loss=73.7]Epoch 99: 100%|██████████| 2/2 [00:00<00:00, 88.34batch/s, loss=73.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.08batch/s]
+Val: 545.6304931640625
+Schedule: {'alpha_clip': 0.010000000000000002, 'epoch': 100, 'step': 200}
+Epoch 100:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 100:   0%|          | 0/2 [00:00<?, ?batch/s, loss=112]Epoch 100:   0%|          | 0/2 [00:00<?, ?batch/s, loss=73.4]Epoch 100: 100%|██████████| 2/2 [00:00<00:00, 89.68batch/s, loss=73.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.22batch/s]
+Val: 547.15185546875
+Schedule: {'alpha_clip': 0.0102, 'epoch': 101, 'step': 202}
+Epoch 101:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 101:   0%|          | 0/2 [00:00<?, ?batch/s, loss=111]Epoch 101:   0%|          | 0/2 [00:00<?, ?batch/s, loss=73.8]Epoch 101: 100%|██████████| 2/2 [00:00<00:00, 80.93batch/s, loss=73.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 146.54batch/s]
+Val: 545.1539306640625
+Schedule: {'alpha_clip': 0.0104, 'epoch': 102, 'step': 204}
+Epoch 102:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 102:   0%|          | 0/2 [00:00<?, ?batch/s, loss=36.9]Epoch 102:   0%|          | 0/2 [00:00<?, ?batch/s, loss=73.3]Epoch 102: 100%|██████████| 2/2 [00:00<00:00, 79.37batch/s, loss=73.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 163.20batch/s]
+Val: 545.7207641601562
+Schedule: {'alpha_clip': 0.0106, 'epoch': 103, 'step': 206}
+Epoch 103:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 103:   0%|          | 0/2 [00:00<?, ?batch/s, loss=33.6]Epoch 103:   0%|          | 0/2 [00:00<?, ?batch/s, loss=71.3]Epoch 103: 100%|██████████| 2/2 [00:00<00:00, 83.26batch/s, loss=71.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.85batch/s]
+Val: 545.9033813476562
+Schedule: {'alpha_clip': 0.0108, 'epoch': 104, 'step': 208}
+Epoch 104:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 104:   0%|          | 0/2 [00:00<?, ?batch/s, loss=104]Epoch 104:   0%|          | 0/2 [00:00<?, ?batch/s, loss=72.5]Epoch 104: 100%|██████████| 2/2 [00:00<00:00, 88.21batch/s, loss=72.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 147.82batch/s]
+Val: 546.440185546875
+Schedule: {'alpha_clip': 0.011000000000000001, 'epoch': 105, 'step': 210}
+Epoch 105:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 105:   0%|          | 0/2 [00:00<?, ?batch/s, loss=33.9]Epoch 105:   0%|          | 0/2 [00:00<?, ?batch/s, loss=73.6]Epoch 105: 100%|██████████| 2/2 [00:00<00:00, 88.76batch/s, loss=73.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 150.04batch/s]
+Val: 546.6864013671875
+Schedule: {'alpha_clip': 0.011200000000000002, 'epoch': 106, 'step': 212}
+Epoch 106:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 106:   0%|          | 0/2 [00:00<?, ?batch/s, loss=34.2]Epoch 106:   0%|          | 0/2 [00:00<?, ?batch/s, loss=72.7]Epoch 106: 100%|██████████| 2/2 [00:00<00:00, 87.84batch/s, loss=72.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 159.53batch/s]
+Val: 545.6580200195312
+Schedule: {'alpha_clip': 0.0114, 'epoch': 107, 'step': 214}
+Epoch 107:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 107:   0%|          | 0/2 [00:00<?, ?batch/s, loss=115]Epoch 107:   0%|          | 0/2 [00:00<?, ?batch/s, loss=73.8]Epoch 107: 100%|██████████| 2/2 [00:00<00:00, 88.96batch/s, loss=73.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.66batch/s]
+Val: 546.2723388671875
+Schedule: {'alpha_clip': 0.011600000000000001, 'epoch': 108, 'step': 216}
+Epoch 108:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 108:   0%|          | 0/2 [00:00<?, ?batch/s, loss=42.3]Epoch 108:   0%|          | 0/2 [00:00<?, ?batch/s, loss=75.1]Epoch 108: 100%|██████████| 2/2 [00:00<00:00, 89.33batch/s, loss=75.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 161.35batch/s]
+Val: 544.6104125976562
+Schedule: {'alpha_clip': 0.0118, 'epoch': 109, 'step': 218}
+Epoch 109:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 109:   0%|          | 0/2 [00:00<?, ?batch/s, loss=36.8]Epoch 109:   0%|          | 0/2 [00:00<?, ?batch/s, loss=74.6]Epoch 109: 100%|██████████| 2/2 [00:00<00:00, 88.21batch/s, loss=74.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 148.56batch/s]
+Val: 546.9522705078125
+Schedule: {'alpha_clip': 0.012, 'epoch': 110, 'step': 220}
+Epoch 110:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 110:   0%|          | 0/2 [00:00<?, ?batch/s, loss=34]Epoch 110:   0%|          | 0/2 [00:00<?, ?batch/s, loss=71.8]Epoch 110: 100%|██████████| 2/2 [00:00<00:00, 88.96batch/s, loss=71.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 162.26batch/s]
+Val: 546.843017578125
+Schedule: {'alpha_clip': 0.0122, 'epoch': 111, 'step': 222}
+Epoch 111:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 111:   0%|          | 0/2 [00:00<?, ?batch/s, loss=109]Epoch 111:   0%|          | 0/2 [00:00<?, ?batch/s, loss=72.1]Epoch 111: 100%|██████████| 2/2 [00:00<00:00, 88.07batch/s, loss=72.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 161.28batch/s]
+Val: 545.5554809570312
+Schedule: {'alpha_clip': 0.012400000000000001, 'epoch': 112, 'step': 224}
+Epoch 112:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 112:   0%|          | 0/2 [00:00<?, ?batch/s, loss=36.2]Epoch 112:   0%|          | 0/2 [00:00<?, ?batch/s, loss=71.7]Epoch 112: 100%|██████████| 2/2 [00:00<00:00, 89.57batch/s, loss=71.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.66batch/s]
+Val: 546.7833251953125
+Schedule: {'alpha_clip': 0.0126, 'epoch': 113, 'step': 226}
+Epoch 113:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 113:   0%|          | 0/2 [00:00<?, ?batch/s, loss=34.5]Epoch 113:   0%|          | 0/2 [00:00<?, ?batch/s, loss=71.5]Epoch 113: 100%|██████████| 2/2 [00:00<00:00, 86.95batch/s, loss=71.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.17batch/s]
+Val: 545.437744140625
+Schedule: {'alpha_clip': 0.0128, 'epoch': 114, 'step': 228}
+Epoch 114:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 114:   0%|          | 0/2 [00:00<?, ?batch/s, loss=33.7]Epoch 114:   0%|          | 0/2 [00:00<?, ?batch/s, loss=71.7]Epoch 114: 100%|██████████| 2/2 [00:00<00:00, 83.71batch/s, loss=71.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 143.33batch/s]
+Val: 546.3992919921875
+Schedule: {'alpha_clip': 0.013000000000000001, 'epoch': 115, 'step': 230}
+Epoch 115:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 115:   0%|          | 0/2 [00:00<?, ?batch/s, loss=35.8]Epoch 115:   0%|          | 0/2 [00:00<?, ?batch/s, loss=73.1]Epoch 115: 100%|██████████| 2/2 [00:00<00:00, 78.81batch/s, loss=73.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 145.63batch/s]
+Val: 546.2109375
+Schedule: {'alpha_clip': 0.013200000000000002, 'epoch': 116, 'step': 232}
+Epoch 116:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 116:   0%|          | 0/2 [00:00<?, ?batch/s, loss=108]Epoch 116:   0%|          | 0/2 [00:00<?, ?batch/s, loss=71.6]Epoch 116: 100%|██████████| 2/2 [00:00<00:00, 86.68batch/s, loss=71.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.60batch/s]
+Val: 546.2919311523438
+Schedule: {'alpha_clip': 0.013400000000000002, 'epoch': 117, 'step': 234}
+Epoch 117:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 117:   0%|          | 0/2 [00:00<?, ?batch/s, loss=104]Epoch 117:   0%|          | 0/2 [00:00<?, ?batch/s, loss=69.5]Epoch 117: 100%|██████████| 2/2 [00:00<00:00, 87.36batch/s, loss=69.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 151.82batch/s]
+Val: 546.4476318359375
+Schedule: {'alpha_clip': 0.013600000000000001, 'epoch': 118, 'step': 236}
+Epoch 118:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 118:   0%|          | 0/2 [00:00<?, ?batch/s, loss=104]Epoch 118:   0%|          | 0/2 [00:00<?, ?batch/s, loss=70.1]Epoch 118: 100%|██████████| 2/2 [00:00<00:00, 89.08batch/s, loss=70.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 158.60batch/s]
+Val: 545.6669921875
+Schedule: {'alpha_clip': 0.013800000000000002, 'epoch': 119, 'step': 238}
+Epoch 119:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 119:   0%|          | 0/2 [00:00<?, ?batch/s, loss=103]Epoch 119:   0%|          | 0/2 [00:00<?, ?batch/s, loss=70.3]Epoch 119: 100%|██████████| 2/2 [00:00<00:00, 87.81batch/s, loss=70.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.48batch/s]
+Val: 546.5608520507812
+Schedule: {'alpha_clip': 0.014000000000000002, 'epoch': 120, 'step': 240}
+Epoch 120:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 120:   0%|          | 0/2 [00:00<?, ?batch/s, loss=106]Epoch 120:   0%|          | 0/2 [00:00<?, ?batch/s, loss=70.2]Epoch 120: 100%|██████████| 2/2 [00:00<00:00, 88.17batch/s, loss=70.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.50batch/s]
+Val: 546.239501953125
+Schedule: {'alpha_clip': 0.014199999999999999, 'epoch': 121, 'step': 242}
+Epoch 121:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 121:   0%|          | 0/2 [00:00<?, ?batch/s, loss=107]Epoch 121:   0%|          | 0/2 [00:00<?, ?batch/s, loss=68.4]Epoch 121: 100%|██████████| 2/2 [00:00<00:00, 86.90batch/s, loss=68.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 150.40batch/s]
+Val: 546.581787109375
+Schedule: {'alpha_clip': 0.0144, 'epoch': 122, 'step': 244}
+Epoch 122:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 122:   0%|          | 0/2 [00:00<?, ?batch/s, loss=103]Epoch 122:   0%|          | 0/2 [00:00<?, ?batch/s, loss=69.3]Epoch 122: 100%|██████████| 2/2 [00:00<00:00, 87.51batch/s, loss=69.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.28batch/s]
+Val: 546.773681640625
+Schedule: {'alpha_clip': 0.0146, 'epoch': 123, 'step': 246}
+Epoch 123:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 123:   0%|          | 0/2 [00:00<?, ?batch/s, loss=32.6]Epoch 123:   0%|          | 0/2 [00:00<?, ?batch/s, loss=69.4]Epoch 123: 100%|██████████| 2/2 [00:00<00:00, 88.80batch/s, loss=69.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 156.39batch/s]
+Val: 546.202880859375
+Schedule: {'alpha_clip': 0.0148, 'epoch': 124, 'step': 248}
+Epoch 124:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 124:   0%|          | 0/2 [00:00<?, ?batch/s, loss=33.8]Epoch 124:   0%|          | 0/2 [00:00<?, ?batch/s, loss=69.3]Epoch 124: 100%|██████████| 2/2 [00:00<00:00, 90.72batch/s, loss=69.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 155.40batch/s]
+Val: 547.566650390625
+Schedule: {'alpha_clip': 0.015, 'epoch': 125, 'step': 250}
+Epoch 125:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 125:   0%|          | 0/2 [00:00<?, ?batch/s, loss=111]Epoch 125:   0%|          | 0/2 [00:00<?, ?batch/s, loss=70.8]Epoch 125: 100%|██████████| 2/2 [00:00<00:00, 88.55batch/s, loss=70.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 156.27batch/s]
+Val: 546.3878173828125
+Schedule: {'alpha_clip': 0.0152, 'epoch': 126, 'step': 252}
+Epoch 126:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 126:   0%|          | 0/2 [00:00<?, ?batch/s, loss=29.9]Epoch 126:   0%|          | 0/2 [00:00<?, ?batch/s, loss=66.9]Epoch 126: 100%|██████████| 2/2 [00:00<00:00, 89.06batch/s, loss=66.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 160.46batch/s]
+Val: 545.3602294921875
+Schedule: {'alpha_clip': 0.0154, 'epoch': 127, 'step': 254}
+Epoch 127:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 127:   0%|          | 0/2 [00:00<?, ?batch/s, loss=106]Epoch 127:   0%|          | 0/2 [00:00<?, ?batch/s, loss=67.5]Epoch 127: 100%|██████████| 2/2 [00:00<00:00, 84.64batch/s, loss=67.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.18batch/s]
+Val: 546.8925170898438
+Schedule: {'alpha_clip': 0.015600000000000001, 'epoch': 128, 'step': 256}
+Epoch 128:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 128:   0%|          | 0/2 [00:00<?, ?batch/s, loss=108]Epoch 128:   0%|          | 0/2 [00:00<?, ?batch/s, loss=68.8]Epoch 128: 100%|██████████| 2/2 [00:00<00:00, 86.15batch/s, loss=68.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.35batch/s]
+Val: 545.521728515625
+Schedule: {'alpha_clip': 0.0158, 'epoch': 129, 'step': 258}
+Epoch 129:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 129:   0%|          | 0/2 [00:00<?, ?batch/s, loss=98.8]Epoch 129:   0%|          | 0/2 [00:00<?, ?batch/s, loss=68]  Epoch 129: 100%|██████████| 2/2 [00:00<00:00, 90.59batch/s, loss=68]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 156.76batch/s]
+Val: 545.874267578125
+Schedule: {'alpha_clip': 0.016, 'epoch': 130, 'step': 260}
+Epoch 130:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 130:   0%|          | 0/2 [00:00<?, ?batch/s, loss=34.9]Epoch 130:   0%|          | 0/2 [00:00<?, ?batch/s, loss=70.1]Epoch 130: 100%|██████████| 2/2 [00:00<00:00, 89.70batch/s, loss=70.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 143.68batch/s]
+Val: 547.3151245117188
+Schedule: {'alpha_clip': 0.016200000000000003, 'epoch': 131, 'step': 262}
+Epoch 131:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 131:   0%|          | 0/2 [00:00<?, ?batch/s, loss=104]Epoch 131:   0%|          | 0/2 [00:00<?, ?batch/s, loss=66.9]Epoch 131: 100%|██████████| 2/2 [00:00<00:00, 84.31batch/s, loss=66.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.05batch/s]
+Val: 545.6499633789062
+Schedule: {'alpha_clip': 0.0164, 'epoch': 132, 'step': 264}
+Epoch 132:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 132:   0%|          | 0/2 [00:00<?, ?batch/s, loss=32.4]Epoch 132:   0%|          | 0/2 [00:00<?, ?batch/s, loss=65.9]Epoch 132: 100%|██████████| 2/2 [00:00<00:00, 89.34batch/s, loss=65.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 160.16batch/s]
+Val: 546.9528198242188
+Schedule: {'alpha_clip': 0.0166, 'epoch': 133, 'step': 266}
+Epoch 133:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 133:   0%|          | 0/2 [00:00<?, ?batch/s, loss=31.7]Epoch 133:   0%|          | 0/2 [00:00<?, ?batch/s, loss=67.5]Epoch 133: 100%|██████████| 2/2 [00:00<00:00, 89.58batch/s, loss=67.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 162.26batch/s]
+Val: 546.9763793945312
+Schedule: {'alpha_clip': 0.016800000000000002, 'epoch': 134, 'step': 268}
+Epoch 134:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 134:   0%|          | 0/2 [00:00<?, ?batch/s, loss=100]Epoch 134:   0%|          | 0/2 [00:00<?, ?batch/s, loss=66.1]Epoch 134: 100%|██████████| 2/2 [00:00<00:00, 89.59batch/s, loss=66.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 144.35batch/s]
+Val: 545.2225341796875
+Schedule: {'alpha_clip': 0.017, 'epoch': 135, 'step': 270}
+Epoch 135:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 135:   0%|          | 0/2 [00:00<?, ?batch/s, loss=101]Epoch 135:   0%|          | 0/2 [00:00<?, ?batch/s, loss=67] Epoch 135: 100%|██████████| 2/2 [00:00<00:00, 83.54batch/s, loss=67]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 151.22batch/s]
+Val: 547.6464233398438
+Schedule: {'alpha_clip': 0.0172, 'epoch': 136, 'step': 272}
+Epoch 136:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 136:   0%|          | 0/2 [00:00<?, ?batch/s, loss=99.6]Epoch 136:   0%|          | 0/2 [00:00<?, ?batch/s, loss=68.1]Epoch 136: 100%|██████████| 2/2 [00:00<00:00, 89.03batch/s, loss=68.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 159.86batch/s]
+Val: 546.0354614257812
+Schedule: {'alpha_clip': 0.0174, 'epoch': 137, 'step': 274}
+Epoch 137:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 137:   0%|          | 0/2 [00:00<?, ?batch/s, loss=99.7]Epoch 137:   0%|          | 0/2 [00:00<?, ?batch/s, loss=69.2]Epoch 137: 100%|██████████| 2/2 [00:00<00:00, 88.14batch/s, loss=69.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.51batch/s]
+Val: 545.8663940429688
+Schedule: {'alpha_clip': 0.0176, 'epoch': 138, 'step': 276}
+Epoch 138:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 138:   0%|          | 0/2 [00:00<?, ?batch/s, loss=99.2]Epoch 138:   0%|          | 0/2 [00:00<?, ?batch/s, loss=67.3]Epoch 138: 100%|██████████| 2/2 [00:00<00:00, 85.61batch/s, loss=67.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 160.11batch/s]
+Val: 547.5065307617188
+Schedule: {'alpha_clip': 0.0178, 'epoch': 139, 'step': 278}
+Epoch 139:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 139:   0%|          | 0/2 [00:00<?, ?batch/s, loss=33.4]Epoch 139:   0%|          | 0/2 [00:00<?, ?batch/s, loss=66.3]Epoch 139: 100%|██████████| 2/2 [00:00<00:00, 81.87batch/s, loss=66.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 159.08batch/s]
+Val: 546.1699829101562
+Schedule: {'alpha_clip': 0.018, 'epoch': 140, 'step': 280}
+Epoch 140:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 140:   0%|          | 0/2 [00:00<?, ?batch/s, loss=30.5]Epoch 140:   0%|          | 0/2 [00:00<?, ?batch/s, loss=65.5]Epoch 140: 100%|██████████| 2/2 [00:00<00:00, 87.88batch/s, loss=65.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 163.74batch/s]
+Val: 546.1448974609375
+Schedule: {'alpha_clip': 0.0182, 'epoch': 141, 'step': 282}
+Epoch 141:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 141:   0%|          | 0/2 [00:00<?, ?batch/s, loss=104]Epoch 141:   0%|          | 0/2 [00:00<?, ?batch/s, loss=70.4]Epoch 141: 100%|██████████| 2/2 [00:00<00:00, 88.67batch/s, loss=70.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 149.01batch/s]
+Val: 545.7755126953125
+Schedule: {'alpha_clip': 0.0184, 'epoch': 142, 'step': 284}
+Epoch 142:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 142:   0%|          | 0/2 [00:00<?, ?batch/s, loss=100]Epoch 142:   0%|          | 0/2 [00:00<?, ?batch/s, loss=65.6]Epoch 142: 100%|██████████| 2/2 [00:00<00:00, 80.32batch/s, loss=65.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 158.42batch/s]
+Val: 546.73486328125
+Schedule: {'alpha_clip': 0.018600000000000002, 'epoch': 143, 'step': 286}
+Epoch 143:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 143:   0%|          | 0/2 [00:00<?, ?batch/s, loss=99.4]Epoch 143:   0%|          | 0/2 [00:00<?, ?batch/s, loss=64.4]Epoch 143: 100%|██████████| 2/2 [00:00<00:00, 87.91batch/s, loss=64.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.93batch/s]
+Val: 546.6251220703125
+Schedule: {'alpha_clip': 0.0188, 'epoch': 144, 'step': 288}
+Epoch 144:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 144:   0%|          | 0/2 [00:00<?, ?batch/s, loss=101]Epoch 144:   0%|          | 0/2 [00:00<?, ?batch/s, loss=67.5]Epoch 144: 100%|██████████| 2/2 [00:00<00:00, 89.83batch/s, loss=67.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.25batch/s]
+Val: 545.9434204101562
+Schedule: {'alpha_clip': 0.019000000000000003, 'epoch': 145, 'step': 290}
+Epoch 145:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 145:   0%|          | 0/2 [00:00<?, ?batch/s, loss=103]Epoch 145:   0%|          | 0/2 [00:00<?, ?batch/s, loss=67.1]Epoch 145: 100%|██████████| 2/2 [00:00<00:00, 88.76batch/s, loss=67.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 156.16batch/s]
+Val: 547.5617065429688
+Schedule: {'alpha_clip': 0.019200000000000002, 'epoch': 146, 'step': 292}
+Epoch 146:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 146:   0%|          | 0/2 [00:00<?, ?batch/s, loss=33]Epoch 146:   0%|          | 0/2 [00:00<?, ?batch/s, loss=67.6]Epoch 146: 100%|██████████| 2/2 [00:00<00:00, 90.32batch/s, loss=67.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.86batch/s]
+Val: 545.2528686523438
+Schedule: {'alpha_clip': 0.0194, 'epoch': 147, 'step': 294}
+Epoch 147:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 147:   0%|          | 0/2 [00:00<?, ?batch/s, loss=33.3]Epoch 147:   0%|          | 0/2 [00:00<?, ?batch/s, loss=68.7]Epoch 147: 100%|██████████| 2/2 [00:00<00:00, 88.80batch/s, loss=68.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.40batch/s]
+Val: 546.00634765625
+Schedule: {'alpha_clip': 0.019600000000000003, 'epoch': 148, 'step': 296}
+Epoch 148:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 148:   0%|          | 0/2 [00:00<?, ?batch/s, loss=27.6]Epoch 148:   0%|          | 0/2 [00:00<?, ?batch/s, loss=68.1]Epoch 148: 100%|██████████| 2/2 [00:00<00:00, 87.98batch/s, loss=68.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 158.23batch/s]
+Val: 546.6968994140625
+Schedule: {'alpha_clip': 0.0198, 'epoch': 149, 'step': 298}
+Epoch 149:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 149:   0%|          | 0/2 [00:00<?, ?batch/s, loss=100]Epoch 149:   0%|          | 0/2 [00:00<?, ?batch/s, loss=65.8]Epoch 149: 100%|██████████| 2/2 [00:00<00:00, 86.98batch/s, loss=65.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 159.50batch/s]
+Val: 545.9710693359375
+Schedule: {'alpha_clip': 0.020000000000000004, 'epoch': 150, 'step': 300}
+Epoch 150:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 150:   0%|          | 0/2 [00:00<?, ?batch/s, loss=30.1]Epoch 150:   0%|          | 0/2 [00:00<?, ?batch/s, loss=66.6]Epoch 150: 100%|██████████| 2/2 [00:00<00:00, 89.46batch/s, loss=66.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 156.45batch/s]
+Val: 546.3651733398438
+Schedule: {'alpha_clip': 0.020200000000000003, 'epoch': 151, 'step': 302}
+Epoch 151:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 151:   0%|          | 0/2 [00:00<?, ?batch/s, loss=30.2]Epoch 151:   0%|          | 0/2 [00:00<?, ?batch/s, loss=65]  Epoch 151: 100%|██████████| 2/2 [00:00<00:00, 81.21batch/s, loss=65]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 151.97batch/s]
+Val: 546.2255859375
+Schedule: {'alpha_clip': 0.0204, 'epoch': 152, 'step': 304}
+Epoch 152:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 152:   0%|          | 0/2 [00:00<?, ?batch/s, loss=103]Epoch 152:   0%|          | 0/2 [00:00<?, ?batch/s, loss=66.5]Epoch 152: 100%|██████████| 2/2 [00:00<00:00, 82.61batch/s, loss=66.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 160.84batch/s]
+Val: 547.0558471679688
+Schedule: {'alpha_clip': 0.0206, 'epoch': 153, 'step': 306}
+Epoch 153:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 153:   0%|          | 0/2 [00:00<?, ?batch/s, loss=33.2]Epoch 153:   0%|          | 0/2 [00:00<?, ?batch/s, loss=70.1]Epoch 153: 100%|██████████| 2/2 [00:00<00:00, 89.38batch/s, loss=70.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.84batch/s]
+Val: 545.2200317382812
+Schedule: {'alpha_clip': 0.0208, 'epoch': 154, 'step': 308}
+Epoch 154:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 154:   0%|          | 0/2 [00:00<?, ?batch/s, loss=32.6]Epoch 154:   0%|          | 0/2 [00:00<?, ?batch/s, loss=69.8]Epoch 154: 100%|██████████| 2/2 [00:00<00:00, 87.68batch/s, loss=69.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 159.17batch/s]
+Val: 546.0350952148438
+Schedule: {'alpha_clip': 0.021, 'epoch': 155, 'step': 310}
+Epoch 155:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 155:   0%|          | 0/2 [00:00<?, ?batch/s, loss=31]Epoch 155:   0%|          | 0/2 [00:00<?, ?batch/s, loss=66.4]Epoch 155: 100%|██████████| 2/2 [00:00<00:00, 88.44batch/s, loss=66.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.86batch/s]
+Val: 546.9042358398438
+Schedule: {'alpha_clip': 0.0212, 'epoch': 156, 'step': 312}
+Epoch 156:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 156:   0%|          | 0/2 [00:00<?, ?batch/s, loss=33.5]Epoch 156:   0%|          | 0/2 [00:00<?, ?batch/s, loss=65.5]Epoch 156: 100%|██████████| 2/2 [00:00<00:00, 88.59batch/s, loss=65.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.60batch/s]
+Val: 545.8890380859375
+Schedule: {'alpha_clip': 0.021400000000000002, 'epoch': 157, 'step': 314}
+Epoch 157:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 157:   0%|          | 0/2 [00:00<?, ?batch/s, loss=99.4]Epoch 157:   0%|          | 0/2 [00:00<?, ?batch/s, loss=65.5]Epoch 157: 100%|██████████| 2/2 [00:00<00:00, 88.93batch/s, loss=65.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.53batch/s]
+Val: 546.2515869140625
+Schedule: {'alpha_clip': 0.0216, 'epoch': 158, 'step': 316}
+Epoch 158:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 158:   0%|          | 0/2 [00:00<?, ?batch/s, loss=30.5]Epoch 158:   0%|          | 0/2 [00:00<?, ?batch/s, loss=64.7]Epoch 158: 100%|██████████| 2/2 [00:00<00:00, 83.94batch/s, loss=64.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 147.58batch/s]
+Val: 546.0922241210938
+Schedule: {'alpha_clip': 0.0218, 'epoch': 159, 'step': 318}
+Epoch 159:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 159:   0%|          | 0/2 [00:00<?, ?batch/s, loss=101]Epoch 159:   0%|          | 0/2 [00:00<?, ?batch/s, loss=68.4]Epoch 159: 100%|██████████| 2/2 [00:00<00:00, 87.51batch/s, loss=68.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 148.78batch/s]
+Val: 546.4205322265625
+Schedule: {'alpha_clip': 0.022000000000000002, 'epoch': 160, 'step': 320}
+Epoch 160:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 160:   0%|          | 0/2 [00:00<?, ?batch/s, loss=28.2]Epoch 160:   0%|          | 0/2 [00:00<?, ?batch/s, loss=66.8]Epoch 160: 100%|██████████| 2/2 [00:00<00:00, 86.38batch/s, loss=66.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.14batch/s]
+Val: 546.5863647460938
+Schedule: {'alpha_clip': 0.0222, 'epoch': 161, 'step': 322}
+Epoch 161:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 161:   0%|          | 0/2 [00:00<?, ?batch/s, loss=28.8]Epoch 161:   0%|          | 0/2 [00:00<?, ?batch/s, loss=65.5]Epoch 161: 100%|██████████| 2/2 [00:00<00:00, 85.49batch/s, loss=65.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 159.83batch/s]
+Val: 546.476318359375
+Schedule: {'alpha_clip': 0.022400000000000003, 'epoch': 162, 'step': 324}
+Epoch 162:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 162:   0%|          | 0/2 [00:00<?, ?batch/s, loss=104]Epoch 162:   0%|          | 0/2 [00:00<?, ?batch/s, loss=69] Epoch 162: 100%|██████████| 2/2 [00:00<00:00, 84.82batch/s, loss=69]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 146.62batch/s]
+Val: 547.49072265625
+Schedule: {'alpha_clip': 0.022600000000000002, 'epoch': 163, 'step': 326}
+Epoch 163:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 163:   0%|          | 0/2 [00:00<?, ?batch/s, loss=36]Epoch 163:   0%|          | 0/2 [00:00<?, ?batch/s, loss=69.9]Epoch 163: 100%|██████████| 2/2 [00:00<00:00, 86.07batch/s, loss=69.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 149.80batch/s]
+Val: 545.143310546875
+Schedule: {'alpha_clip': 0.0228, 'epoch': 164, 'step': 328}
+Epoch 164:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 164:   0%|          | 0/2 [00:00<?, ?batch/s, loss=104]Epoch 164:   0%|          | 0/2 [00:00<?, ?batch/s, loss=70.4]Epoch 164: 100%|██████████| 2/2 [00:00<00:00, 87.22batch/s, loss=70.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 149.79batch/s]
+Val: 546.1278076171875
+Schedule: {'alpha_clip': 0.023000000000000003, 'epoch': 165, 'step': 330}
+Epoch 165:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 165:   0%|          | 0/2 [00:00<?, ?batch/s, loss=102]Epoch 165:   0%|          | 0/2 [00:00<?, ?batch/s, loss=67.2]Epoch 165: 100%|██████████| 2/2 [00:00<00:00, 78.81batch/s, loss=67.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 144.03batch/s]
+Val: 548.6282348632812
+Schedule: {'alpha_clip': 0.023200000000000002, 'epoch': 166, 'step': 332}
+Epoch 166:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 166:   0%|          | 0/2 [00:00<?, ?batch/s, loss=109]Epoch 166:   0%|          | 0/2 [00:00<?, ?batch/s, loss=73.6]Epoch 166: 100%|██████████| 2/2 [00:00<00:00, 88.76batch/s, loss=73.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.28batch/s]
+Val: 546.191162109375
+Schedule: {'alpha_clip': 0.023400000000000004, 'epoch': 167, 'step': 334}
+Epoch 167:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 167:   0%|          | 0/2 [00:00<?, ?batch/s, loss=28]Epoch 167:   0%|          | 0/2 [00:00<?, ?batch/s, loss=68.5]Epoch 167: 100%|██████████| 2/2 [00:00<00:00, 88.54batch/s, loss=68.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.79batch/s]
+Val: 545.8441162109375
+Schedule: {'alpha_clip': 0.0236, 'epoch': 168, 'step': 336}
+Epoch 168:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 168:   0%|          | 0/2 [00:00<?, ?batch/s, loss=30.8]Epoch 168:   0%|          | 0/2 [00:00<?, ?batch/s, loss=67.3]Epoch 168: 100%|██████████| 2/2 [00:00<00:00, 89.57batch/s, loss=67.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 158.19batch/s]
+Val: 546.4644165039062
+Schedule: {'alpha_clip': 0.0238, 'epoch': 169, 'step': 338}
+Epoch 169:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 169:   0%|          | 0/2 [00:00<?, ?batch/s, loss=110]Epoch 169:   0%|          | 0/2 [00:00<?, ?batch/s, loss=71] Epoch 169: 100%|██████████| 2/2 [00:00<00:00, 87.91batch/s, loss=71]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 151.93batch/s]
+Val: 546.3128662109375
+Schedule: {'alpha_clip': 0.024, 'epoch': 170, 'step': 340}
+Epoch 170:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 170:   0%|          | 0/2 [00:00<?, ?batch/s, loss=28.7]Epoch 170:   0%|          | 0/2 [00:00<?, ?batch/s, loss=68.6]Epoch 170: 100%|██████████| 2/2 [00:00<00:00, 88.78batch/s, loss=68.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 162.07batch/s]
+Val: 546.6822509765625
+Schedule: {'alpha_clip': 0.0242, 'epoch': 171, 'step': 342}
+Epoch 171:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 171:   0%|          | 0/2 [00:00<?, ?batch/s, loss=99.9]Epoch 171:   0%|          | 0/2 [00:00<?, ?batch/s, loss=66.9]Epoch 171: 100%|██████████| 2/2 [00:00<00:00, 87.66batch/s, loss=66.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.80batch/s]
+Val: 546.7438354492188
+Schedule: {'alpha_clip': 0.0244, 'epoch': 172, 'step': 344}
+Epoch 172:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 172:   0%|          | 0/2 [00:00<?, ?batch/s, loss=35.8]Epoch 172:   0%|          | 0/2 [00:00<?, ?batch/s, loss=71.4]Epoch 172: 100%|██████████| 2/2 [00:00<00:00, 88.00batch/s, loss=71.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 151.12batch/s]
+Val: 546.0946655273438
+Schedule: {'alpha_clip': 0.0246, 'epoch': 173, 'step': 346}
+Epoch 173:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 173:   0%|          | 0/2 [00:00<?, ?batch/s, loss=99.9]Epoch 173:   0%|          | 0/2 [00:00<?, ?batch/s, loss=68.7]Epoch 173: 100%|██████████| 2/2 [00:00<00:00, 89.03batch/s, loss=68.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.36batch/s]
+Val: 547.4097900390625
+Schedule: {'alpha_clip': 0.024800000000000003, 'epoch': 174, 'step': 348}
+Epoch 174:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 174:   0%|          | 0/2 [00:00<?, ?batch/s, loss=104]Epoch 174:   0%|          | 0/2 [00:00<?, ?batch/s, loss=67.6]Epoch 174: 100%|██████████| 2/2 [00:00<00:00, 86.35batch/s, loss=67.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 161.87batch/s]
+Val: 547.5624389648438
+Schedule: {'alpha_clip': 0.025, 'epoch': 175, 'step': 350}
+Epoch 175:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 175:   0%|          | 0/2 [00:00<?, ?batch/s, loss=102]Epoch 175:   0%|          | 0/2 [00:00<?, ?batch/s, loss=65.9]Epoch 175: 100%|██████████| 2/2 [00:00<00:00, 88.23batch/s, loss=65.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.34batch/s]
+Val: 546.02001953125
+Schedule: {'alpha_clip': 0.0252, 'epoch': 176, 'step': 352}
+Epoch 176:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 176:   0%|          | 0/2 [00:00<?, ?batch/s, loss=100]Epoch 176:   0%|          | 0/2 [00:00<?, ?batch/s, loss=64.8]Epoch 176: 100%|██████████| 2/2 [00:00<00:00, 89.20batch/s, loss=64.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 148.63batch/s]
+Val: 547.5847778320312
+Schedule: {'alpha_clip': 0.025400000000000002, 'epoch': 177, 'step': 354}
+Epoch 177:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 177:   0%|          | 0/2 [00:00<?, ?batch/s, loss=29.2]Epoch 177:   0%|          | 0/2 [00:00<?, ?batch/s, loss=65.4]Epoch 177: 100%|██████████| 2/2 [00:00<00:00, 88.11batch/s, loss=65.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.19batch/s]
+Val: 547.4879760742188
+Schedule: {'alpha_clip': 0.0256, 'epoch': 178, 'step': 356}
+Epoch 178:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 178:   0%|          | 0/2 [00:00<?, ?batch/s, loss=96.7]Epoch 178:   0%|          | 0/2 [00:00<?, ?batch/s, loss=62.6]Epoch 178: 100%|██████████| 2/2 [00:00<00:00, 86.77batch/s, loss=62.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 156.02batch/s]
+Val: 545.7849731445312
+Schedule: {'alpha_clip': 0.025800000000000003, 'epoch': 179, 'step': 358}
+Epoch 179:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 179:   0%|          | 0/2 [00:00<?, ?batch/s, loss=97.7]Epoch 179:   0%|          | 0/2 [00:00<?, ?batch/s, loss=62.1]Epoch 179: 100%|██████████| 2/2 [00:00<00:00, 89.17batch/s, loss=62.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.99batch/s]
+Val: 546.919677734375
+Schedule: {'alpha_clip': 0.026000000000000002, 'epoch': 180, 'step': 360}
+Epoch 180:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 180:   0%|          | 0/2 [00:00<?, ?batch/s, loss=29.3]Epoch 180:   0%|          | 0/2 [00:00<?, ?batch/s, loss=62.9]Epoch 180: 100%|██████████| 2/2 [00:00<00:00, 81.60batch/s, loss=62.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.10batch/s]
+Val: 546.5089111328125
+Schedule: {'alpha_clip': 0.0262, 'epoch': 181, 'step': 362}
+Epoch 181:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 181:   0%|          | 0/2 [00:00<?, ?batch/s, loss=97.6]Epoch 181:   0%|          | 0/2 [00:00<?, ?batch/s, loss=65]  Epoch 181: 100%|██████████| 2/2 [00:00<00:00, 88.56batch/s, loss=65]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 148.96batch/s]
+Val: 546.8032836914062
+Schedule: {'alpha_clip': 0.026400000000000003, 'epoch': 182, 'step': 364}
+Epoch 182:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 182:   0%|          | 0/2 [00:00<?, ?batch/s, loss=97.4]Epoch 182:   0%|          | 0/2 [00:00<?, ?batch/s, loss=62.7]Epoch 182: 100%|██████████| 2/2 [00:00<00:00, 81.67batch/s, loss=62.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 159.08batch/s]
+Val: 546.5349731445312
+Schedule: {'alpha_clip': 0.026600000000000002, 'epoch': 183, 'step': 366}
+Epoch 183:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 183:   0%|          | 0/2 [00:00<?, ?batch/s, loss=26.5]Epoch 183:   0%|          | 0/2 [00:00<?, ?batch/s, loss=62.6]Epoch 183: 100%|██████████| 2/2 [00:00<00:00, 89.85batch/s, loss=62.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 155.09batch/s]
+Val: 546.1812133789062
+Schedule: {'alpha_clip': 0.026800000000000004, 'epoch': 184, 'step': 368}
+Epoch 184:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 184:   0%|          | 0/2 [00:00<?, ?batch/s, loss=28.2]Epoch 184:   0%|          | 0/2 [00:00<?, ?batch/s, loss=65]  Epoch 184: 100%|██████████| 2/2 [00:00<00:00, 88.18batch/s, loss=65]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.89batch/s]
+Val: 546.5419311523438
+Schedule: {'alpha_clip': 0.027000000000000003, 'epoch': 185, 'step': 370}
+Epoch 185:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 185:   0%|          | 0/2 [00:00<?, ?batch/s, loss=29.3]Epoch 185:   0%|          | 0/2 [00:00<?, ?batch/s, loss=64.1]Epoch 185: 100%|██████████| 2/2 [00:00<00:00, 87.89batch/s, loss=64.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.20batch/s]
+Val: 546.3352661132812
+Schedule: {'alpha_clip': 0.027200000000000002, 'epoch': 186, 'step': 372}
+Epoch 186:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 186:   0%|          | 0/2 [00:00<?, ?batch/s, loss=27.8]Epoch 186:   0%|          | 0/2 [00:00<?, ?batch/s, loss=63.5]Epoch 186: 100%|██████████| 2/2 [00:00<00:00, 83.60batch/s, loss=63.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 144.63batch/s]
+Val: 547.525146484375
+Schedule: {'alpha_clip': 0.027400000000000004, 'epoch': 187, 'step': 374}
+Epoch 187:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 187:   0%|          | 0/2 [00:00<?, ?batch/s, loss=34.9]Epoch 187:   0%|          | 0/2 [00:00<?, ?batch/s, loss=68.4]Epoch 187: 100%|██████████| 2/2 [00:00<00:00, 85.60batch/s, loss=68.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 143.50batch/s]
+Val: 544.8075561523438
+Schedule: {'alpha_clip': 0.027600000000000003, 'epoch': 188, 'step': 376}
+Epoch 188:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 188:   0%|          | 0/2 [00:00<?, ?batch/s, loss=99.8]Epoch 188:   0%|          | 0/2 [00:00<?, ?batch/s, loss=69.6]Epoch 188: 100%|██████████| 2/2 [00:00<00:00, 82.57batch/s, loss=69.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.83batch/s]
+Val: 545.575439453125
+Schedule: {'alpha_clip': 0.027800000000000005, 'epoch': 189, 'step': 378}
+Epoch 189:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 189:   0%|          | 0/2 [00:00<?, ?batch/s, loss=33.4]Epoch 189:   0%|          | 0/2 [00:00<?, ?batch/s, loss=66.4]Epoch 189: 100%|██████████| 2/2 [00:00<00:00, 87.10batch/s, loss=66.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 147.33batch/s]
+Val: 548.9437866210938
+Schedule: {'alpha_clip': 0.028000000000000004, 'epoch': 190, 'step': 380}
+Epoch 190:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 190:   0%|          | 0/2 [00:00<?, ?batch/s, loss=42.1]Epoch 190:   0%|          | 0/2 [00:00<?, ?batch/s, loss=73.9]Epoch 190: 100%|██████████| 2/2 [00:00<00:00, 86.64batch/s, loss=73.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 145.69batch/s]
+Val: 545.8270263671875
+Schedule: {'alpha_clip': 0.0282, 'epoch': 191, 'step': 382}
+Epoch 191:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 191:   0%|          | 0/2 [00:00<?, ?batch/s, loss=28.6]Epoch 191:   0%|          | 0/2 [00:00<?, ?batch/s, loss=67.8]Epoch 191: 100%|██████████| 2/2 [00:00<00:00, 87.48batch/s, loss=67.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.34batch/s]
+Val: 545.2722778320312
+Schedule: {'alpha_clip': 0.028399999999999998, 'epoch': 192, 'step': 384}
+Epoch 192:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 192:   0%|          | 0/2 [00:00<?, ?batch/s, loss=108]Epoch 192:   0%|          | 0/2 [00:00<?, ?batch/s, loss=68.6]Epoch 192: 100%|██████████| 2/2 [00:00<00:00, 88.96batch/s, loss=68.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 144.52batch/s]
+Val: 546.7327880859375
+Schedule: {'alpha_clip': 0.0286, 'epoch': 193, 'step': 386}
+Epoch 193:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 193:   0%|          | 0/2 [00:00<?, ?batch/s, loss=100]Epoch 193:   0%|          | 0/2 [00:00<?, ?batch/s, loss=72.6]Epoch 193: 100%|██████████| 2/2 [00:00<00:00, 80.00batch/s, loss=72.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.19batch/s]
+Val: 547.2649536132812
+Schedule: {'alpha_clip': 0.0288, 'epoch': 194, 'step': 388}
+Epoch 194:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 194:   0%|          | 0/2 [00:00<?, ?batch/s, loss=32.8]Epoch 194:   0%|          | 0/2 [00:00<?, ?batch/s, loss=66.4]Epoch 194: 100%|██████████| 2/2 [00:00<00:00, 88.71batch/s, loss=66.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 159.83batch/s]
+Val: 545.3868408203125
+Schedule: {'alpha_clip': 0.028999999999999998, 'epoch': 195, 'step': 390}
+Epoch 195:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 195:   0%|          | 0/2 [00:00<?, ?batch/s, loss=38.4]Epoch 195:   0%|          | 0/2 [00:00<?, ?batch/s, loss=69.7]Epoch 195: 100%|██████████| 2/2 [00:00<00:00, 90.30batch/s, loss=69.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 145.65batch/s]
+Val: 546.8677978515625
+Schedule: {'alpha_clip': 0.0292, 'epoch': 196, 'step': 392}
+Epoch 196:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 196:   0%|          | 0/2 [00:00<?, ?batch/s, loss=103]Epoch 196:   0%|          | 0/2 [00:00<?, ?batch/s, loss=67.2]Epoch 196: 100%|██████████| 2/2 [00:00<00:00, 88.10batch/s, loss=67.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.73batch/s]
+Val: 545.887939453125
+Schedule: {'alpha_clip': 0.0294, 'epoch': 197, 'step': 394}
+Epoch 197:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 197:   0%|          | 0/2 [00:00<?, ?batch/s, loss=103]Epoch 197:   0%|          | 0/2 [00:00<?, ?batch/s, loss=66.3]Epoch 197: 100%|██████████| 2/2 [00:00<00:00, 89.97batch/s, loss=66.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 148.68batch/s]
+Val: 544.9901733398438
+Schedule: {'alpha_clip': 0.0296, 'epoch': 198, 'step': 396}
+Epoch 198:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 198:   0%|          | 0/2 [00:00<?, ?batch/s, loss=104]Epoch 198:   0%|          | 0/2 [00:00<?, ?batch/s, loss=68.3]Epoch 198: 100%|██████████| 2/2 [00:00<00:00, 88.94batch/s, loss=68.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 162.96batch/s]
+Val: 547.3883666992188
+Schedule: {'alpha_clip': 0.0298, 'epoch': 199, 'step': 398}
+Epoch 199:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 199:   0%|          | 0/2 [00:00<?, ?batch/s, loss=97.4]Epoch 199:   0%|          | 0/2 [00:00<?, ?batch/s, loss=65.9]Epoch 199: 100%|██████████| 2/2 [00:00<00:00, 89.40batch/s, loss=65.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 158.94batch/s]
+Val: 547.3165283203125
+Schedule: {'alpha_clip': 0.03, 'epoch': 200, 'step': 400}
+Epoch 200:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 200:   0%|          | 0/2 [00:00<?, ?batch/s, loss=29.2]Epoch 200:   0%|          | 0/2 [00:00<?, ?batch/s, loss=67.5]Epoch 200: 100%|██████████| 2/2 [00:00<00:00, 83.67batch/s, loss=67.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.11batch/s]
+Val: 545.408203125
+Schedule: {'alpha_clip': 0.0302, 'epoch': 201, 'step': 402}
+Epoch 201:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 201:   0%|          | 0/2 [00:00<?, ?batch/s, loss=102]Epoch 201:   0%|          | 0/2 [00:00<?, ?batch/s, loss=68.3]Epoch 201: 100%|██████████| 2/2 [00:00<00:00, 88.48batch/s, loss=68.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 165.06batch/s]
+Val: 546.8026733398438
+Schedule: {'alpha_clip': 0.0304, 'epoch': 202, 'step': 404}
+Epoch 202:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 202:   0%|          | 0/2 [00:00<?, ?batch/s, loss=97.4]Epoch 202:   0%|          | 0/2 [00:00<?, ?batch/s, loss=65]  Epoch 202: 100%|██████████| 2/2 [00:00<00:00, 89.14batch/s, loss=65]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 150.13batch/s]
+Val: 548.67333984375
+Schedule: {'alpha_clip': 0.030600000000000002, 'epoch': 203, 'step': 406}
+Epoch 203:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 203:   0%|          | 0/2 [00:00<?, ?batch/s, loss=103]Epoch 203:   0%|          | 0/2 [00:00<?, ?batch/s, loss=67.9]Epoch 203: 100%|██████████| 2/2 [00:00<00:00, 83.02batch/s, loss=67.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 155.20batch/s]
+Val: 545.7887573242188
+Schedule: {'alpha_clip': 0.0308, 'epoch': 204, 'step': 408}
+Epoch 204:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 204:   0%|          | 0/2 [00:00<?, ?batch/s, loss=102]Epoch 204:   0%|          | 0/2 [00:00<?, ?batch/s, loss=68.3]Epoch 204: 100%|██████████| 2/2 [00:00<00:00, 87.77batch/s, loss=68.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 158.14batch/s]
+Val: 545.8709716796875
+Schedule: {'alpha_clip': 0.031, 'epoch': 205, 'step': 410}
+Epoch 205:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 205:   0%|          | 0/2 [00:00<?, ?batch/s, loss=29.3]Epoch 205:   0%|          | 0/2 [00:00<?, ?batch/s, loss=63.5]Epoch 205: 100%|██████████| 2/2 [00:00<00:00, 88.50batch/s, loss=63.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.70batch/s]
+Val: 547.576171875
+Schedule: {'alpha_clip': 0.031200000000000002, 'epoch': 206, 'step': 412}
+Epoch 206:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 206:   0%|          | 0/2 [00:00<?, ?batch/s, loss=97.3]Epoch 206:   0%|          | 0/2 [00:00<?, ?batch/s, loss=63.7]Epoch 206: 100%|██████████| 2/2 [00:00<00:00, 82.44batch/s, loss=63.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 134.93batch/s]
+Val: 547.19140625
+Schedule: {'alpha_clip': 0.031400000000000004, 'epoch': 207, 'step': 414}
+Epoch 207:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 207:   0%|          | 0/2 [00:00<?, ?batch/s, loss=97.5]Epoch 207:   0%|          | 0/2 [00:00<?, ?batch/s, loss=64.9]Epoch 207: 100%|██████████| 2/2 [00:00<00:00, 88.28batch/s, loss=64.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 160.07batch/s]
+Val: 545.9677734375
+Schedule: {'alpha_clip': 0.0316, 'epoch': 208, 'step': 416}
+Epoch 208:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 208:   0%|          | 0/2 [00:00<?, ?batch/s, loss=100]Epoch 208:   0%|          | 0/2 [00:00<?, ?batch/s, loss=64.3]Epoch 208: 100%|██████████| 2/2 [00:00<00:00, 87.73batch/s, loss=64.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 159.09batch/s]
+Val: 546.2455444335938
+Schedule: {'alpha_clip': 0.0318, 'epoch': 209, 'step': 418}
+Epoch 209:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 209:   0%|          | 0/2 [00:00<?, ?batch/s, loss=29.6]Epoch 209:   0%|          | 0/2 [00:00<?, ?batch/s, loss=65.6]Epoch 209: 100%|██████████| 2/2 [00:00<00:00, 85.01batch/s, loss=65.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.12batch/s]
+Val: 547.9871215820312
+Schedule: {'alpha_clip': 0.032, 'epoch': 210, 'step': 420}
+Epoch 210:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 210:   0%|          | 0/2 [00:00<?, ?batch/s, loss=106]Epoch 210:   0%|          | 0/2 [00:00<?, ?batch/s, loss=68.6]Epoch 210: 100%|██████████| 2/2 [00:00<00:00, 88.25batch/s, loss=68.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 163.64batch/s]
+Val: 546.7501831054688
+Schedule: {'alpha_clip': 0.0322, 'epoch': 211, 'step': 422}
+Epoch 211:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 211:   0%|          | 0/2 [00:00<?, ?batch/s, loss=29.7]Epoch 211:   0%|          | 0/2 [00:00<?, ?batch/s, loss=64]  Epoch 211: 100%|██████████| 2/2 [00:00<00:00, 87.77batch/s, loss=64]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 160.82batch/s]
+Val: 544.7671508789062
+Schedule: {'alpha_clip': 0.032400000000000005, 'epoch': 212, 'step': 424}
+Epoch 212:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 212:   0%|          | 0/2 [00:00<?, ?batch/s, loss=101]Epoch 212:   0%|          | 0/2 [00:00<?, ?batch/s, loss=65.2]Epoch 212: 100%|██████████| 2/2 [00:00<00:00, 88.13batch/s, loss=65.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 165.34batch/s]
+Val: 546.3582153320312
+Schedule: {'alpha_clip': 0.032600000000000004, 'epoch': 213, 'step': 426}
+Epoch 213:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 213:   0%|          | 0/2 [00:00<?, ?batch/s, loss=94.7]Epoch 213:   0%|          | 0/2 [00:00<?, ?batch/s, loss=62.6]Epoch 213: 100%|██████████| 2/2 [00:00<00:00, 88.29batch/s, loss=62.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.62batch/s]
+Val: 547.7368774414062
+Schedule: {'alpha_clip': 0.0328, 'epoch': 214, 'step': 428}
+Epoch 214:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 214:   0%|          | 0/2 [00:00<?, ?batch/s, loss=30.7]Epoch 214:   0%|          | 0/2 [00:00<?, ?batch/s, loss=65.2]Epoch 214: 100%|██████████| 2/2 [00:00<00:00, 88.74batch/s, loss=65.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 162.32batch/s]
+Val: 546.7274780273438
+Schedule: {'alpha_clip': 0.033, 'epoch': 215, 'step': 430}
+Epoch 215:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 215:   0%|          | 0/2 [00:00<?, ?batch/s, loss=97.7]Epoch 215:   0%|          | 0/2 [00:00<?, ?batch/s, loss=65.3]Epoch 215: 100%|██████████| 2/2 [00:00<00:00, 88.77batch/s, loss=65.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 150.07batch/s]
+Val: 546.32861328125
+Schedule: {'alpha_clip': 0.0332, 'epoch': 216, 'step': 432}
+Epoch 216:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 216:   0%|          | 0/2 [00:00<?, ?batch/s, loss=28.7]Epoch 216:   0%|          | 0/2 [00:00<?, ?batch/s, loss=63]  Epoch 216: 100%|██████████| 2/2 [00:00<00:00, 84.84batch/s, loss=63]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 150.26batch/s]
+Val: 547.3514404296875
+Schedule: {'alpha_clip': 0.033400000000000006, 'epoch': 217, 'step': 434}
+Epoch 217:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 217:   0%|          | 0/2 [00:00<?, ?batch/s, loss=27.7]Epoch 217:   0%|          | 0/2 [00:00<?, ?batch/s, loss=63.9]Epoch 217: 100%|██████████| 2/2 [00:00<00:00, 61.44batch/s, loss=63.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.21batch/s]
+Val: 546.0105590820312
+Schedule: {'alpha_clip': 0.033600000000000005, 'epoch': 218, 'step': 436}
+Epoch 218:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 218:   0%|          | 0/2 [00:00<?, ?batch/s, loss=98.6]Epoch 218:   0%|          | 0/2 [00:00<?, ?batch/s, loss=64]  Epoch 218: 100%|██████████| 2/2 [00:00<00:00, 57.93batch/s, loss=64]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 155.68batch/s]
+Val: 546.3526000976562
+Schedule: {'alpha_clip': 0.033800000000000004, 'epoch': 219, 'step': 438}
+Epoch 219:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 219:   0%|          | 0/2 [00:00<?, ?batch/s, loss=101]Epoch 219:   0%|          | 0/2 [00:00<?, ?batch/s, loss=64.3]Epoch 219: 100%|██████████| 2/2 [00:00<00:00, 48.74batch/s, loss=64.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.47batch/s]
+Val: 546.6205444335938
+Schedule: {'alpha_clip': 0.034, 'epoch': 220, 'step': 440}
+Epoch 220:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 220:   0%|          | 0/2 [00:00<?, ?batch/s, loss=25.8]Epoch 220:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60.1]Epoch 220: 100%|██████████| 2/2 [00:00<00:00, 89.67batch/s, loss=60.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 155.62batch/s]
+Val: 547.0877685546875
+Schedule: {'alpha_clip': 0.0342, 'epoch': 221, 'step': 442}
+Epoch 221:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 221:   0%|          | 0/2 [00:00<?, ?batch/s, loss=97.2]Epoch 221:   0%|          | 0/2 [00:00<?, ?batch/s, loss=62.3]Epoch 221: 100%|██████████| 2/2 [00:00<00:00, 90.60batch/s, loss=62.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 165.91batch/s]
+Val: 546.4799194335938
+Schedule: {'alpha_clip': 0.0344, 'epoch': 222, 'step': 444}
+Epoch 222:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 222:   0%|          | 0/2 [00:00<?, ?batch/s, loss=25.3]Epoch 222:   0%|          | 0/2 [00:00<?, ?batch/s, loss=61]  Epoch 222: 100%|██████████| 2/2 [00:00<00:00, 88.21batch/s, loss=61]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.41batch/s]
+Val: 546.7531127929688
+Schedule: {'alpha_clip': 0.0346, 'epoch': 223, 'step': 446}
+Epoch 223:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 223:   0%|          | 0/2 [00:00<?, ?batch/s, loss=96]Epoch 223:   0%|          | 0/2 [00:00<?, ?batch/s, loss=61.5]Epoch 223: 100%|██████████| 2/2 [00:00<00:00, 89.49batch/s, loss=61.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 160.61batch/s]
+Val: 545.5305786132812
+Schedule: {'alpha_clip': 0.0348, 'epoch': 224, 'step': 448}
+Epoch 224:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 224:   0%|          | 0/2 [00:00<?, ?batch/s, loss=97.6]Epoch 224:   0%|          | 0/2 [00:00<?, ?batch/s, loss=62.1]Epoch 224: 100%|██████████| 2/2 [00:00<00:00, 88.22batch/s, loss=62.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 151.78batch/s]
+Val: 545.6251831054688
+Schedule: {'alpha_clip': 0.034999999999999996, 'epoch': 225, 'step': 450}
+Epoch 225:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 225:   0%|          | 0/2 [00:00<?, ?batch/s, loss=96.7]Epoch 225:   0%|          | 0/2 [00:00<?, ?batch/s, loss=61.5]Epoch 225: 100%|██████████| 2/2 [00:00<00:00, 88.22batch/s, loss=61.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 151.93batch/s]
+Val: 546.1719970703125
+Schedule: {'alpha_clip': 0.0352, 'epoch': 226, 'step': 452}
+Epoch 226:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 226:   0%|          | 0/2 [00:00<?, ?batch/s, loss=98.2]Epoch 226:   0%|          | 0/2 [00:00<?, ?batch/s, loss=61.9]Epoch 226: 100%|██████████| 2/2 [00:00<00:00, 88.45batch/s, loss=61.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.48batch/s]
+Val: 545.8570556640625
+Schedule: {'alpha_clip': 0.0354, 'epoch': 227, 'step': 454}
+Epoch 227:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 227:   0%|          | 0/2 [00:00<?, ?batch/s, loss=28.7]Epoch 227:   0%|          | 0/2 [00:00<?, ?batch/s, loss=61.8]Epoch 227: 100%|██████████| 2/2 [00:00<00:00, 88.48batch/s, loss=61.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 161.91batch/s]
+Val: 546.9725952148438
+Schedule: {'alpha_clip': 0.0356, 'epoch': 228, 'step': 456}
+Epoch 228:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 228:   0%|          | 0/2 [00:00<?, ?batch/s, loss=98.2]Epoch 228:   0%|          | 0/2 [00:00<?, ?batch/s, loss=61.6]Epoch 228: 100%|██████████| 2/2 [00:00<00:00, 90.21batch/s, loss=61.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.57batch/s]
+Val: 546.0654296875
+Schedule: {'alpha_clip': 0.0358, 'epoch': 229, 'step': 458}
+Epoch 229:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 229:   0%|          | 0/2 [00:00<?, ?batch/s, loss=95.4]Epoch 229:   0%|          | 0/2 [00:00<?, ?batch/s, loss=61.6]Epoch 229: 100%|██████████| 2/2 [00:00<00:00, 89.99batch/s, loss=61.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 158.54batch/s]
+Val: 545.5179443359375
+Schedule: {'alpha_clip': 0.036, 'epoch': 230, 'step': 460}
+Epoch 230:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 230:   0%|          | 0/2 [00:00<?, ?batch/s, loss=26.4]Epoch 230:   0%|          | 0/2 [00:00<?, ?batch/s, loss=61.1]Epoch 230: 100%|██████████| 2/2 [00:00<00:00, 84.07batch/s, loss=61.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.72batch/s]
+Val: 547.013427734375
+Schedule: {'alpha_clip': 0.0362, 'epoch': 231, 'step': 462}
+Epoch 231:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 231:   0%|          | 0/2 [00:00<?, ?batch/s, loss=26.7]Epoch 231:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60.9]Epoch 231: 100%|██████████| 2/2 [00:00<00:00, 89.29batch/s, loss=60.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 155.34batch/s]
+Val: 546.2377319335938
+Schedule: {'alpha_clip': 0.0364, 'epoch': 232, 'step': 464}
+Epoch 232:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 232:   0%|          | 0/2 [00:00<?, ?batch/s, loss=97]Epoch 232:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60.8]Epoch 232: 100%|██████████| 2/2 [00:00<00:00, 89.64batch/s, loss=60.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 163.50batch/s]
+Val: 545.4910278320312
+Schedule: {'alpha_clip': 0.0366, 'epoch': 233, 'step': 466}
+Epoch 233:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 233:   0%|          | 0/2 [00:00<?, ?batch/s, loss=97.2]Epoch 233:   0%|          | 0/2 [00:00<?, ?batch/s, loss=61.7]Epoch 233: 100%|██████████| 2/2 [00:00<00:00, 86.04batch/s, loss=61.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 147.40batch/s]
+Val: 546.6744995117188
+Schedule: {'alpha_clip': 0.0368, 'epoch': 234, 'step': 468}
+Epoch 234:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 234:   0%|          | 0/2 [00:00<?, ?batch/s, loss=26.3]Epoch 234:   0%|          | 0/2 [00:00<?, ?batch/s, loss=62.9]Epoch 234: 100%|██████████| 2/2 [00:00<00:00, 86.04batch/s, loss=62.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.35batch/s]
+Val: 547.2296752929688
+Schedule: {'alpha_clip': 0.037, 'epoch': 235, 'step': 470}
+Epoch 235:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 235:   0%|          | 0/2 [00:00<?, ?batch/s, loss=101]Epoch 235:   0%|          | 0/2 [00:00<?, ?batch/s, loss=62.3]Epoch 235: 100%|██████████| 2/2 [00:00<00:00, 87.47batch/s, loss=62.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 149.79batch/s]
+Val: 545.9274291992188
+Schedule: {'alpha_clip': 0.037200000000000004, 'epoch': 236, 'step': 472}
+Epoch 236:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 236:   0%|          | 0/2 [00:00<?, ?batch/s, loss=29.4]Epoch 236:   0%|          | 0/2 [00:00<?, ?batch/s, loss=61.9]Epoch 236: 100%|██████████| 2/2 [00:00<00:00, 85.78batch/s, loss=61.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 150.01batch/s]
+Val: 547.281494140625
+Schedule: {'alpha_clip': 0.0374, 'epoch': 237, 'step': 474}
+Epoch 237:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 237:   0%|          | 0/2 [00:00<?, ?batch/s, loss=25.6]Epoch 237:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60.7]Epoch 237: 100%|██████████| 2/2 [00:00<00:00, 88.44batch/s, loss=60.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 146.33batch/s]
+Val: 547.1336059570312
+Schedule: {'alpha_clip': 0.0376, 'epoch': 238, 'step': 476}
+Epoch 238:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 238:   0%|          | 0/2 [00:00<?, ?batch/s, loss=96.2]Epoch 238:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60.8]Epoch 238: 100%|██████████| 2/2 [00:00<00:00, 89.83batch/s, loss=60.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.86batch/s]
+Val: 544.7240600585938
+Schedule: {'alpha_clip': 0.0378, 'epoch': 239, 'step': 478}
+Epoch 239:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 239:   0%|          | 0/2 [00:00<?, ?batch/s, loss=29.9]Epoch 239:   0%|          | 0/2 [00:00<?, ?batch/s, loss=61.4]Epoch 239: 100%|██████████| 2/2 [00:00<00:00, 81.60batch/s, loss=61.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 155.28batch/s]
+Val: 547.008056640625
+Schedule: {'alpha_clip': 0.038000000000000006, 'epoch': 240, 'step': 480}
+Epoch 240:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 240:   0%|          | 0/2 [00:00<?, ?batch/s, loss=101]Epoch 240:   0%|          | 0/2 [00:00<?, ?batch/s, loss=64.9]Epoch 240: 100%|██████████| 2/2 [00:00<00:00, 88.69batch/s, loss=64.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.66batch/s]
+Val: 546.335205078125
+Schedule: {'alpha_clip': 0.038200000000000005, 'epoch': 241, 'step': 482}
+Epoch 241:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 241:   0%|          | 0/2 [00:00<?, ?batch/s, loss=92.3]Epoch 241:   0%|          | 0/2 [00:00<?, ?batch/s, loss=62.6]Epoch 241: 100%|██████████| 2/2 [00:00<00:00, 89.26batch/s, loss=62.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.21batch/s]
+Val: 546.5303344726562
+Schedule: {'alpha_clip': 0.038400000000000004, 'epoch': 242, 'step': 484}
+Epoch 242:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 242:   0%|          | 0/2 [00:00<?, ?batch/s, loss=94.7]Epoch 242:   0%|          | 0/2 [00:00<?, ?batch/s, loss=61.2]Epoch 242: 100%|██████████| 2/2 [00:00<00:00, 87.59batch/s, loss=61.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 143.52batch/s]
+Val: 547.3511352539062
+Schedule: {'alpha_clip': 0.0386, 'epoch': 243, 'step': 486}
+Epoch 243:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 243:   0%|          | 0/2 [00:00<?, ?batch/s, loss=26.8]Epoch 243:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60.1]Epoch 243: 100%|██████████| 2/2 [00:00<00:00, 81.56batch/s, loss=60.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 155.40batch/s]
+Val: 546.2450561523438
+Schedule: {'alpha_clip': 0.0388, 'epoch': 244, 'step': 488}
+Epoch 244:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 244:   0%|          | 0/2 [00:00<?, ?batch/s, loss=29.3]Epoch 244:   0%|          | 0/2 [00:00<?, ?batch/s, loss=62.4]Epoch 244: 100%|██████████| 2/2 [00:00<00:00, 89.34batch/s, loss=62.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.29batch/s]
+Val: 546.4019165039062
+Schedule: {'alpha_clip': 0.03900000000000001, 'epoch': 245, 'step': 490}
+Epoch 245:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 245:   0%|          | 0/2 [00:00<?, ?batch/s, loss=27.4]Epoch 245:   0%|          | 0/2 [00:00<?, ?batch/s, loss=61.5]Epoch 245: 100%|██████████| 2/2 [00:00<00:00, 88.39batch/s, loss=61.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 148.11batch/s]
+Val: 546.0056762695312
+Schedule: {'alpha_clip': 0.039200000000000006, 'epoch': 246, 'step': 492}
+Epoch 246:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 246:   0%|          | 0/2 [00:00<?, ?batch/s, loss=25.1]Epoch 246:   0%|          | 0/2 [00:00<?, ?batch/s, loss=59.9]Epoch 246: 100%|██████████| 2/2 [00:00<00:00, 89.17batch/s, loss=59.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 140.64batch/s]
+Val: 546.247314453125
+Schedule: {'alpha_clip': 0.039400000000000004, 'epoch': 247, 'step': 494}
+Epoch 247:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 247:   0%|          | 0/2 [00:00<?, ?batch/s, loss=94.8]Epoch 247:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60]  Epoch 247: 100%|██████████| 2/2 [00:00<00:00, 80.91batch/s, loss=60]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.96batch/s]
+Val: 546.2017211914062
+Schedule: {'alpha_clip': 0.0396, 'epoch': 248, 'step': 496}
+Epoch 248:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 248:   0%|          | 0/2 [00:00<?, ?batch/s, loss=24.8]Epoch 248:   0%|          | 0/2 [00:00<?, ?batch/s, loss=58.2]Epoch 248: 100%|██████████| 2/2 [00:00<00:00, 88.08batch/s, loss=58.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 156.83batch/s]
+Val: 545.504150390625
+Schedule: {'alpha_clip': 0.0398, 'epoch': 249, 'step': 498}
+Epoch 249:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 249:   0%|          | 0/2 [00:00<?, ?batch/s, loss=95.9]Epoch 249:   0%|          | 0/2 [00:00<?, ?batch/s, loss=59.3]Epoch 249: 100%|██████████| 2/2 [00:00<00:00, 82.73batch/s, loss=59.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 150.12batch/s]
+Val: 547.8568115234375
+Schedule: {'alpha_clip': 0.04000000000000001, 'epoch': 250, 'step': 500}
+Epoch 250:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 250:   0%|          | 0/2 [00:00<?, ?batch/s, loss=25.4]Epoch 250:   0%|          | 0/2 [00:00<?, ?batch/s, loss=59.8]Epoch 250: 100%|██████████| 2/2 [00:00<00:00, 88.95batch/s, loss=59.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 155.45batch/s]
+Val: 546.22998046875
+Schedule: {'alpha_clip': 0.04020000000000001, 'epoch': 251, 'step': 502}
+Epoch 251:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 251:   0%|          | 0/2 [00:00<?, ?batch/s, loss=94.8]Epoch 251:   0%|          | 0/2 [00:00<?, ?batch/s, loss=59.3]Epoch 251: 100%|██████████| 2/2 [00:00<00:00, 88.71batch/s, loss=59.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.53batch/s]
+Val: 546.2113647460938
+Schedule: {'alpha_clip': 0.040400000000000005, 'epoch': 252, 'step': 504}
+Epoch 252:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 252:   0%|          | 0/2 [00:00<?, ?batch/s, loss=26.3]Epoch 252:   0%|          | 0/2 [00:00<?, ?batch/s, loss=59.4]Epoch 252: 100%|██████████| 2/2 [00:00<00:00, 89.77batch/s, loss=59.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.23batch/s]
+Val: 547.0470581054688
+Schedule: {'alpha_clip': 0.040600000000000004, 'epoch': 253, 'step': 506}
+Epoch 253:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 253:   0%|          | 0/2 [00:00<?, ?batch/s, loss=94.4]Epoch 253:   0%|          | 0/2 [00:00<?, ?batch/s, loss=59.2]Epoch 253: 100%|██████████| 2/2 [00:00<00:00, 90.67batch/s, loss=59.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.50batch/s]
+Val: 546.5553588867188
+Schedule: {'alpha_clip': 0.0408, 'epoch': 254, 'step': 508}
+Epoch 254:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 254:   0%|          | 0/2 [00:00<?, ?batch/s, loss=22.7]Epoch 254:   0%|          | 0/2 [00:00<?, ?batch/s, loss=59]  Epoch 254: 100%|██████████| 2/2 [00:00<00:00, 79.47batch/s, loss=59]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 151.96batch/s]
+Val: 546.2484130859375
+Schedule: {'alpha_clip': 0.041, 'epoch': 255, 'step': 510}
+Epoch 255:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 255:   0%|          | 0/2 [00:00<?, ?batch/s, loss=25.7]Epoch 255:   0%|          | 0/2 [00:00<?, ?batch/s, loss=58.7]Epoch 255: 100%|██████████| 2/2 [00:00<00:00, 88.73batch/s, loss=58.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 148.21batch/s]
+Val: 547.4471435546875
+Schedule: {'alpha_clip': 0.0412, 'epoch': 256, 'step': 512}
+Epoch 256:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 256:   0%|          | 0/2 [00:00<?, ?batch/s, loss=24.8]Epoch 256:   0%|          | 0/2 [00:00<?, ?batch/s, loss=58.2]Epoch 256: 100%|██████████| 2/2 [00:00<00:00, 78.11batch/s, loss=58.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 158.39batch/s]
+Val: 545.7296142578125
+Schedule: {'alpha_clip': 0.0414, 'epoch': 257, 'step': 514}
+Epoch 257:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 257:   0%|          | 0/2 [00:00<?, ?batch/s, loss=95.6]Epoch 257:   0%|          | 0/2 [00:00<?, ?batch/s, loss=59.8]Epoch 257: 100%|██████████| 2/2 [00:00<00:00, 88.48batch/s, loss=59.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.14batch/s]
+Val: 546.778076171875
+Schedule: {'alpha_clip': 0.0416, 'epoch': 258, 'step': 516}
+Epoch 258:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 258:   0%|          | 0/2 [00:00<?, ?batch/s, loss=25.1]Epoch 258:   0%|          | 0/2 [00:00<?, ?batch/s, loss=63.4]Epoch 258: 100%|██████████| 2/2 [00:00<00:00, 89.51batch/s, loss=63.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.24batch/s]
+Val: 545.6613159179688
+Schedule: {'alpha_clip': 0.041800000000000004, 'epoch': 259, 'step': 518}
+Epoch 259:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 259:   0%|          | 0/2 [00:00<?, ?batch/s, loss=24]Epoch 259:   0%|          | 0/2 [00:00<?, ?batch/s, loss=63]Epoch 259: 100%|██████████| 2/2 [00:00<00:00, 87.93batch/s, loss=63]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.70batch/s]
+Val: 546.5183715820312
+Schedule: {'alpha_clip': 0.042, 'epoch': 260, 'step': 520}
+Epoch 260:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 260:   0%|          | 0/2 [00:00<?, ?batch/s, loss=97.4]Epoch 260:   0%|          | 0/2 [00:00<?, ?batch/s, loss=61.4]Epoch 260: 100%|██████████| 2/2 [00:00<00:00, 88.82batch/s, loss=61.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 158.38batch/s]
+Val: 547.5238037109375
+Schedule: {'alpha_clip': 0.0422, 'epoch': 261, 'step': 522}
+Epoch 261:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 261:   0%|          | 0/2 [00:00<?, ?batch/s, loss=98.8]Epoch 261:   0%|          | 0/2 [00:00<?, ?batch/s, loss=61.8]Epoch 261: 100%|██████████| 2/2 [00:00<00:00, 86.23batch/s, loss=61.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 147.74batch/s]
+Val: 545.9541625976562
+Schedule: {'alpha_clip': 0.0424, 'epoch': 262, 'step': 524}
+Epoch 262:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 262:   0%|          | 0/2 [00:00<?, ?batch/s, loss=98.9]Epoch 262:   0%|          | 0/2 [00:00<?, ?batch/s, loss=61.2]Epoch 262: 100%|██████████| 2/2 [00:00<00:00, 86.22batch/s, loss=61.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 145.80batch/s]
+Val: 546.5365600585938
+Schedule: {'alpha_clip': 0.0426, 'epoch': 263, 'step': 526}
+Epoch 263:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 263:   0%|          | 0/2 [00:00<?, ?batch/s, loss=23.4]Epoch 263:   0%|          | 0/2 [00:00<?, ?batch/s, loss=62]  Epoch 263: 100%|██████████| 2/2 [00:00<00:00, 81.46batch/s, loss=62]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 166.43batch/s]
+Val: 546.87353515625
+Schedule: {'alpha_clip': 0.042800000000000005, 'epoch': 264, 'step': 528}
+Epoch 264:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 264:   0%|          | 0/2 [00:00<?, ?batch/s, loss=92]Epoch 264:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60.7]Epoch 264: 100%|██████████| 2/2 [00:00<00:00, 89.72batch/s, loss=60.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 147.25batch/s]
+Val: 546.1902465820312
+Schedule: {'alpha_clip': 0.043000000000000003, 'epoch': 265, 'step': 530}
+Epoch 265:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 265:   0%|          | 0/2 [00:00<?, ?batch/s, loss=94.6]Epoch 265:   0%|          | 0/2 [00:00<?, ?batch/s, loss=59.5]Epoch 265: 100%|██████████| 2/2 [00:00<00:00, 88.63batch/s, loss=59.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.82batch/s]
+Val: 546.8662719726562
+Schedule: {'alpha_clip': 0.0432, 'epoch': 266, 'step': 532}
+Epoch 266:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 266:   0%|          | 0/2 [00:00<?, ?batch/s, loss=109]Epoch 266:   0%|          | 0/2 [00:00<?, ?batch/s, loss=66.2]Epoch 266: 100%|██████████| 2/2 [00:00<00:00, 89.93batch/s, loss=66.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.65batch/s]
+Val: 546.0725708007812
+Schedule: {'alpha_clip': 0.0434, 'epoch': 267, 'step': 534}
+Epoch 267:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 267:   0%|          | 0/2 [00:00<?, ?batch/s, loss=26.4]Epoch 267:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60.9]Epoch 267: 100%|██████████| 2/2 [00:00<00:00, 88.07batch/s, loss=60.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 150.49batch/s]
+Val: 546.689697265625
+Schedule: {'alpha_clip': 0.0436, 'epoch': 268, 'step': 536}
+Epoch 268:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 268:   0%|          | 0/2 [00:00<?, ?batch/s, loss=96.1]Epoch 268:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60.5]Epoch 268: 100%|██████████| 2/2 [00:00<00:00, 87.67batch/s, loss=60.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 146.53batch/s]
+Val: 546.5618896484375
+Schedule: {'alpha_clip': 0.043800000000000006, 'epoch': 269, 'step': 538}
+Epoch 269:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 269:   0%|          | 0/2 [00:00<?, ?batch/s, loss=93.7]Epoch 269:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60.9]Epoch 269: 100%|██████████| 2/2 [00:00<00:00, 80.68batch/s, loss=60.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 148.80batch/s]
+Val: 546.6101684570312
+Schedule: {'alpha_clip': 0.044000000000000004, 'epoch': 270, 'step': 540}
+Epoch 270:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 270:   0%|          | 0/2 [00:00<?, ?batch/s, loss=25]Epoch 270:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60.6]Epoch 270: 100%|██████████| 2/2 [00:00<00:00, 85.03batch/s, loss=60.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 147.93batch/s]
+Val: 546.8385620117188
+Schedule: {'alpha_clip': 0.0442, 'epoch': 271, 'step': 542}
+Epoch 271:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 271:   0%|          | 0/2 [00:00<?, ?batch/s, loss=99.1]Epoch 271:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60.5]Epoch 271: 100%|██████████| 2/2 [00:00<00:00, 90.17batch/s, loss=60.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.79batch/s]
+Val: 545.833251953125
+Schedule: {'alpha_clip': 0.0444, 'epoch': 272, 'step': 544}
+Epoch 272:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 272:   0%|          | 0/2 [00:00<?, ?batch/s, loss=27.1]Epoch 272:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60.7]Epoch 272: 100%|██████████| 2/2 [00:00<00:00, 85.13batch/s, loss=60.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 145.70batch/s]
+Val: 546.54248046875
+Schedule: {'alpha_clip': 0.0446, 'epoch': 273, 'step': 546}
+Epoch 273:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 273:   0%|          | 0/2 [00:00<?, ?batch/s, loss=96.9]Epoch 273:   0%|          | 0/2 [00:00<?, ?batch/s, loss=62.9]Epoch 273: 100%|██████████| 2/2 [00:00<00:00, 82.73batch/s, loss=62.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 159.61batch/s]
+Val: 546.2681884765625
+Schedule: {'alpha_clip': 0.044800000000000006, 'epoch': 274, 'step': 548}
+Epoch 274:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 274:   0%|          | 0/2 [00:00<?, ?batch/s, loss=95.2]Epoch 274:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60.9]Epoch 274: 100%|██████████| 2/2 [00:00<00:00, 89.15batch/s, loss=60.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 160.03batch/s]
+Val: 545.8214721679688
+Schedule: {'alpha_clip': 0.045000000000000005, 'epoch': 275, 'step': 550}
+Epoch 275:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 275:   0%|          | 0/2 [00:00<?, ?batch/s, loss=95.3]Epoch 275:   0%|          | 0/2 [00:00<?, ?batch/s, loss=59.5]Epoch 275: 100%|██████████| 2/2 [00:00<00:00, 78.85batch/s, loss=59.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 158.20batch/s]
+Val: 547.5447387695312
+Schedule: {'alpha_clip': 0.045200000000000004, 'epoch': 276, 'step': 552}
+Epoch 276:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 276:   0%|          | 0/2 [00:00<?, ?batch/s, loss=100]Epoch 276:   0%|          | 0/2 [00:00<?, ?batch/s, loss=66.3]Epoch 276: 100%|██████████| 2/2 [00:00<00:00, 88.35batch/s, loss=66.3]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 160.19batch/s]
+Val: 546.1585693359375
+Schedule: {'alpha_clip': 0.0454, 'epoch': 277, 'step': 554}
+Epoch 277:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 277:   0%|          | 0/2 [00:00<?, ?batch/s, loss=94.1]Epoch 277:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60.8]Epoch 277: 100%|██████████| 2/2 [00:00<00:00, 82.53batch/s, loss=60.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 151.41batch/s]
+Val: 546.0464477539062
+Schedule: {'alpha_clip': 0.0456, 'epoch': 278, 'step': 556}
+Epoch 278:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 278:   0%|          | 0/2 [00:00<?, ?batch/s, loss=33.8]Epoch 278:   0%|          | 0/2 [00:00<?, ?batch/s, loss=64.5]Epoch 278: 100%|██████████| 2/2 [00:00<00:00, 82.92batch/s, loss=64.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 153.45batch/s]
+Val: 547.451904296875
+Schedule: {'alpha_clip': 0.04580000000000001, 'epoch': 279, 'step': 558}
+Epoch 279:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 279:   0%|          | 0/2 [00:00<?, ?batch/s, loss=95.8]Epoch 279:   0%|          | 0/2 [00:00<?, ?batch/s, loss=61.8]Epoch 279: 100%|██████████| 2/2 [00:00<00:00, 88.41batch/s, loss=61.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.45batch/s]
+Val: 545.7969360351562
+Schedule: {'alpha_clip': 0.046000000000000006, 'epoch': 280, 'step': 560}
+Epoch 280:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 280:   0%|          | 0/2 [00:00<?, ?batch/s, loss=27.8]Epoch 280:   0%|          | 0/2 [00:00<?, ?batch/s, loss=62.8]Epoch 280: 100%|██████████| 2/2 [00:00<00:00, 90.33batch/s, loss=62.8]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.82batch/s]
+Val: 545.19482421875
+Schedule: {'alpha_clip': 0.046200000000000005, 'epoch': 281, 'step': 562}
+Epoch 281:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 281:   0%|          | 0/2 [00:00<?, ?batch/s, loss=30.5]Epoch 281:   0%|          | 0/2 [00:00<?, ?batch/s, loss=63.1]Epoch 281: 100%|██████████| 2/2 [00:00<00:00, 88.19batch/s, loss=63.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.75batch/s]
+Val: 547.52294921875
+Schedule: {'alpha_clip': 0.046400000000000004, 'epoch': 282, 'step': 564}
+Epoch 282:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 282:   0%|          | 0/2 [00:00<?, ?batch/s, loss=28.7]Epoch 282:   0%|          | 0/2 [00:00<?, ?batch/s, loss=62.9]Epoch 282: 100%|██████████| 2/2 [00:00<00:00, 89.58batch/s, loss=62.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.95batch/s]
+Val: 546.1571044921875
+Schedule: {'alpha_clip': 0.0466, 'epoch': 283, 'step': 566}
+Epoch 283:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 283:   0%|          | 0/2 [00:00<?, ?batch/s, loss=21.7]Epoch 283:   0%|          | 0/2 [00:00<?, ?batch/s, loss=58.9]Epoch 283: 100%|██████████| 2/2 [00:00<00:00, 80.10batch/s, loss=58.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 159.28batch/s]
+Val: 545.4028930664062
+Schedule: {'alpha_clip': 0.04680000000000001, 'epoch': 284, 'step': 568}
+Epoch 284:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 284:   0%|          | 0/2 [00:00<?, ?batch/s, loss=95.2]Epoch 284:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60.4]Epoch 284: 100%|██████████| 2/2 [00:00<00:00, 88.06batch/s, loss=60.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 150.05batch/s]
+Val: 546.3432006835938
+Schedule: {'alpha_clip': 0.047, 'epoch': 285, 'step': 570}
+Epoch 285:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 285:   0%|          | 0/2 [00:00<?, ?batch/s, loss=93.5]Epoch 285:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60.6]Epoch 285: 100%|██████████| 2/2 [00:00<00:00, 88.09batch/s, loss=60.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 147.74batch/s]
+Val: 546.53759765625
+Schedule: {'alpha_clip': 0.0472, 'epoch': 286, 'step': 572}
+Epoch 286:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 286:   0%|          | 0/2 [00:00<?, ?batch/s, loss=24.8]Epoch 286:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60.2]Epoch 286: 100%|██████████| 2/2 [00:00<00:00, 85.77batch/s, loss=60.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 150.48batch/s]
+Val: 545.5609130859375
+Schedule: {'alpha_clip': 0.0474, 'epoch': 287, 'step': 574}
+Epoch 287:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 287:   0%|          | 0/2 [00:00<?, ?batch/s, loss=96.8]Epoch 287:   0%|          | 0/2 [00:00<?, ?batch/s, loss=59.5]Epoch 287: 100%|██████████| 2/2 [00:00<00:00, 81.16batch/s, loss=59.5]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 145.92batch/s]
+Val: 545.7691650390625
+Schedule: {'alpha_clip': 0.0476, 'epoch': 288, 'step': 576}
+Epoch 288:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 288:   0%|          | 0/2 [00:00<?, ?batch/s, loss=22.8]Epoch 288:   0%|          | 0/2 [00:00<?, ?batch/s, loss=59.9]Epoch 288: 100%|██████████| 2/2 [00:00<00:00, 87.50batch/s, loss=59.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.59batch/s]
+Val: 546.39404296875
+Schedule: {'alpha_clip': 0.0478, 'epoch': 289, 'step': 578}
+Epoch 289:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 289:   0%|          | 0/2 [00:00<?, ?batch/s, loss=93.8]Epoch 289:   0%|          | 0/2 [00:00<?, ?batch/s, loss=61]  Epoch 289: 100%|██████████| 2/2 [00:00<00:00, 82.17batch/s, loss=61]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 154.37batch/s]
+Val: 545.72021484375
+Schedule: {'alpha_clip': 0.048, 'epoch': 290, 'step': 580}
+Epoch 290:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 290:   0%|          | 0/2 [00:00<?, ?batch/s, loss=22.7]Epoch 290:   0%|          | 0/2 [00:00<?, ?batch/s, loss=58.6]Epoch 290: 100%|██████████| 2/2 [00:00<00:00, 88.61batch/s, loss=58.6]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 160.97batch/s]
+Val: 546.6506958007812
+Schedule: {'alpha_clip': 0.0482, 'epoch': 291, 'step': 582}
+Epoch 291:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 291:   0%|          | 0/2 [00:00<?, ?batch/s, loss=25.1]Epoch 291:   0%|          | 0/2 [00:00<?, ?batch/s, loss=59.7]Epoch 291: 100%|██████████| 2/2 [00:00<00:00, 79.76batch/s, loss=59.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 150.71batch/s]
+Val: 546.5233764648438
+Schedule: {'alpha_clip': 0.0484, 'epoch': 292, 'step': 584}
+Epoch 292:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 292:   0%|          | 0/2 [00:00<?, ?batch/s, loss=93.8]Epoch 292:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60.2]Epoch 292: 100%|██████████| 2/2 [00:00<00:00, 89.97batch/s, loss=60.2]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 161.87batch/s]
+Val: 547.1428833007812
+Schedule: {'alpha_clip': 0.048600000000000004, 'epoch': 293, 'step': 586}
+Epoch 293:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 293:   0%|          | 0/2 [00:00<?, ?batch/s, loss=94.9]Epoch 293:   0%|          | 0/2 [00:00<?, ?batch/s, loss=59.4]Epoch 293: 100%|██████████| 2/2 [00:00<00:00, 87.72batch/s, loss=59.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.53batch/s]
+Val: 545.760986328125
+Schedule: {'alpha_clip': 0.0488, 'epoch': 294, 'step': 588}
+Epoch 294:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 294:   0%|          | 0/2 [00:00<?, ?batch/s, loss=22.7]Epoch 294:   0%|          | 0/2 [00:00<?, ?batch/s, loss=59.1]Epoch 294: 100%|██████████| 2/2 [00:00<00:00, 89.99batch/s, loss=59.1]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.99batch/s]
+Val: 545.6561279296875
+Schedule: {'alpha_clip': 0.049, 'epoch': 295, 'step': 590}
+Epoch 295:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 295:   0%|          | 0/2 [00:00<?, ?batch/s, loss=22]Epoch 295:   0%|          | 0/2 [00:00<?, ?batch/s, loss=58.4]Epoch 295: 100%|██████████| 2/2 [00:00<00:00, 88.41batch/s, loss=58.4]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.37batch/s]
+Val: 547.5397338867188
+Schedule: {'alpha_clip': 0.0492, 'epoch': 296, 'step': 592}
+Epoch 296:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 296:   0%|          | 0/2 [00:00<?, ?batch/s, loss=98.5]Epoch 296:   0%|          | 0/2 [00:00<?, ?batch/s, loss=60.7]Epoch 296: 100%|██████████| 2/2 [00:00<00:00, 88.76batch/s, loss=60.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 151.99batch/s]
+Val: 545.9611206054688
+Schedule: {'alpha_clip': 0.0494, 'epoch': 297, 'step': 594}
+Epoch 297:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 297:   0%|          | 0/2 [00:00<?, ?batch/s, loss=95.2]Epoch 297:   0%|          | 0/2 [00:00<?, ?batch/s, loss=59]  Epoch 297: 100%|██████████| 2/2 [00:00<00:00, 88.90batch/s, loss=59]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 157.75batch/s]
+Val: 546.3326416015625
+Schedule: {'alpha_clip': 0.049600000000000005, 'epoch': 298, 'step': 596}
+Epoch 298:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 298:   0%|          | 0/2 [00:00<?, ?batch/s, loss=23.6]Epoch 298:   0%|          | 0/2 [00:00<?, ?batch/s, loss=59.7]Epoch 298: 100%|██████████| 2/2 [00:00<00:00, 90.82batch/s, loss=59.7]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 152.62batch/s]
+Val: 546.9148559570312
+Schedule: {'alpha_clip': 0.049800000000000004, 'epoch': 299, 'step': 598}
+Epoch 299:   0%|          | 0/2 [00:00<?, ?batch/s]Epoch 299:   0%|          | 0/2 [00:00<?, ?batch/s, loss=24.8]Epoch 299:   0%|          | 0/2 [00:00<?, ?batch/s, loss=58.9]Epoch 299: 100%|██████████| 2/2 [00:00<00:00, 79.90batch/s, loss=58.9]
+    Validating:   0%|          | 0/1 [00:00<?, ?batch/s]    Validating: 100%|██████████| 1/1 [00:00<00:00, 160.49batch/s]
+{
+  "baseline": "dart",
+  "scene": "seq_2_frame_300",
+  "ra_corr": -0.02321525912976912,
+  "range_profile_corr": 0.7293013809971598,
+  "cart_mse": 0.02111198380589485,
+  "cart_rmse": 0.1452996345690341,
+  "cart_psnr": 16.75470955916711,
+  "cart_ssim": 0.2317114624414799,
+  "test_frame": 300,
+  "train_frames": [
+    296,
+    297,
+    298,
+    299,
+    301,
+    302,
+    303,
+    304
+  ],
+  "wall_time_seconds": 25.343225717544556,
+  "peak_gpu_mem_mib": 0.0,
+  "deviations_from_reference": [
+    "Synthetic 9-frame sequence rather than upstream's 100+ frame collections.",
+    "TI MMWCAS cascade (12 TX \u00d7 16 RX); azimuth-FFT'd to 8 bins to match stock 'awr1843boost_az8' gain function (vs natural 127-bin cascade RA).",
+    "Doppler axis: 16 chirps \u2192 16 bins (vs upstream Boreas 256 bins). PLAN Section 9(a) flagged this as gating concern; verified ego speed 1.3-1.6 m/s gives non-zero psi_min weights across the working range.",
+    "Doppler axis labeled \u00b15 m/s; true cascade d_max depends on the chirp PRI which is not in our config files. Documented limitation.",
+    "v_ego from mm3DGS v_ego_refined cache (Stage 0 GT-trajectory interpolation + Stage 1+2 differentiable refinement).",
+    "Per-scene normalisation: 99th percentile of train RDA cubes (vs upstream norm=1e4).",
+    "--pval=0.05 (vs 0 in PLAN); upstream's script_train asserts val is not None, so a tiny 5% holdout is used.",
+    "--adj=Identity (no pose refinement; PLAN Section 10).",
+    "Training epochs: 300 (PLAN Section 8 default 3); 8 train frames \u00d7 Nd=16 valid columns / batch is small, so we run more epochs to give the HashGrid + plenoctree NN time to settle."
+  ],
+  "upstream_commit": "01e7057eba7ffe6e176c18e8f8e63c6576291c4d",
+  "out_dir": "/home/adnan/Desktop/mm3DGS/baselines/dart/results/seq_2_frame_300",
+  "epochs": 300,
+  "sensor": "cascaded"
+}
+Val: 546.9721069335938
+Done training (20.5s).
+{
+  "baseline": "dart",
+  "scene": "seq_2_frame_300",
+  "ra_corr": -0.02321525912976912,
+  "range_profile_corr": 0.7293013809971598,
+  "cart_mse": 0.02111198380589485,
+  "cart_rmse": 0.1452996345690341,
+  "cart_psnr": 16.75470955916711,
+  "cart_ssim": 0.2317114624414799,
+  "test_frame": 300,
+  "train_frames": [
+    296,
+    297,
+    298,
+    299,
+    301,
+    302,
+    303,
+    304
+  ],
+  "wall_time_seconds": 25.343225717544556,
+  "peak_gpu_mem_mib": 0.0,
+  "deviations_from_reference": [
+    "Synthetic 9-frame sequence rather than upstream's 100+ frame collections.",
+    "TI MMWCAS cascade (12 TX \u00d7 16 RX); azimuth-FFT'd to 8 bins to match stock 'awr1843boost_az8' gain function (vs natural 127-bin cascade RA).",
+    "Doppler axis: 16 chirps \u2192 16 bins (vs upstream Boreas 256 bins). PLAN Section 9(a) flagged this as gating concern; verified ego speed 1.3-1.6 m/s gives non-zero psi_min weights across the working range.",
+    "Doppler axis labeled \u00b15 m/s; true cascade d_max depends on the chirp PRI which is not in our config files. Documented limitation.",
+    "v_ego from mm3DGS v_ego_refined cache (Stage 0 GT-trajectory interpolation + Stage 1+2 differentiable refinement).",
+    "Per-scene normalisation: 99th percentile of train RDA cubes (vs upstream norm=1e4).",
+    "--pval=0.05 (vs 0 in PLAN); upstream's script_train asserts val is not None, so a tiny 5% holdout is used.",
+    "--adj=Identity (no pose refinement; PLAN Section 10).",
+    "Training epochs: 300 (PLAN Section 8 default 3); 8 train frames \u00d7 Nd=16 valid columns / batch is small, so we run more epochs to give the HashGrid + plenoctree NN time to settle."
+  ],
+  "upstream_commit": "01e7057eba7ffe6e176c18e8f8e63c6576291c4d",
+  "out_dir": "/home/adnan/Desktop/mm3DGS/baselines/dart/results/seq_2_frame_300",
+  "epochs": 300,
+  "sensor": "cascaded"
+}

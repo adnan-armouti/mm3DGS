@@ -1,0 +1,38 @@
+{
+  "baseline": "dart",
+  "scene": "seq_1_frame_185",
+  "ra_corr": -0.020463826818682616,
+  "range_profile_corr": -0.10852490163048686,
+  "cart_mse": 0.02344214916229248,
+  "cart_rmse": 0.15310829227149156,
+  "cart_psnr": 16.300025749688935,
+  "cart_ssim": 0.19979079632989638,
+  "test_frame": 185,
+  "train_frames": [
+    181,
+    182,
+    183,
+    184,
+    186,
+    187,
+    188,
+    189
+  ],
+  "wall_time_seconds": 24.873132467269897,
+  "peak_gpu_mem_mib": 0.0,
+  "deviations_from_reference": [
+    "Synthetic 9-frame sequence rather than upstream's 100+ frame collections.",
+    "TI MMWCAS cascade (12 TX \u00d7 16 RX); azimuth-FFT'd to 8 bins to match stock 'awr1843boost_az8' gain function (vs natural 127-bin cascade RA).",
+    "Doppler axis: 16 chirps \u2192 16 bins (vs upstream Boreas 256 bins). PLAN Section 9(a) flagged this as gating concern; verified ego speed 1.3-1.6 m/s gives non-zero psi_min weights across the working range.",
+    "Doppler axis labeled \u00b15 m/s; true cascade d_max depends on the chirp PRI which is not in our config files. Documented limitation.",
+    "v_ego from mm3DGS v_ego_refined cache (Stage 0 GT-trajectory interpolation + Stage 1+2 differentiable refinement).",
+    "Per-scene normalisation: 99th percentile of train RDA cubes (vs upstream norm=1e4).",
+    "--pval=0.05 (vs 0 in PLAN); upstream's script_train asserts val is not None, so a tiny 5% holdout is used.",
+    "--adj=Identity (no pose refinement; PLAN Section 10).",
+    "Training epochs: 300 (PLAN Section 8 default 3); 8 train frames \u00d7 Nd=16 valid columns / batch is small, so we run more epochs to give the HashGrid + plenoctree NN time to settle."
+  ],
+  "upstream_commit": "01e7057eba7ffe6e176c18e8f8e63c6576291c4d",
+  "out_dir": "/home/adnan/Desktop/mm3DGS/baselines/dart/results/seq_1_frame_185",
+  "epochs": 300,
+  "sensor": "cascaded"
+}

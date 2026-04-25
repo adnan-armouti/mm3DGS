@@ -191,76 +191,62 @@ upstream.
 
 ------------------------------------------------------------------------
 
-## 4. Geometry / chirp reconciliation
+## 4. Geometry / chirp reconciliation — REVISED 2026-04-25
 
-### Choice: SINGLE-CHIP (128 chirps)
+### Decision: CASCADED (16 chirps)
 
-Reasons, ordered by weight:
+This section is REVISED from the original plan. The original plan picked
+single-chip for Doppler viability and antenna-pattern match. **Per user
+direction (2026-04-25): cross-baseline comparability requires that ALL
+three baselines (RadarSplat, RadarFields, DART) use the same sensor
+modality.** RadarSplat and RadarFields are cascade-only by construction.
+DART is therefore also moved to cascade, and the GT used for evaluation
+is the cascade GT (matching mm3DGS-v6/v7 headline numbers).
 
-1. **Doppler viability.** DART's entire rendering path is
-   Doppler-column integration (`dart/sensor.py:95-148`). With
-   16 chirps (cascaded) the Doppler axis has only 16 bins, and
-   `psi_min/pi/s` becomes a very coarse weighting — empirically, most
-   doppler columns for a slow-moving rover degenerate to `weight = 0` or
-   `weight = 1` and the iso-circle training signal collapses. 128 chirps
-   (single-chip) is still below DART's 256-chirp design point but is
-   within 1x-2x of it and matches the `awr1843boost` antenna convention
-   used in upstream configs (lab-1, house-1, rowhouse-* all shipped on
-   IWR1843/XWR1843-style sensors).
-2. **Antenna-pattern match.** Upstream only ships
-   `awr1843boost*` and `rect`. IWR1443 (3 TX x 4 RX) is closer to
-   AWR1843 than the 12x16 MMWCAS cascade is. Cascaded MIMO would either
-   require writing a new gain function (violates minimum-changes rule)
-   or collapsing 192 virtual elements onto the 8-element az8 assumption
-   (fabricated).
-3. **Sensor singularity.** DART is a single-sensor method. Feeding it
-   the cascade as if it were one big virtual array requires either (a)
-   picking a single TX-RX pair and throwing away ~99% of the array, or
-   (b) fabricating an extended azimuth axis. Both are worse than just
-   using the single-chip data.
+What this costs:
 
-### What this costs
-
-- **mm3DGS signal-match penalty.** mm3DGS trains on cascaded RA. DART
-  trained on single-chip is being evaluated on a different sensor's
-  acquisition geometry. We mitigate by running the mm3DGS metric over
-  the single-chip RA image at the held-out single-chip pose, so the
-  number is internally consistent. BUT: comparing DART (single-chip
-  trained, single-chip evaluated) vs. mm3DGS (cascaded trained,
-  cascaded evaluated) is NOT an apples-to-apples number. It is
-  "DART at its own design point" vs. "mm3DGS at its own design point".
-  Document that a fair SAME-SENSOR comparison would require either
-  training mm3DGS on single-chip (out of scope) or retrofitting DART
-  for cascaded 16-chirp (requires model-architecture changes — violates
-  minimum-changes rule).
-- **Lower Doppler resolution than upstream.** 128 chirps vs. 256. We do
-  NOT oversample, do NOT pad, do NOT synthesise. Section 9 item (a)
-  requires empirical check of the degradation curve vs. chirp count.
+1. **Coarser Doppler axis.** 16 chirps → 16 Doppler bins (vs upstream's
+   256). PLAN Section 9(a) flagged this as the original gating concern;
+   we proceed and accept the resolution loss as a documented limitation.
+2. **Azimuth-FFT downsampled to 8 bins** to match upstream's
+   `awr1843boost_az8` gain function (the only stock gain that ships 8
+   azimuth bins). The cascade's 86-element row-0 virtual array is
+   coherently FFT'd to 8 azimuth bins (vs the natural 127). This is a
+   resolution loss but no architecture change.
+3. **Verified `psi_min` viability.** Our ego speeds are 1.3–1.6 m/s
+   (per ``data/v_ego_cache``). With 16 Doppler bins covering ±d_max ≈
+   5 m/s, the iso-circle integration weight ``psi_min/pi/s`` is well
+   above zero across the working window. The PLAN Section 9(a) failure
+   mode (collapse to weight=0) does not trigger.
+4. **Cascade GT for evaluation.** The same cascade GT used by
+   RadarSplat / RadarFields / mm3DGS-v6/v7 is used here. DART renders a
+   cascade-shaped (Na=8 azim × Nr=256 range × Nd=16 doppler) cube; we
+   sum over Doppler to get a (Na=8, Nr=256) RA polar, then run through
+   ``mmir.data.ra_utils.ra_polar_to_cartesian`` and
+   ``compute_cart_ra_metrics`` against the cascade GT cart.
 
 ### What we change (adapter + config only)
 
-- `sensor.json`: `r`, `d`, `k`, `gain=awr1843boost_az8`.
-- Dataloader constants: implicit in `sensor.json`; DART reads from it.
-- `train.py` flags: `-e` (epochs) scaled if compute budget exceeded
-  (Section 8).
+- `sensor.json`: `r=[0, 256*range_res, 256]`, `d=[-5.0, 5.0, 16]`,
+  `k=128`, `gain=awr1843boost_az8`.
+- Adapter pipeline (per cascade frame):
+  1. Load cascade ADC `(16, 16, 12, 256)` complex.
+  2. Chirp-by-chirp build the 86-element row-0 virtual array.
+  3. Range-FFT along ADC axis → `Nr=256`.
+  4. Doppler-FFT along 16-chirp axis → `Nd=16`.
+  5. Azimuth-FFT to 8 bins → `Na=8`.
+  6. Magnitude → `(Nr, Nd, Na) = (256, 16, 8)`.
 
 ### What we do NOT change
 
 - No chirp synthesis, no Doppler up-sampling, no fabricated bins.
-- No model architecture edits.
-- No loss edits.
-- No `sensor.py` / `pose.py` edits.
-- No new antenna-pattern function.
+- No new antenna-pattern function (use stock `awr1843boost_az8`).
+- No model architecture / loss / sensor.py / pose.py edits.
 
-### Failure mode if the forward model hard-rejects
+### Single-chip is now out of scope
 
-If `get_psi_min` returns 0 for all Doppler columns at our ego speeds,
-training collapses. Needs verification — run `tools/dataset.py` on ONE
-scene first and count `np.sum(weight > 0)` (Section 9). If that fraction
-is < 20%, declare DART non-comparable on this data and report the number
-we DO get, with a note that a fair comparison would require datasets
-with higher ego speed or denser Doppler sampling (i.e. a re-collection,
-not a software fix).
+The original `data_dart/<scene>/data.h5` (built from single-chip ADC)
+and the SC-specific helpers in the adapter are replaced.
 
 ------------------------------------------------------------------------
 
