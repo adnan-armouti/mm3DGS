@@ -193,60 +193,72 @@ upstream.
 
 ## 4. Geometry / chirp reconciliation — REVISED 2026-04-25
 
-### Decision: CASCADED (16 chirps)
+### Two modes: CASCADE (default) and SINGLE-CHIP (alternative)
 
-This section is REVISED from the original plan. The original plan picked
-single-chip for Doppler viability and antenna-pattern match. **Per user
-direction (2026-04-25): cross-baseline comparability requires that ALL
-three baselines (RadarSplat, RadarFields, DART) use the same sensor
-modality.** RadarSplat and RadarFields are cascade-only by construction.
-DART is therefore also moved to cascade, and the GT used for evaluation
-is the cascade GT (matching mm3DGS-v6/v7 headline numbers).
+This section is REVISED twice. The original plan picked single-chip for
+Doppler viability. The first revision (2026-04-25 morning) moved DART to
+cascade for cross-baseline comparability. The second revision (this one)
+adds the missing piece: when the cascade is used, DART must take advantage
+of the cascade's 86 virtual antenna elements rather than collapsing them
+to 8 bins (which throws away the entire azimuth-resolution motivation
+for cascade in the first place).
 
-What this costs:
+The adapter therefore supports two modes, selectable via ``--mode``:
 
-1. **Coarser Doppler axis.** 16 chirps → 16 Doppler bins (vs upstream's
-   256). PLAN Section 9(a) flagged this as the original gating concern;
-   we proceed and accept the resolution loss as a documented limitation.
-2. **Azimuth-FFT downsampled to 8 bins** to match upstream's
-   `awr1843boost_az8` gain function (the only stock gain that ships 8
-   azimuth bins). The cascade's 86-element row-0 virtual array is
-   coherently FFT'd to 8 azimuth bins (vs the natural 127). This is a
-   resolution loss but no architecture change.
-3. **Verified `psi_min` viability.** Our ego speeds are 1.3–1.6 m/s
-   (per ``data/v_ego_cache``). With 16 Doppler bins covering ±d_max ≈
-   5 m/s, the iso-circle integration weight ``psi_min/pi/s`` is well
-   above zero across the working window. The PLAN Section 9(a) failure
-   mode (collapse to weight=0) does not trigger.
-4. **Cascade GT for evaluation.** The same cascade GT used by
-   RadarSplat / RadarFields / mm3DGS-v6/v7 is used here. DART renders a
-   cascade-shaped (Na=8 azim × Nr=256 range × Nd=16 doppler) cube; we
-   sum over Doppler to get a (Na=8, Nr=256) RA polar, then run through
-   ``mmir.data.ra_utils.ra_polar_to_cartesian`` and
-   ``compute_cart_ra_metrics`` against the cascade GT cart.
+#### Mode 1 — CASCADE (default, ``--mode cascaded``)
 
-### What we change (adapter + config only)
+Apples-to-apples vs RadarSplat / RadarFields / mm3DGS-v6/v7:
 
-- `sensor.json`: `r=[0, 256*range_res, 256]`, `d=[-5.0, 5.0, 16]`,
-  `k=128`, `gain=awr1843boost_az8`.
-- Adapter pipeline (per cascade frame):
-  1. Load cascade ADC `(16, 16, 12, 256)` complex.
-  2. Chirp-by-chirp build the 86-element row-0 virtual array.
-  3. Range-FFT along ADC axis → `Nr=256`.
-  4. Doppler-FFT along 16-chirp axis → `Nd=16`.
-  5. Azimuth-FFT to 8 bins → `Na=8`.
-  6. Magnitude → `(Nr, Nd, Na) = (256, 16, 8)`.
+- 12 TX × 16 RX → 86-element row-0 virtual array at half-lambda spacing.
+- Azimuth-FFT to **127 bins** (128-pt FFT, drop bin 0, fftshift) — same
+  convention as mm3DGS-v7 (`mmir.data.ra_utils.virtual_array_to_ra_polar_numpy`).
+- Doppler-FFT over 16 chirps → ``Nd=16``.
+- Range-FFT over 256 ADC samples → ``Nr=256``.
+- Output cube ``(Nr, Nd, Na) = (256, 16, 127)``.
+- Custom DART antenna gain ``cascade_az127`` (added to upstream
+  ``dart/components/antenna.py`` via ``patches/cascade_az127.patch``)
+  matches this 86-element / 127-bin layout.
+- GT for evaluation: the same cascade GT used by every other baseline.
 
-### What we do NOT change
+Per-column data goes from 256 × 8 = 2 048 values (old Na=8 mode) to
+256 × 127 = 32 512 values — a 16× increase in data per training column,
+which is the actual point of using cascade. The Doppler axis (16 bins)
+is still coarse compared to upstream's 256-chirp design point and PLAN
+Section 9(a)'s data-starvation concern still applies — but at least we
+are now exercising the cascade's azimuth resolution.
 
-- No chirp synthesis, no Doppler up-sampling, no fabricated bins.
-- No new antenna-pattern function (use stock `awr1843boost_az8`).
-- No model architecture / loss / sensor.py / pose.py edits.
+#### Mode 2 — SINGLE-CHIP (alternative, ``--mode single_chip``)
 
-### Single-chip is now out of scope
+Provided for "what would DART do at its own design point on this
+hardware?" — kept available but NOT the apples-to-apples comparison vs
+the cascade-trained mm3DGS-v7 / RadarSplat / RadarFields. The
+single-chip data on this dataset has not undergone the same level of
+trajectory alignment refinement that the cascade has, so any number is
+also potentially poses-quality-limited.
 
-The original `data_dart/<scene>/data.h5` (built from single-chip ADC)
-and the SC-specific helpers in the adapter are replaced.
+- TI IWR1443 SC (3 TX × 4 RX) → 8-element row-0 virtual array.
+- Azimuth-FFT to **8 bins** with stock ``awr1843boost_az8`` gain.
+- Doppler-FFT over 128 chirps → ``Nd=128`` (closer to DART's design point).
+- Range-FFT over 128 ADC samples → ``Nr=128``.
+- Output cube ``(Nr, Nd, Na) = (128, 128, 8)``.
+- GT: single-chip RA at the held-out single-chip frame's pose. NOT
+  comparable to the cascade GT used by other baselines.
+
+### Upstream patch summary
+
+- ``patches/cascade_az127.patch`` adds ``cascade_az127`` to
+  ``upstream/dart/components/antenna.py`` (~30 LOC, mirrors the structure
+  of ``awr1843boost_az8`` but for an 86-element array beamformed to 127
+  bins). No changes to model architecture, loss, sensor.py, or pose.py.
+
+### Verified `psi_min` viability
+
+Our ego speeds are 1.3–1.6 m/s (``data/v_ego_cache/<scene>/frame_<F>_v_ego_refined.npy``).
+With ``d ∈ [-5, +5] m/s`` × Nd bins, the iso-circle integration weight
+``psi_min/pi/s`` is non-zero across most bins. After upstream's
+zero-weight filter ``tools/dataset.py:75-83``, the cascade adapter
+yields ~19 valid columns / 128 (8 frames × 16 Doppler bins). PLAN
+Section 9(a)'s failure mode (collapse to weight=0) does not trigger.
 
 ------------------------------------------------------------------------
 

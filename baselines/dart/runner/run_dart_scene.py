@@ -27,12 +27,12 @@ for p in (_UPSTREAM, _REPO):
         sys.path.insert(0, p)
 
 
-def _build_cfg(scene: str, data_root: str, out_dir: str, epochs: int,
+def _build_cfg(scene_dir_name: str, data_root: str, out_dir: str, epochs: int,
                batch: int, lr: float = 0.01, key: int = 42,
                pval: float = 0.15) -> dict:
     """Mirror of train.py's cfg construction (ngpsh field, Identity adjust)."""
-    sensor_path = os.path.join(data_root, scene, "sensor.json")
-    train_h5 = os.path.join(data_root, scene, "data.h5")
+    sensor_path = os.path.join(data_root, scene_dir_name, "sensor.json")
+    train_h5 = os.path.join(data_root, scene_dir_name, "data.h5")
     with open(sensor_path) as f:
         sensor_cfg = json.load(f)
     sensor_cfg.update(k=128)
@@ -109,22 +109,23 @@ def _render_test(out_dir: str, test_meta_path: str) -> None:
     np.save(os.path.join(out_dir, "rendered_rda.npy"), rda)
 
 
-def run(scene: str, data_root: str, out_dir: str, epochs: int, batch: int) -> dict:
+def run(scene: str, mode: str, data_root: str, out_dir: str,
+        epochs: int, batch: int) -> dict:
     os.makedirs(out_dir, exist_ok=True)
 
-    cfg = _build_cfg(scene, data_root, out_dir, epochs=epochs, batch=batch)
+    scene_dir_name = f"{scene}__{mode}"
+    cfg = _build_cfg(scene_dir_name, data_root, out_dir, epochs=epochs, batch=batch)
 
     t0 = time.time()
     from dart.script import script_train
     script_train(cfg)
     train_wall = time.time() - t0
 
-    test_meta_path = os.path.join(data_root, scene, "test_meta.json")
+    test_meta_path = os.path.join(data_root, scene_dir_name, "test_meta.json")
     _render_test(out_dir, test_meta_path)
 
-    # Train_meta for the finalizer.
     test_meta = json.load(open(test_meta_path))
-    manifest_path = os.path.join(data_root, scene, "adapter_manifest.json")
+    manifest_path = os.path.join(data_root, scene_dir_name, "adapter_manifest.json")
     deviations = []
     if os.path.isfile(manifest_path):
         try:
@@ -132,14 +133,15 @@ def run(scene: str, data_root: str, out_dir: str, epochs: int, batch: int) -> di
         except Exception:
             pass
     deviations = list(deviations) + [
-        f"Training epochs: {epochs} (PLAN Section 8 default 3); 8 train frames "
-        f"× Nd=16 valid columns / batch is small, so we run more epochs to "
-        f"give the HashGrid + plenoctree NN time to settle.",
+        f"Training epochs: {epochs} (PLAN Section 8 default 3); 8 frames × "
+        f"Nd valid columns / batch is small, so we run more epochs to give "
+        f"the HashGrid + plenoctree NN time to settle.",
     ]
     meta = {
         "scene": scene,
-        "test_frame": int(test_meta["cascade_test_frame"]),
-        "train_frames": list(map(int, test_meta["cascade_train_frames"])),
+        "mode": mode,
+        "test_frame": int(test_meta["test_frame"]),
+        "train_frames": list(map(int, test_meta["train_frames"])),
         "wall_time_seconds": float(train_wall),
         "peak_gpu_mem_mib": 0.0,                      # JAX doesn't expose this easily
         "deviations_from_reference": deviations,
@@ -147,7 +149,7 @@ def run(scene: str, data_root: str, out_dir: str, epochs: int, batch: int) -> di
         "out_dir": out_dir,
         "epochs": int(epochs),
         "batch": int(batch),
-        "sensor": "cascaded",
+        "sensor": mode,
         "Nr": int(test_meta["Nr"]),
         "Nd": int(test_meta["Nd"]),
         "Na": int(test_meta["Na"]),
@@ -172,6 +174,8 @@ def run(scene: str, data_root: str, out_dir: str, epochs: int, batch: int) -> di
 def main_cli() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--scene", required=True)
+    ap.add_argument("--mode", choices=["cascaded", "single_chip"],
+                    default="cascaded")
     ap.add_argument(
         "--data-root",
         default=os.path.join(_REPO, "baselines/dart/data_dart"),
@@ -179,7 +183,7 @@ def main_cli() -> int:
     ap.add_argument(
         "--out-dir",
         default=None,
-        help="default: baselines/dart/results/<scene>/",
+        help="default: baselines/dart/results/<scene>__<mode>/",
     )
     ap.add_argument("--epochs", type=int, default=300,
                     help="DART epochs (upstream default 3 — but with our 8-frame setup "
@@ -189,9 +193,10 @@ def main_cli() -> int:
     args = ap.parse_args()
 
     out_dir = args.out_dir or os.path.join(
-        _REPO, "baselines/dart/results", args.scene
+        _REPO, "baselines/dart/results", f"{args.scene}__{args.mode}"
     )
-    result = run(args.scene, args.data_root, out_dir, args.epochs, args.batch)
+    result = run(args.scene, args.mode, args.data_root, out_dir,
+                 args.epochs, args.batch)
     print(json.dumps(result, indent=2))
     return 0
 

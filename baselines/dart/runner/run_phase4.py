@@ -46,19 +46,20 @@ def _gpu_compute_busy(gpu_idx: int) -> bool:
     return bool(out)
 
 
-def _ensure_adapter_data(scene: str) -> None:
-    out_dir = os.path.join(DATA_ROOT, scene)
+def _ensure_adapter_data(scene: str, mode: str) -> None:
+    out_dir = os.path.join(DATA_ROOT, f"{scene}__{mode}")
     if os.path.isfile(os.path.join(out_dir, "adapter_manifest.json")):
         return
-    print(f"[adapter] {scene}", flush=True)
+    print(f"[adapter] {scene} ({mode})", flush=True)
     subprocess.run(
-        [MMIR_PY, "-m", "baselines.dart.adapter.mm3dgs_to_dart", "--scene", scene],
+        [MMIR_PY, "-m", "baselines.dart.adapter.mm3dgs_to_dart",
+         "--scene", scene, "--mode", mode],
         cwd=_REPO, check=True, stdout=subprocess.DEVNULL,
     )
 
 
-def _spawn_scene(scene: str, gpu: int, epochs: int, batch: int) -> subprocess.Popen:
-    out_dir = os.path.join(RESULTS_ROOT, scene)
+def _spawn_scene(scene: str, mode: str, gpu: int, epochs: int, batch: int) -> subprocess.Popen:
+    out_dir = os.path.join(RESULTS_ROOT, f"{scene}__{mode}")
     os.makedirs(out_dir, exist_ok=True)
     log_path = os.path.join(out_dir, "run_log.txt")
 
@@ -72,6 +73,7 @@ def _spawn_scene(scene: str, gpu: int, epochs: int, batch: int) -> subprocess.Po
     cmd = [
         DART_PY, "-m", "baselines.dart.runner.run_dart_scene",
         "--scene", scene,
+        "--mode", mode,
         "--data-root", DATA_ROOT,
         "--out-dir", out_dir,
         "--epochs", str(epochs),
@@ -93,10 +95,10 @@ def _wait_any(running: dict) -> tuple:
         time.sleep(2)
 
 
-def aggregate(scenes: List[str]) -> dict:
+def aggregate(scenes: List[str], mode: str) -> dict:
     rows, ras, rps = [], [], []
     for s in scenes:
-        mp = os.path.join(RESULTS_ROOT, s, "metrics.json")
+        mp = os.path.join(RESULTS_ROOT, f"{s}__{mode}", "metrics.json")
         if not os.path.isfile(mp):
             rows.append({"scene": s, "status": "MISSING"})
             continue
@@ -127,12 +129,14 @@ def aggregate(scenes: List[str]) -> dict:
 
     out = {
         "baseline": "dart",
+        "mode": mode,
         "scenes": rows,
         "n_scenes": len(rows),
         "ra_corr": _agg(ras),
         "range_profile_corr": _agg(rps),
     }
-    with open(os.path.join(RESULTS_ROOT, "aggregate.json"), "w") as f:
+    agg_path = os.path.join(RESULTS_ROOT, f"aggregate__{mode}.json")
+    with open(agg_path, "w") as f:
         json.dump(out, f, indent=2)
     return out
 
@@ -140,13 +144,16 @@ def aggregate(scenes: List[str]) -> dict:
 def main_cli() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--scenes", nargs="*", default=PHASE4_SCENES)
+    ap.add_argument("--mode", choices=["cascaded", "single_chip"],
+                    default="cascaded")
     ap.add_argument("--epochs", type=int, default=DEFAULT_EPOCHS)
     ap.add_argument("--batch", type=int, default=DEFAULT_BATCH)
     ap.add_argument("--gpus", nargs="+", type=int, default=[0, 1])
     ap.add_argument("--skip-existing", action="store_true")
     args = ap.parse_args()
 
-    print(f"DART Phase 4 (cascade mode) — {len(args.scenes)} scenes, {len(args.gpus)} GPUs", flush=True)
+    print(f"DART Phase 4 (mode={args.mode}) — {len(args.scenes)} scenes, "
+          f"{len(args.gpus)} GPUs", flush=True)
     print(f"Scenes: {args.scenes}", flush=True)
     print(f"GPUs:   {args.gpus}", flush=True)
     print(f"Epochs: {args.epochs} | batch: {args.batch}", flush=True)
@@ -157,13 +164,13 @@ def main_cli() -> int:
             return 2
 
     for s in args.scenes:
-        _ensure_adapter_data(s)
+        _ensure_adapter_data(s, args.mode)
 
     todo = []
     for s in args.scenes:
-        mp = os.path.join(RESULTS_ROOT, s, "metrics.json")
+        mp = os.path.join(RESULTS_ROOT, f"{s}__{args.mode}", "metrics.json")
         if args.skip_existing and os.path.isfile(mp):
-            print(f"[skip] {s}", flush=True)
+            print(f"[skip] {s}__{args.mode}", flush=True)
             continue
         todo.append(s)
     print(f"To run: {todo}", flush=True)
@@ -178,8 +185,8 @@ def main_cli() -> int:
         while pending and avail:
             s = pending.pop(0)
             g = avail.pop(0)
-            print(f"[launch] {s} on GPU {g}", flush=True)
-            running[s] = (_spawn_scene(s, g, args.epochs, args.batch), g)
+            print(f"[launch] {s}__{args.mode} on GPU {g}", flush=True)
+            running[s] = (_spawn_scene(s, args.mode, g, args.epochs, args.batch), g)
         if not running:
             break
         s, g, rc = _wait_any(running)
@@ -188,21 +195,21 @@ def main_cli() -> int:
         avail.append(g)
         if rc == 0:
             completed.append(s)
-            mp = os.path.join(RESULTS_ROOT, s, "metrics.json")
+            mp = os.path.join(RESULTS_ROOT, f"{s}__{args.mode}", "metrics.json")
             if os.path.isfile(mp):
                 m = json.load(open(mp))
                 ra = m.get("ra_corr"); rp = m.get("range_profile_corr"); wt = m.get("wall_time_seconds")
                 ra_str = f"{ra:.3f}" if isinstance(ra, (int, float)) and ra == ra else str(ra)
                 rp_str = f"{rp:.3f}" if isinstance(rp, (int, float)) and rp == rp else str(rp)
-                print(f"[done ] {s} GPU{g} ra={ra_str} rp={rp_str} train={wt:.0f}s wall={elapsed:.0f}s",
-                      flush=True)
+                print(f"[done ] {s}__{args.mode} GPU{g} ra={ra_str} rp={rp_str} "
+                      f"train={wt:.0f}s wall={elapsed:.0f}s", flush=True)
         else:
             failed.append(s)
-            print(f"[FAIL ] {s} GPU{g} rc={rc} (see results/{s}/run_log.txt)", flush=True)
+            print(f"[FAIL ] {s}__{args.mode} GPU{g} rc={rc}", flush=True)
 
     print(f"\nCompleted: {completed}\nFailed:    {failed}", flush=True)
-    agg = aggregate(args.scenes)
-    print("\nAggregate:")
+    agg = aggregate(args.scenes, args.mode)
+    print(f"\nAggregate (mode={args.mode}):")
     print(json.dumps(agg, indent=2), flush=True)
     return 0 if not failed else 1
 

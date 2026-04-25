@@ -1,33 +1,26 @@
-"""Adapter: mm3DGS CASCADE data → DART format (one scene).
+"""Adapter: mm3DGS → DART format (one scene, dual-mode).
 
-REVISED 2026-04-25 per PLAN Section 4 update: DART now uses CASCADE data
-to match RadarSplat / RadarFields / v6/v7 evaluation. The original
-single-chip path is removed.
+REVISED 2026-04-25 (twice). Per PLAN Section 4 (current revision):
 
-Writes under ``baselines/dart/data_dart/<scene>/``:
+  --mode cascaded     (default)  86-elem virtual array → 127 az bins.
+                                 ``cascade_az127`` gain function (1-line
+                                 patch to upstream antenna.py).
+                                 Apples-to-apples vs RadarSplat / RadarFields
+                                 / mm3DGS-v6/v7 — uses cascade GT.
+                                 Output cube shape: (Nr=256, Nd=16, Na=127).
 
-    sensor.json                    # DART intrinsics for cascade
-    data.h5                        # 8 train cascade frames in column format
-    data_test.h5                   # 1 test cascade frame in column format
-    test_meta.json                 # test pose + frame number for inference
+  --mode single_chip  (alt)      8-elem virtual array → 8 az bins via
+                                 stock ``awr1843boost_az8``. NOT comparable
+                                 to cascade-trained baselines (different GT).
+                                 Output cube shape: (Nr=128, Nd=128, Na=8).
+
+Writes under ``baselines/dart/data_dart/<scene>__<mode>/``:
+
+    sensor.json                    # DART intrinsics for this mode
+    data.h5                        # 8 train frames, column format
+    data_test.h5                   # 1 test frame, column format
+    test_meta.json                 # test pose for inference
     adapter_manifest.json
-
-Pipeline (per cascade frame):
-  1. Load cascade ADC (16, 16, 12, 256) complex (chirps, RX, TX, ADC).
-  2. Chirp-by-chirp build 86-element row-0 virtual array via the same
-     TX/RX layout used by mmir.data.ra_utils → (16, 86, 256) complex.
-  3. Range-FFT along ADC axis (Hann window) → Nr = 256 bins.
-  4. Doppler-FFT along chirps axis (Hann window, fftshift) → Nd = 16 bins.
-  5. Azimuth-FFT to 8 bins along the 86-element axis (Hann + fftshift) → Na = 8.
-  6. Magnitude → (Nr, Nd, Na) = (256, 16, 8) cube.
-
-For each frame's pose:
-  - x = sensor_position_world (m), from tx_array[0].pos_mm.
-  - A = world_from_sensor 3x3 (FLU), columns = sensor axes in world.
-  - v_world = v_ego_refined.npy (m/s, world frame; mm3DGS v_ego cache).
-  - DART's ``make_pose`` then transforms v_world → sensor frame and
-    computes s, p, q. Per-column ``weight = psi_min/pi/s`` filters
-    zero-weight Doppler columns (matches upstream tools/dataset.py:75-83).
 """
 
 from __future__ import annotations
@@ -50,29 +43,29 @@ from baselines.common import adapters as common  # noqa: E402
 from baselines.common import nvs_split, scenes  # noqa: E402
 
 # Cascade virtual-array layout (mirrors mmir/data/ra_utils.py:101-104).
-_RX_LOCATIONS = [(0, 0), (1, 0), (2, 0), (3, 0), (11, 0), (12, 0), (13, 0),
-                 (14, 0), (46, 0), (47, 0), (48, 0), (49, 0), (50, 0),
-                 (51, 0), (52, 0), (53, 0)]
-_TX_LOCATIONS = [(0, 0), (4, 0), (8, 0), (9, 1), (10, 4), (11, 6),
-                 (12, 0), (16, 0), (20, 0), (24, 0), (28, 0), (32, 0)]
-_VX_AZIM = 86      # row 0 of virtual array
-_VX_ELEV = 0       # we use elevation 0 only
+_CASCADE_RX = [(0, 0), (1, 0), (2, 0), (3, 0), (11, 0), (12, 0), (13, 0),
+               (14, 0), (46, 0), (47, 0), (48, 0), (49, 0), (50, 0),
+               (51, 0), (52, 0), (53, 0)]
+_CASCADE_TX = [(0, 0), (4, 0), (8, 0), (9, 1), (10, 4), (11, 6),
+               (12, 0), (16, 0), (20, 0), (24, 0), (28, 0), (32, 0)]
+_CASCADE_VX = 86
+_CASCADE_NA_FFT = 128
+_CASCADE_NA_OUT = 127            # drop FFT bin 0 (DC), fftshift
 
-# DART-side dims
-NR = 256                   # cascade ADC samples
-ND = 16                    # cascade chirps
-NA = 8                     # azimuth bins (fixed by `awr1843boost_az8` gain)
-AZ_FFT_SIZE = 8
+# Single-chip virtual-array layout (mirrors mmir/data/ra_utils.py:223-258).
+_SC_TX_LOCS = [(0, 0), (2, 1), (4, 0)]   # TX1, TX2, TX3
+_SC_RX_LOCS = [(0, 0), (1, 0), (2, 0), (3, 0)]
+_SC_VX_AZ = 8
+_SC_NA_OUT = 8
 
-# Doppler unambiguous max (m/s). Our v_ego is 1.3-1.6 m/s; ±5 m/s gives
-# ~3x headroom and matches the SC adapter convention. The true cascade
-# d_max depends on the chirp PRI which is not in our config files;
-# we use a labeled axis here and document as a limitation.
+# Common Doppler unambiguous max (m/s); ego speeds are 1.3-1.6 m/s, so
+# ±5 m/s gives ~3x headroom. Chirp PRI is not in our cascade configs;
+# documented as a label-only assumption.
 D_MAX_MPS = 5.0
 
 
 # ---------------------------------------------------------------------------
-# Cascade ADC → RDA cube
+# Cascade ADC → RDA cube (Na=127)
 # ---------------------------------------------------------------------------
 
 def _casc_txrx_to_vx_chirps(adc_complex: np.ndarray) -> np.ndarray:
@@ -80,18 +73,18 @@ def _casc_txrx_to_vx_chirps(adc_complex: np.ndarray) -> np.ndarray:
     row-0 virtual array ``(chirps, vx_az=86, ADC)`` complex."""
     n_chirps, n_rx, n_tx, n_adc = adc_complex.shape
     assert (n_rx, n_tx, n_adc) == (16, 12, 256)
-    vx = np.zeros((n_chirps, _VX_AZIM, n_adc), dtype=np.complex128)
-    filled = np.zeros(_VX_AZIM, dtype=bool)
+    vx = np.zeros((n_chirps, _CASCADE_VX, n_adc), dtype=np.complex128)
+    filled = np.zeros(_CASCADE_VX, dtype=bool)
     for tx_id in range(n_tx):
-        tx_x, tx_y = _TX_LOCATIONS[tx_id]
-        if tx_y != _VX_ELEV:
+        tx_x, tx_y = _CASCADE_TX[tx_id]
+        if tx_y != 0:
             continue
         for rx_id in range(n_rx):
-            rx_x, rx_y = _RX_LOCATIONS[rx_id]
-            if rx_y != _VX_ELEV:
+            rx_x, rx_y = _CASCADE_RX[rx_id]
+            if rx_y != 0:
                 continue
             col = rx_x + tx_x
-            if col >= _VX_AZIM:
+            if col >= _CASCADE_VX:
                 continue
             if not filled[col]:
                 vx[:, col, :] = adc_complex[:, rx_id, tx_id, :]
@@ -102,42 +95,153 @@ def _casc_txrx_to_vx_chirps(adc_complex: np.ndarray) -> np.ndarray:
     return vx
 
 
-def adc_to_rda_cube(adc_complex: np.ndarray) -> np.ndarray:
-    """Cascade ADC ``(16, 16, 12, 256)`` complex → ``(Nr=256, Nd=16, Na=8)``
-    magnitude float32."""
+def adc_cascade_to_rda(adc_complex: np.ndarray) -> np.ndarray:
+    """Cascade ADC ``(16, 16, 12, 256)`` complex → ``(Nr=256, Nd=16, Na=127)``
+    magnitude float32. Pipeline matches mm3DGS-v7's RA convention but adds
+    the Doppler axis: range FFT, Doppler FFT (fftshift), azimuth FFT-128
+    (fftshift, drop bin 0)."""
     vx = _casc_txrx_to_vx_chirps(adc_complex)            # (16, 86, 256)
     n_chirps, n_az_full, n_adc = vx.shape
 
-    # 1. Range FFT along ADC (last axis), Hann-windowed.
+    # Range FFT along ADC, Hann-windowed.
     win_r = np.hanning(n_adc)
     rng = np.fft.fft(vx * win_r[None, None, :], n=n_adc, axis=-1)
-    # rng shape: (chirps=16, 86, Nr=256)
+    # rng: (16, 86, 256)
 
-    # 2. Doppler FFT along chirps (axis 0), Hann-windowed; centered.
+    # Doppler FFT along chirps (fftshift to center at d=0).
     win_d = np.hanning(n_chirps)
     rng = rng * win_d[:, None, None]
     dop = np.fft.fftshift(np.fft.fft(rng, n=n_chirps, axis=0), axes=0)
-    # dop shape: (Nd=16, 86, Nr=256)
+    # dop: (Nd=16, 86, 256)
 
-    # 3. Azimuth FFT to 8 bins along the 86-element axis, Hann-windowed,
-    #    fftshift to center bin 0 around broadside.
+    # Azimuth FFT to 128 bins (matches mm3DGS-v7 convention).
     win_a = np.hanning(n_az_full)
-    az = np.fft.fftshift(
-        np.fft.fft(dop * win_a[None, :, None], n=AZ_FFT_SIZE, axis=1), axes=1
-    )
-    # az shape: (Nd, Na=8, Nr=256)
+    az = np.fft.fft(dop * win_a[None, :, None], n=_CASCADE_NA_FFT, axis=1)
+    # Drop bin 0 (DC) then fftshift to center bin 0 around broadside.
+    az = az[:, 1:, :]                                     # (Nd, 127, 256)
+    az = np.fft.fftshift(az, axes=1)
+    # az: (Nd, Na=127, 256)
 
     rda = np.transpose(az, (2, 0, 1))                    # (Nr, Nd, Na)
     return np.abs(rda).astype(np.float32)
 
 
 # ---------------------------------------------------------------------------
-# Pose builder + RadarPose for one frame
+# Single-chip ADC → RDA cube (Na=8)
+# ---------------------------------------------------------------------------
+
+def _sc_txrx_to_vx_chirps(adc_complex: np.ndarray) -> np.ndarray:
+    """SC ADC ``(chirps=128, RX=4, TX=3, ADC=128)`` complex →
+    row-0 virtual array ``(chirps, vx_az=8, ADC)`` complex."""
+    n_chirps, n_rx, n_tx, n_adc = adc_complex.shape
+    assert (n_rx, n_tx, n_adc) == (4, 3, 128)
+    vx = np.zeros((n_chirps, 2, _SC_VX_AZ, n_adc), dtype=np.complex128)
+    filled = np.zeros((2, _SC_VX_AZ), dtype=bool)
+    for tx_id in range(n_tx):
+        tx_az, tx_el = _SC_TX_LOCS[tx_id]
+        for rx_id in range(n_rx):
+            rx_az, rx_el = _SC_RX_LOCS[rx_id]
+            col = tx_az + rx_az
+            row = tx_el + rx_el
+            if col >= _SC_VX_AZ or row >= 2:
+                continue
+            if not filled[row, col]:
+                vx[:, row, col, :] = adc_complex[:, rx_id, tx_id, :]
+                filled[row, col] = True
+            else:
+                vx[:, row, col, :] = 0.5 * (vx[:, row, col, :]
+                                            + adc_complex[:, rx_id, tx_id, :])
+    return vx[:, 0, :, :]   # (chirps, 8, ADC) — row 0 only
+
+
+def adc_sc_to_rda(adc_complex: np.ndarray) -> np.ndarray:
+    """SC ADC ``(128, 4, 3, 128)`` complex → ``(Nr=128, Nd=128, Na=8)``
+    magnitude float32."""
+    vx = _sc_txrx_to_vx_chirps(adc_complex)              # (128, 8, 128)
+    n_chirps, n_az, n_adc = vx.shape
+
+    win_r = np.hanning(n_adc)
+    rng = np.fft.fft(vx * win_r[None, None, :], n=n_adc, axis=-1)
+
+    win_d = np.hanning(n_chirps)
+    rng = rng * win_d[:, None, None]
+    dop = np.fft.fftshift(np.fft.fft(rng, n=n_chirps, axis=0), axes=0)
+    # dop: (Nd=128, 8, Nr=128)
+
+    win_a = np.hanning(n_az)
+    az = np.fft.fftshift(
+        np.fft.fft(dop * win_a[None, :, None], n=_SC_NA_OUT, axis=1), axes=1
+    )
+    # az: (Nd, Na=8, Nr)
+
+    rda = np.transpose(az, (2, 0, 1))                    # (Nr, Nd, Na)
+    return np.abs(rda).astype(np.float32)
+
+
+# ---------------------------------------------------------------------------
+# Mode-aware dispatch
+# ---------------------------------------------------------------------------
+
+def adc_to_rda_cube(adc_complex: np.ndarray, mode: str) -> np.ndarray:
+    if mode == "cascaded":
+        return adc_cascade_to_rda(adc_complex)
+    if mode == "single_chip":
+        return adc_sc_to_rda(adc_complex)
+    raise ValueError(f"unknown DART mode {mode!r}")
+
+
+def _dims_for_mode(mode: str) -> Tuple[int, int, int]:
+    """(Nr, Nd, Na) for the given DART mode."""
+    if mode == "cascaded":
+        return 256, 16, _CASCADE_NA_OUT
+    if mode == "single_chip":
+        return 128, 128, _SC_NA_OUT
+    raise ValueError(mode)
+
+
+def _gain_for_mode(mode: str) -> str:
+    return "cascade_az127" if mode == "cascaded" else "awr1843boost_az8"
+
+
+def _load_adc(scene: str, frame: int, mode: str) -> np.ndarray:
+    """Load ADC for a given (scene, mode, on-disk frame index)."""
+    if mode == "cascaded":
+        path = os.path.join(scenes.scene_dir(scene), "radar",
+                            f"cascaded_frame_{frame}.npy")
+        return common.load_cascaded_adc(path)
+    path = os.path.join(scenes.scene_dir(scene), "radar",
+                        f"single_chip_frame_{frame}.npy")
+    return common.load_single_chip_adc(path)
+
+
+def _config_for_frame(scene: str, frame: int, mode: str) -> str:
+    if mode == "cascaded":
+        return os.path.join(scenes.cascade_alignment_dir(scene),
+                            f"cascaded_frame_{frame}_aligned.json")
+    return os.path.join(scenes.single_chip_alignment_dir(scene),
+                        f"single_chip_frame_{frame}_aligned.json")
+
+
+def _v_ego_for_cascade_frame(scene: str, cascade_frame: int) -> np.ndarray:
+    """Cascade frame's v_ego (refined, world frame, m/s).
+    For SC mode we pair SC frames to cascade frames in sorted order and
+    use the corresponding cascade v_ego (timestamps offset by ~0.05 s)."""
+    cache_dir = os.path.join(scenes.DATA_ROOT, "v_ego_cache", scene)
+    refined_p = os.path.join(cache_dir, f"frame_{cascade_frame}_v_ego_refined.npy")
+    seed_p = os.path.join(cache_dir, f"frame_{cascade_frame}_v_ego.npy")
+    p = refined_p if os.path.isfile(refined_p) else seed_p
+    if not os.path.isfile(p):
+        raise FileNotFoundError(
+            f"v_ego cache missing for {scene} cascade frame {cascade_frame}"
+        )
+    return np.load(p).astype(np.float64)
+
+
+# ---------------------------------------------------------------------------
+# Pose builder + RadarPose for one frame (mirrors dart.pose.make_pose in numpy)
 # ---------------------------------------------------------------------------
 
 def _orthonormal_basis(v: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    """Mirror of dart.pose.make_pose internal: build (p, q) orthonormal
-    basis with normalized v in the SENSOR frame."""
     p = np.array([1.0, 0.0, 0.0], dtype=np.float64) - v[0] * v
     p_norm = np.linalg.norm(p)
     if p_norm < 1e-9:
@@ -152,16 +256,11 @@ def build_radar_pose(
     pos_world: np.ndarray, A_world_from_sensor: np.ndarray,
     v_ego_world: np.ndarray, frame_idx: int,
 ) -> Dict[str, np.ndarray]:
-    """Compute the RadarPose fields (sensor-frame v, p, q, s, plus x/A)
-    in numpy, mirroring DART's ``dart.pose.make_pose``."""
     A = A_world_from_sensor.astype(np.float64)
     A_inv = np.linalg.inv(A)
     v_sensor = A_inv @ v_ego_world.astype(np.float64)
     s = float(np.linalg.norm(v_sensor))
-    if s < 1e-9:
-        v_n = np.zeros(3)
-    else:
-        v_n = v_sensor / s
+    v_n = v_sensor / s if s >= 1e-9 else np.zeros(3)
     p, q = _orthonormal_basis(v_n)
     return {
         "v": v_n.astype(np.float32),
@@ -175,7 +274,6 @@ def build_radar_pose(
 
 
 def _get_psi_min(d: float, v_sensor_x: float, s: float) -> float:
-    """Match dart.sensor.VirtualRadar.get_psi_min in numpy."""
     if s < 1e-9:
         return 0.0
     dnorm = d / s
@@ -192,30 +290,13 @@ def _get_psi_min(d: float, v_sensor_x: float, s: float) -> float:
 
 
 # ---------------------------------------------------------------------------
-# Top-level h5 builder
+# Per-frame column construction
 # ---------------------------------------------------------------------------
-
-def _v_ego_for_frame(scene: str, cascade_frame: int) -> np.ndarray:
-    cache_dir = os.path.join(scenes.DATA_ROOT, "v_ego_cache", scene)
-    refined_p = os.path.join(cache_dir, f"frame_{cascade_frame}_v_ego_refined.npy")
-    seed_p = os.path.join(cache_dir, f"frame_{cascade_frame}_v_ego.npy")
-    p = refined_p if os.path.isfile(refined_p) else seed_p
-    if not os.path.isfile(p):
-        raise FileNotFoundError(
-            f"v_ego cache missing for {scene} cascade frame {cascade_frame}"
-        )
-    return np.load(p).astype(np.float64)
-
-
-def _doppler_axis(nd: int = ND, d_max: float = D_MAX_MPS) -> np.ndarray:
-    return np.linspace(-d_max, d_max, nd, dtype=np.float32)
-
 
 def _build_frame_columns(
     rda: np.ndarray, pose_fields: Dict[str, np.ndarray],
     doppler_values: np.ndarray, frame_idx: int,
 ) -> Tuple[Dict[str, np.ndarray], np.ndarray]:
-    """Per-doppler-column reshape: (Nr, Nd, Na) → (Nd, Nr, Na) rows."""
     Nr, Nd, Na = rda.shape
     rad_per_col = np.transpose(rda, (1, 0, 2))           # (Nd, Nr, Na)
     cols = {
@@ -257,108 +338,119 @@ def _filter_nonzero_weight(
     return cols2, rad[keep]
 
 
-# ---------------------------------------------------------------------------
-# Main builder
-# ---------------------------------------------------------------------------
-
 def _make_frame_records(
-    scene: str, frame_paths: List[str], cascade_frames: List[int],
+    scene: str, frames: List[int], cascade_pair_frames: List[int], mode: str,
     doppler_axis: np.ndarray, norm: float,
-) -> Tuple[Dict[str, np.ndarray], np.ndarray, List[int]]:
+) -> Tuple[Dict[str, np.ndarray], np.ndarray]:
+    """frames: list of on-disk frame numbers (cascade or SC depending on mode).
+    cascade_pair_frames: same length, the cascade-frame number to look up
+    v_ego against (for SC mode this is the paired cascade frame; for
+    cascade mode it equals frames)."""
     per_frame = []
-    used_frames = []
-    for cascade_frame, adc_path in zip(cascade_frames, frame_paths):
-        adc = common.load_cascaded_adc(adc_path)              # (16, 16, 12, 256)
-        rda = adc_to_rda_cube(adc)                            # (Nr, Nd, Na)
+    Nr, Nd, Na = _dims_for_mode(mode)
+    for k, (frame, casc_frame) in enumerate(zip(frames, cascade_pair_frames)):
+        adc = _load_adc(scene, frame, mode)
+        rda = adc_to_rda_cube(adc, mode)                  # (Nr, Nd, Na)
         rda = np.maximum(rda, 0.0) / norm
 
-        # Pose for this cascade frame.
-        align_dir = scenes.cascade_alignment_dir(scene)
-        cfg_path = os.path.join(
-            align_dir, f"cascaded_frame_{cascade_frame}_aligned.json"
-        )
+        cfg_path = _config_for_frame(scene, frame, mode)
         cfg = common.load_config(cfg_path)
         T, R, t = common.pose_from_config(cfg)
-        v_world = _v_ego_for_frame(scene, cascade_frame)
-        pose_fields = build_radar_pose(t, R, v_world, frame_idx=len(used_frames))
+        v_world = _v_ego_for_cascade_frame(scene, casc_frame)
+        pose_fields = build_radar_pose(t, R, v_world, frame_idx=k)
 
         cols, rad = _build_frame_columns(
-            rda, pose_fields, doppler_axis, frame_idx=len(used_frames)
+            rda, pose_fields, doppler_axis, frame_idx=k
         )
         per_frame.append((cols, rad))
-        used_frames.append(cascade_frame)
-    return (*_stack_columns(per_frame), used_frames)
+    return _stack_columns(per_frame)
 
 
-def build_scene(scene: str, out_root: str) -> dict:
-    out_dir = os.path.join(out_root, scene)
+# ---------------------------------------------------------------------------
+# Top-level builder
+# ---------------------------------------------------------------------------
+
+def build_scene(scene: str, mode: str, out_root: str) -> dict:
+    Nr, Nd, Na = _dims_for_mode(mode)
+    out_dir = os.path.join(out_root, f"{scene}__{mode}")
     os.makedirs(out_dir, exist_ok=True)
 
-    casc_split = nvs_split.cascaded_split(scene)
-    train_frames = casc_split["train_frames"]
-    test_frame = casc_split["test_frame"]
+    if mode == "cascaded":
+        split = nvs_split.cascaded_split(scene)
+        train_frames = list(split["train_frames"])
+        test_frame = split["test_frame"]
+        train_cascade_pair = list(train_frames)
+        test_cascade_pair = test_frame
+    elif mode == "single_chip":
+        sc_split = nvs_split.single_chip_split(scene)
+        casc_split = nvs_split.cascaded_split(scene)
+        sorted_sc = sorted(sc_split["train_frames"] + [sc_split["test_frame"]])
+        sorted_casc = sorted(casc_split["train_frames"] + [casc_split["test_frame"]])
+        sc_to_casc = dict(zip(sorted_sc, sorted_casc))
+        train_frames = list(sc_split["train_frames"])
+        test_frame = sc_split["test_frame"]
+        train_cascade_pair = [sc_to_casc[f] for f in train_frames]
+        test_cascade_pair = sc_to_casc[test_frame]
+    else:
+        raise ValueError(f"unknown mode {mode!r}")
 
     # Range axis from the test frame's config.
     from mmir.data.io_utils import compute_range_res_from_cfg
-    range_res = compute_range_res_from_cfg(casc_split["test_config"])
-    r_max = (NR - 1) * range_res
+    test_cfg_path = _config_for_frame(scene, test_frame, mode)
+    range_res = compute_range_res_from_cfg(test_cfg_path)
+    r_max = (Nr - 1) * range_res
 
-    doppler = _doppler_axis(ND, D_MAX_MPS)
+    doppler = np.linspace(-D_MAX_MPS, D_MAX_MPS, Nd, dtype=np.float32)
 
-    print(f"[{scene}] computing per-scene RDA normalisation...")
-    sample_rdas = []
-    for p in casc_split["train_files"]:
-        adc = common.load_cascaded_adc(p)
-        sample_rdas.append(adc_to_rda_cube(adc))
-    norm = float(np.percentile(np.concatenate([r.ravel() for r in sample_rdas]), 99.0))
+    print(f"[{scene}/{mode}] computing per-scene RDA normalisation...")
+    sample_rdas = [adc_to_rda_cube(_load_adc(scene, f, mode), mode)
+                   for f in train_frames]
+    norm = float(np.percentile(np.concatenate(
+        [r.ravel() for r in sample_rdas]), 99.0))
     norm = max(norm, 1.0)
 
-    # 1. data.h5 (8 train frames)
-    print(f"[{scene}] building train data.h5 ({len(train_frames)} frames)...")
-    train_cols, train_rad, _ = _make_frame_records(
-        scene, casc_split["train_files"], train_frames, doppler, norm,
+    print(f"[{scene}/{mode}] building train data.h5 ({len(train_frames)} frames)...")
+    train_cols, train_rad = _make_frame_records(
+        scene, train_frames, train_cascade_pair, mode, doppler, norm,
     )
     train_cols, train_rad = _filter_nonzero_weight(train_cols, train_rad)
-    print(f"  Valid columns: {train_rad.shape[0]} / {len(train_frames) * ND}")
-
+    print(f"  Valid columns: {train_rad.shape[0]} / {len(train_frames) * Nd}")
     with h5py.File(os.path.join(out_dir, "data.h5"), "w") as f:
         for k, v in train_cols.items():
             f.create_dataset(k, data=v)
         f.create_dataset("rad", data=train_rad)
 
-    # 2. data_test.h5
-    print(f"[{scene}] building test data_test.h5...")
-    test_cols, test_rad, _ = _make_frame_records(
-        scene, [casc_split["test_file"]], [test_frame], doppler, norm,
+    print(f"[{scene}/{mode}] building test data_test.h5...")
+    test_cols, test_rad = _make_frame_records(
+        scene, [test_frame], [test_cascade_pair], mode, doppler, norm,
     )
     test_cols, test_rad = _filter_nonzero_weight(test_cols, test_rad)
-    print(f"  Valid test columns: {test_rad.shape[0]} / {ND}")
-
+    print(f"  Valid test columns: {test_rad.shape[0]} / {Nd}")
     with h5py.File(os.path.join(out_dir, "data_test.h5"), "w") as f:
         for k, v in test_cols.items():
             f.create_dataset(k, data=v)
         f.create_dataset("rad", data=test_rad)
 
-    # 3. sensor.json
     sensor_cfg = {
-        "r": [0.0, float(r_max), int(NR)],
-        "d": [-float(D_MAX_MPS), float(D_MAX_MPS), int(ND)],
+        "r": [0.0, float(r_max), int(Nr)],
+        "d": [-float(D_MAX_MPS), float(D_MAX_MPS), int(Nd)],
         "k": 128,
-        "gain": "awr1843boost_az8",
+        "gain": _gain_for_mode(mode),
     }
     with open(os.path.join(out_dir, "sensor.json"), "w") as f:
         json.dump(sensor_cfg, f, indent=2)
 
-    # 4. test_meta.json
-    test_cfg = common.load_config(casc_split["test_config"])
+    test_cfg = common.load_config(test_cfg_path)
     T, R, t = common.pose_from_config(test_cfg)
-    v_world_test = _v_ego_for_frame(scene, test_frame)
+    v_world_test = _v_ego_for_cascade_frame(scene, test_cascade_pair)
     pose_fields_test = build_radar_pose(t, R, v_world_test, frame_idx=0)
 
     test_meta = {
         "scene": scene,
-        "cascade_test_frame": int(test_frame),
-        "cascade_train_frames": [int(x) for x in train_frames],
+        "mode": mode,
+        "test_frame": int(test_frame),
+        "train_frames": [int(x) for x in train_frames],
+        "test_cascade_pair": int(test_cascade_pair),
         "test_pose": {
             "x": pose_fields_test["x"].tolist(),
             "A": pose_fields_test["A"].tolist(),
@@ -371,40 +463,57 @@ def build_scene(scene: str, out_root: str) -> dict:
         "v_ego_world": v_world_test.tolist(),
         "norm": float(norm),
         "range_res": float(range_res),
-        "Nr": int(NR), "Nd": int(ND), "Na": int(NA),
+        "Nr": int(Nr), "Nd": int(Nd), "Na": int(Na),
         "d_max_mps": float(D_MAX_MPS),
-        "test_file": casc_split["test_file"],
-        "test_config": casc_split["test_config"],
+        "test_config": test_cfg_path,
     }
     with open(os.path.join(out_dir, "test_meta.json"), "w") as f:
         json.dump(test_meta, f, indent=2)
 
+    deviations = [
+        f"DART mode: {mode}.",
+        "Synthetic 9-frame sequence vs upstream's 100+ frame collections.",
+    ]
+    if mode == "cascaded":
+        deviations += [
+            "Cascade 86-element row-0 virtual array → azimuth FFT-128 → "
+            "drop bin 0 → fftshift → Na=127 (matches mm3DGS-v6/v7 RA).",
+            "Custom DART antenna gain `cascade_az127` added via "
+            "patches/cascade_az127.patch (mirrors awr1843boost_az8 for an "
+            "86-element half-lambda array).",
+            "Doppler axis: 16 chirps → 16 bins (vs upstream Boreas 256). "
+            "PLAN Section 9(a) flagged this; ego speed 1.3-1.6 m/s gives "
+            "non-zero psi_min weights.",
+        ]
+    else:
+        deviations += [
+            "TI IWR1443 SC, stock awr1843boost_az8 gain (Na=8).",
+            "SC frame paired to cascade frame in sorted order (timestamps "
+            "offset by ~0.05 s).",
+            "NOT comparable to cascade-trained baselines' GT — kept available "
+            "for a 'DART at its design point' reference number only.",
+        ]
+    deviations += [
+        "Doppler axis labeled ±5 m/s; true cascade d_max requires chirp PRI "
+        "not in our config files. Documented limitation.",
+        "v_ego from mm3DGS v_ego_refined cache.",
+        "Per-scene normalisation: 99th percentile of train RDA cubes.",
+        "--pval=0.15 (vs 0 in upstream PLAN); ensures non-empty val for "
+        "small training sets.",
+        "--adj=Identity (no pose refinement; PLAN Section 10).",
+    ]
+
     manifest = {
         "scene": scene,
-        "cascade_train_frames": [int(x) for x in train_frames],
-        "cascade_test_frame": int(test_frame),
+        "mode": mode,
+        "train_frames": [int(x) for x in train_frames],
+        "test_frame": int(test_frame),
+        "Nr": Nr, "Nd": Nd, "Na": Na, "d_max_mps": D_MAX_MPS,
         "norm": float(norm),
         "range_res": float(range_res),
-        "Nr": NR, "Nd": ND, "Na": NA, "d_max_mps": D_MAX_MPS,
         "n_train_columns": int(train_rad.shape[0]),
         "n_test_columns": int(test_rad.shape[0]),
-        "deviations_from_reference": [
-            "Synthetic 9-frame sequence rather than upstream's 100+ frame collections.",
-            "TI MMWCAS cascade (12 TX × 16 RX); azimuth-FFT'd to 8 bins to match "
-            "stock 'awr1843boost_az8' gain function (vs natural 127-bin cascade RA).",
-            "Doppler axis: 16 chirps → 16 bins (vs upstream Boreas 256 bins). "
-            "PLAN Section 9(a) flagged this as gating concern; verified ego speed "
-            "1.3-1.6 m/s gives non-zero psi_min weights across the working range.",
-            "Doppler axis labeled ±5 m/s; true cascade d_max depends on the "
-            "chirp PRI which is not in our config files. Documented limitation.",
-            "v_ego from mm3DGS v_ego_refined cache (Stage 0 GT-trajectory "
-            "interpolation + Stage 1+2 differentiable refinement).",
-            "Per-scene normalisation: 99th percentile of train RDA cubes "
-            "(vs upstream norm=1e4).",
-            "--pval=0.05 (vs 0 in PLAN); upstream's script_train asserts val is "
-            "not None, so a tiny 5% holdout is used.",
-            "--adj=Identity (no pose refinement; PLAN Section 10).",
-        ],
+        "deviations_from_reference": deviations,
     }
     with open(os.path.join(out_dir, "adapter_manifest.json"), "w") as f:
         json.dump(manifest, f, indent=2)
@@ -414,12 +523,14 @@ def build_scene(scene: str, out_root: str) -> dict:
 def main_cli() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--scene", required=True)
+    ap.add_argument("--mode", choices=["cascaded", "single_chip"],
+                    default="cascaded")
     ap.add_argument(
         "--out-root",
         default=os.path.join(_REPO, "baselines", "dart", "data_dart"),
     )
     args = ap.parse_args()
-    m = build_scene(args.scene, args.out_root)
+    m = build_scene(args.scene, args.mode, args.out_root)
     print(json.dumps(m, indent=2))
     return 0
 

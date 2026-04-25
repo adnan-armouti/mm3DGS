@@ -32,16 +32,27 @@ from baselines.common import eval as common_eval  # noqa: E402
 from baselines.common import nvs_split  # noqa: E402
 
 
-def _gt_cascade_side(scene: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
-    """Cascade GT — same pipeline as RadarSplat/RadarFields/v6/v7."""
-    split = nvs_split.cascaded_split(scene)
-    adc = common_adapt.load_cascaded_adc(split["test_file"])
-    ra_polar_full = common_adapt.adc_to_polar_ra(adc, sensor="cascaded")
+def _gt_side(scene: str, mode: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+    """GT for the chosen DART mode.
+
+    Cascade mode: cascade ADC → adc_to_ra_complex+abs → (127, 256) sin-space
+        polar → ra_polar_to_cartesian on FULL polar (matches v6/v7 reference,
+        identical to RadarSplat/RadarFields finalize).
+    SC mode: SC ADC → adc_to_ra_image_single_chip → (63, 128) polar →
+        cartesian. Documented as NOT comparable to cascade-trained baselines.
+    """
+    if mode == "cascaded":
+        split = nvs_split.cascaded_split(scene)
+        adc = common_adapt.load_cascaded_adc(split["test_file"])
+        ra_polar_full = common_adapt.adc_to_polar_ra(adc, sensor="cascaded")
+    else:
+        split = nvs_split.single_chip_split(scene)
+        adc = common_adapt.load_single_chip_adc(split["test_file"])
+        ra_polar_full = common_adapt.adc_to_polar_ra(adc, sensor="single_chip")
     ra_polar_cropped = common_adapt.range_crop(ra_polar_full)
 
     from mmir.data.io_utils import compute_range_res_from_cfg
     from mmir.data.ra_utils import ra_polar_to_cartesian
-
     range_res = compute_range_res_from_cfg(split["test_config"])
     ra_cart = ra_polar_to_cartesian(ra_polar_full, range_res).astype(np.float32)
     return (ra_polar_full.astype(np.float32),
@@ -71,7 +82,8 @@ def main_cli() -> int:
     ).astype(np.float32)
     rendered_polar = np.clip(rendered_polar, 0.0, None)        # non-negative
 
-    gt_polar_full, gt_polar_cropped, gt_cart, range_res = _gt_cascade_side(meta["scene"])
+    mode = meta.get("mode", "cascaded")
+    gt_polar_full, gt_polar_cropped, gt_cart, range_res = _gt_side(meta["scene"], mode)
 
     # Rendered cascade-shaped polar is (Na=8, Nr=256). Crop bins 15..110
     # (drop TX-RX coupling + DFT wrap-around) and run cart conversion.
@@ -94,7 +106,8 @@ def main_cli() -> int:
         "upstream_commit": meta.get("upstream_commit", "unknown"),
         "out_dir": meta.get("out_dir", None),
         "epochs": int(meta.get("epochs", 0)),
-        "sensor": meta.get("sensor", "cascaded"),
+        "sensor": meta.get("sensor", mode),
+        "mode": mode,
     }
     result = common_eval.run_eval(
         args.baseline_name, meta["scene"],

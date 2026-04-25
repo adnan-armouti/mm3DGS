@@ -1,0 +1,39 @@
+{
+  "scene": "seq_1_frame_185",
+  "mode": "cascaded",
+  "test_frame": 185,
+  "train_frames": [
+    181,
+    182,
+    183,
+    184,
+    186,
+    187,
+    188,
+    189
+  ],
+  "wall_time_seconds": 25.75985288619995,
+  "peak_gpu_mem_mib": 0.0,
+  "deviations_from_reference": [
+    "DART mode: cascaded.",
+    "Synthetic 9-frame sequence vs upstream's 100+ frame collections.",
+    "Cascade 86-element row-0 virtual array \u2192 azimuth FFT-128 \u2192 drop bin 0 \u2192 fftshift \u2192 Na=127 (matches mm3DGS-v6/v7 RA).",
+    "Custom DART antenna gain `cascade_az127` added via patches/cascade_az127.patch (mirrors awr1843boost_az8 for an 86-element half-lambda array).",
+    "Doppler axis: 16 chirps \u2192 16 bins (vs upstream Boreas 256). PLAN Section 9(a) flagged this; ego speed 1.3-1.6 m/s gives non-zero psi_min weights.",
+    "Doppler axis labeled \u00b15 m/s; true cascade d_max requires chirp PRI not in our config files. Documented limitation.",
+    "v_ego from mm3DGS v_ego_refined cache.",
+    "Per-scene normalisation: 99th percentile of train RDA cubes.",
+    "--pval=0.15 (vs 0 in upstream PLAN); ensures non-empty val for small training sets.",
+    "--adj=Identity (no pose refinement; PLAN Section 10).",
+    "Training epochs: 300 (PLAN Section 8 default 3); 8 frames \u00d7 Nd valid columns / batch is small, so we run more epochs to give the HashGrid + plenoctree NN time to settle."
+  ],
+  "upstream_commit": "01e7057eba7ffe6e176c18e8f8e63c6576291c4d",
+  "out_dir": "/home/adnan/Desktop/mm3DGS/baselines/dart/results/seq_1_frame_185__cascaded",
+  "epochs": 300,
+  "batch": 8,
+  "sensor": "cascaded",
+  "Nr": 256,
+  "Nd": 16,
+  "Na": 127,
+  "range_res": 0.059294393592794835
+}
