@@ -1,0 +1,32 @@
+{
+  "scene": "seq_2_frame_300",
+  "test_frame": 300,
+  "train_frames": [
+    296,
+    297,
+    298,
+    299,
+    301,
+    302,
+    303,
+    304
+  ],
+  "wall_time_seconds": 98.1349287033081,
+  "peak_gpu_mem_mib": 2434.0751953125,
+  "deviations_from_reference": [
+    "Synthetic 9-frame sequence rather than upstream's longer driving sequences.",
+    "sin-space \u2192 uniform-angle azimuth resample (matches RadarSplat baseline).",
+    "Pose rotation +90\u00b0 CCW about world-Z to align cascade wedge with sampler row 0.",
+    "azim_span_deg=180 via 1-line patch to radarfields/sampler.py (patches/azim_span.patch); upstream default 360 unchanged.",
+    "bin_size_radar=compute_range_res_from_cfg (~0.059 m), not upstream 0.044.",
+    "num_azimuths_radar=200, num_range_bins=256 (vs upstream 400 / 7536).",
+    "Combined tx*rx MMWCAS antenna LUT for azimuth; flat 0 dBic elevation LUT (no measured elevation pattern for cascade).",
+    "bs=8 (vs upstream default 10).",
+    "--refine_poses disabled (small-n training set; remove a confound).",
+    "Training iterations: 400 (upstream default 800).",
+    "--refine_poses disabled (small-n training set)."
+  ],
+  "upstream_commit": "ee76d76570f58b3d8539eafd7df0c188b58af333",
+  "workspace": "/home/adnan/Desktop/mm3DGS/baselines/radarfields/upstream_results/seq_2_frame_300",
+  "max_iters": 400
+}

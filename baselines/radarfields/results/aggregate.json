@@ -1,0 +1,58 @@
+{
+  "baseline": "radarfields",
+  "scenes": [
+    {
+      "scene": "seq_0_frame_135",
+      "ra_corr": 0.10738036154384514,
+      "range_profile_corr": 0.4444211356455262,
+      "wall_time_seconds": 98.95724129676819,
+      "peak_gpu_mem_mib": 2434.0751953125
+    },
+    {
+      "scene": "seq_1_frame_185",
+      "ra_corr": 0.08530721155560214,
+      "range_profile_corr": 0.43219038151041606,
+      "wall_time_seconds": 98.62958025932312,
+      "peak_gpu_mem_mib": 2434.0751953125
+    },
+    {
+      "scene": "seq_1_frame_438",
+      "ra_corr": 0.03981700000548929,
+      "range_profile_corr": 0.4865165487113816,
+      "wall_time_seconds": 98.4032871723175,
+      "peak_gpu_mem_mib": 2434.0751953125
+    },
+    {
+      "scene": "seq_2_frame_160",
+      "ra_corr": 0.10269909757141148,
+      "range_profile_corr": 0.4102774825249172,
+      "wall_time_seconds": 96.71576976776123,
+      "peak_gpu_mem_mib": 2434.0751953125
+    },
+    {
+      "scene": "seq_2_frame_300",
+      "ra_corr": 0.1723105589640226,
+      "range_profile_corr": 0.46358117968577595,
+      "wall_time_seconds": 98.1349287033081,
+      "peak_gpu_mem_mib": 2434.0751953125
+    },
+    {
+      "scene": "seq_2_frame_105",
+      "ra_corr": 0.20979894463190263,
+      "range_profile_corr": 0.37446334003654475,
+      "wall_time_seconds": 98.21223568916321,
+      "peak_gpu_mem_mib": 2434.0751953125
+    }
+  ],
+  "n_scenes": 6,
+  "ra_corr": {
+    "mean": 0.11955219571204555,
+    "stdev": 0.06146628575377756,
+    "n": 6
+  },
+  "range_profile_corr": {
+    "mean": 0.43524167801909364,
+    "stdev": 0.03960563090399769,
+    "n": 6
+  }
+}
