@@ -810,9 +810,17 @@ def train_frame_nvs(scene,
     # We accumulate ‖∇p L‖ across iters between densify steps and use it in
     # place of the Fisher proxy.
     pos_grad_accum = None
+    # Diagnostics: a never-reset accumulator capturing ‖∇p L‖ across the
+    # entire training run, plus per-densify concentration snapshots
+    # (top-k cumulative fraction). Saved at end-of-training for offline
+    # Fisher-imbalance analysis. Always populated when pos_grad_amp is
+    # the signal; cheap (N×4 bytes ≈ 80 KB at N=20k).
+    career_pos_grad = None
+    grad_concentration_log = []
     if densify_signal == 'pos_grad_amp' and reg_densify_interval > 0:
         model.positions.requires_grad_(True)
         pos_grad_accum = torch.zeros(model.N, device=DEVICE)
+        career_pos_grad = torch.zeros(model.N, device=DEVICE)
         if verbose:
             print(f'  [v5_v4 Phase 3] densify_signal=pos_grad_amp; positions '
                   f'requires_grad=True (NOT in optimizer; selection only)')
@@ -876,7 +884,10 @@ def train_frame_nvs(scene,
         # in the optimizer (they never move).
         if pos_grad_accum is not None and model.positions.grad is not None:
             with torch.no_grad():
-                pos_grad_accum += model.positions.grad.detach().norm(dim=-1)
+                step_grad = model.positions.grad.detach().norm(dim=-1)
+                pos_grad_accum += step_grad
+                if career_pos_grad is not None:
+                    career_pos_grad += step_grad
 
         # H1 reg: L2 drift from init, mean over all elements (N·6).
         if reg_l2_drift_lambda > 0.0:
@@ -1014,6 +1025,25 @@ def train_frame_nvs(scene,
             if densify_signal == 'pos_grad_amp':
                 if pos_grad_accum is not None and pos_grad_accum.max() > 0:
                     f_comb = pos_grad_accum.clone()  # (N,)
+                    # Diagnostic: cumulative top-k fraction of total ‖∇p L‖
+                    # in this densify window. Tells us how concentrated the
+                    # signal is among a few points (Fisher-imbalance probe).
+                    with torch.no_grad():
+                        sg, _ = f_comb.sort(descending=True)
+                        total = sg.sum().clamp(min=1e-30)
+                        cumsum = (sg.cumsum(0) / total)
+                        Nm = int(model.N)
+                        snap = {'iter': int(it)}
+                        parts = []
+                        for frac in (0.005, 0.01, 0.05, 0.10, 0.25, 0.50):
+                            k = max(1, int(frac * Nm))
+                            v = float(cumsum[k - 1].item()) * 100.0
+                            snap[f'top_{frac:.4f}'] = v
+                            parts.append(f'top-{frac*100:.1f}%={v:.1f}%')
+                        grad_concentration_log.append(snap)
+                        if verbose:
+                            print(f'  [grad-conc iter={it}] N={Nm}  '
+                                  + '  '.join(parts))
                     # Reset for next interval.
                     pos_grad_accum.zero_()
             else:
@@ -1205,6 +1235,26 @@ def train_frame_nvs(scene,
              mean_train_cc=np.array([h['mean_train_cc'] for h in history]))
     if best_state is not None:
         torch.save(best_state, os.path.join(output_dir, 'best_model.pt'))
+
+    # Fisher-imbalance diagnostic dump (Phase A of the v5_v4 follow-on
+    # plan). Captures the never-reset career ‖∇p L‖ accumulator, the
+    # per-densify concentration log, and final + init positions so we
+    # can offline-analyse where the live points are in 3D space.
+    if career_pos_grad is not None:
+        diag_path = os.path.join(output_dir, 'fisher_diagnostic.pt')
+        torch.save({
+            'career_pos_grad': career_pos_grad.detach().cpu(),
+            'last_window_pos_grad': (pos_grad_accum.detach().cpu()
+                                      if pos_grad_accum is not None else None),
+            'final_positions': model.positions.detach().cpu(),
+            'init_positions': init_positions.detach().cpu(),
+            'concentration_log': grad_concentration_log,
+            'final_test_cc': float(final_test_cc),
+            'final_train_mean_cc': float(final_train_mean),
+            'N': int(model.N),
+        }, diag_path)
+        if verbose:
+            print(f'  fisher diagnostic saved to: {diag_path}')
 
     if verbose:
         print(f'\n  results saved to: {output_dir}')
