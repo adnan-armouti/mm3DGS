@@ -511,7 +511,7 @@ def cull_gaussians(model, rast, cos_threshold=0.05):
 # =========================================================================
 
 def init_visible_weighted(scene, rast, target_n=90000,
-                          cos_bore_min=0.1,
+                          cos_bore_min=0.1761,
                           n_intermediate=None,
                           device=DEVICE,
                           return_pool=False):
@@ -664,7 +664,7 @@ _INIT_VARIANTS = {
 
 
 def _per_pose_visibility_masks(xyz, pose_dict_list,
-                                 cos_bore_min=0.05,
+                                 cos_bore_min=0.1761,
                                  max_range=None,
                                  mi_scene=None,
                                  device='cuda'):
@@ -701,7 +701,7 @@ def _per_pose_visibility_masks(xyz, pose_dict_list,
 
 def _per_pose_amplitude_score(xyz, normals, pose_dict_list,
                                 use_cos=True, use_invd2=True,
-                                cos_bore_min=0.05, max_range=None,
+                                cos_bore_min=0.1761, max_range=None,
                                 mi_scene=None,
                                 check_visibility=True,
                                 device='cuda'):
@@ -767,7 +767,7 @@ def init_visible_weighted_radar_aware(
     scene, rast, train_poses_chirp0,
     target_n=20000,
     variant='A4_union_amp_lidar',
-    cos_bore_min=0.05,
+    cos_bore_min=0.1761,
     fps_oversample_factor=1.5,
     intensity_alpha=0.5,
     device=DEVICE,
