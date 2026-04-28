@@ -546,7 +546,12 @@ def train_frame_nvs(scene,
                                               # learnable positions, AMPLITUDE GRADIENT
                                               # ONLY (phase remains detached). Sub-mm
                                               # bounded; L2 anchor to LiDAR init.
-                    learn_positions_l2=1e3):  # L2 anchor coefficient on (pos − init)
+                    learn_positions_l2=1e3,   # L2 anchor coefficient on (pos − init)
+                    phase4_d_lambda=0.0,      # v5_v4 Phase 4 (D): > 0 enables per-train-view
+                                              # membership. sigmoid(m[:, v]) is opacity per view.
+                                              # λ is the L1 sparsity on sigmoid(m).
+                    phase4_d_test_knn=2):     # at test, average sigmoid(m[:, v]) over the K
+                                              # nearest train views by 6-DoF pose distance.
     assert v5cuda.is_available(), (
         'v5 CUDA extension not built. '
         'cd mm25DGS_v5_v4/cuda && python setup.py build_ext --inplace')
@@ -672,6 +677,13 @@ def train_frame_nvs(scene,
     )
 
     # Finalize GT cart norms for cart_corr evaluation
+    # v5_v4 Phase 4 (D) closures — initialise BEFORE _render_and_cart_corr
+    # is defined (the closure captures these names; they get filled in
+    # below in the optimizer-setup block when phase4_d_lambda > 0).
+    phase4_m = None
+    train_view_index = {}    # frame_idx → v ∈ [0, V)
+    train_view_centers = []  # list of (3,) tensors
+
     def _finalize_cart(sample):
         with torch.no_grad():
             ra_cart = polar_to_cart_torch(sample['gt_ra_polar'], sample_grid)
@@ -683,11 +695,39 @@ def train_frame_nvs(scene,
     _finalize_cart(test_sample)
 
     # ── Initial (pre-training) test cart_corr ──
+    def _knn_membership_for_pose(pose_dict):
+        """v5_v4 Phase 4 — KNN-over-train-views deployment.
+        For a (test) pose, average sigmoid(m[:, v]) over the K nearest
+        train views by 6-DoF (rx-centroid) Euclidean distance.
+        Returns a (N,) tensor in [0, 1] or None if Phase 4 inactive.
+        """
+        if phase4_m is None or len(train_view_centers) == 0:
+            return None
+        with torch.no_grad():
+            test_rxc = pose_dict['rx_positions'].mean(dim=0)
+            tv_centers = torch.stack(train_view_centers, dim=0).to(test_rxc.device)
+            d2 = ((tv_centers - test_rxc) ** 2).sum(dim=-1)
+            K = min(int(phase4_d_test_knn), len(train_view_centers))
+            _, knn_idx = torch.topk(-d2, k=K)
+            sig_m = torch.sigmoid(phase4_m)        # (N, V)
+            return sig_m[:, knn_idx].mean(dim=-1)  # (N,)
+
     def _render_and_cart_corr(sample):
         apply_pose(rast, sample['pose'])
         with torch.no_grad():
+            # Phase 4 — KNN-deploy the per-view membership at test pose.
+            v_idx = train_view_index.get(int(sample['frame_idx']))
+            if phase4_m is not None and v_idx is not None:
+                # train sample: use its own m[:, v]
+                areas = vertex_areas * torch.sigmoid(phase4_m[:, v_idx])
+            elif phase4_m is not None:
+                # test (or held-out) sample: KNN-average
+                m_knn = _knn_membership_for_pose(sample['pose'])
+                areas = vertex_areas if m_knn is None else (vertex_areas * m_knn)
+            else:
+                areas = vertex_areas
             rp_real, rp_imag = render_gaussians(
-                model, rast, vertex_areas=vertex_areas,
+                model, rast, vertex_areas=areas,
                 active_mask=active_mask, shadow_mask=None,
                 bsdf_mode='full', disabled_components=None)
             ra_polar = range_profile_to_ra_mag(rp_real, rp_imag)
@@ -722,6 +762,26 @@ def train_frame_nvs(scene,
         if verbose:
             print(f'  [v5_v2 P1] learn_positions_lr={learn_positions_lr:g} '
                   f'(amplitude-path only, L2 anchor λ={learn_positions_l2:g})')
+    # v5_v4 Phase 4 (D) — populate the closures above when enabled.
+    if phase4_d_lambda > 0.0:
+        V = len(train_frames)
+        for v_idx, f in enumerate(train_frames):
+            train_view_index[int(f)] = v_idx
+        # Build per-view radar-centroid positions for KNN test deployment.
+        # We use the chirp-0 pose's mean rx/tx position.
+        for s in train_samples:
+            if s['loop_idx'] == 0:
+                rxc = s['pose']['rx_positions'].mean(dim=0)  # (3,)
+                if int(s['frame_idx']) in train_view_index:
+                    train_view_centers.append(rxc.detach().clone())
+        phase4_m = torch.nn.Parameter(
+            torch.zeros(model.N, V, device=DEVICE))
+        param_groups.append({'params': [phase4_m], 'lr': mat_lr, 'name': 'membership'})
+        clip_vals['membership'] = 1.0
+        if verbose:
+            print(f'  [v5_v4 P4] phase4_d_lambda={phase4_d_lambda:g}  '
+                  f'V={V} train views; sigmoid(m[:, v]) opacity multiplier '
+                  f'(KNN K={phase4_d_test_knn} for test)')
     base_lrs = {g['name']: g['lr'] for g in param_groups}
     optimizer = torch.optim.Adam(param_groups, betas=(0.9, 0.999), eps=1e-8)
 
@@ -782,8 +842,20 @@ def train_frame_nvs(scene,
         loss_sum = 0.0
         for s in train_samples:
             apply_pose(rast, s['pose'])
+            # v5_v4 Phase 4 (D) — per-train-view opacity multiplier.
+            # vertex_areas is the FOV mask (N-vector binary). When phase4 is
+            # active, multiply by sigmoid(m[:, v]) where v is this train
+            # frame's view index. Goes through render → backward to update m.
+            if phase4_m is not None:
+                v_idx = train_view_index.get(int(s['frame_idx']))
+                if v_idx is not None:
+                    areas_s = vertex_areas * torch.sigmoid(phase4_m[:, v_idx])
+                else:
+                    areas_s = vertex_areas
+            else:
+                areas_s = vertex_areas
             rp_real, rp_imag = render_gaussians(
-                model, rast, vertex_areas=vertex_areas,
+                model, rast, vertex_areas=areas_s,
                 active_mask=active_mask, shadow_mask=None,
                 bsdf_mode='full', disabled_components=None)
             loss_k, _ = compute_ra_loss_rp(
@@ -821,6 +893,14 @@ def train_frame_nvs(scene,
             reg_pos = learn_positions_l2 * pos_drift.pow(2).mean()
             reg_pos.backward()
             loss_sum += float(reg_pos.item())
+
+        # v5_v4 Phase 4 (D) — L1 sparsity on sigmoid(m). Encourages each
+        # point to be "owned by" few views (rather than 1 in all views).
+        if phase4_m is not None and phase4_d_lambda > 0.0:
+            sig_m = torch.sigmoid(phase4_m)
+            reg_m = phase4_d_lambda * sig_m.mean()
+            reg_m.backward()
+            loss_sum += float(reg_m.item())
 
         # S2 reg: Fisher-weighted penalty on rotation drift from a target.
         # Target is either `init_normals` (Option 1) or an EMA of the
@@ -1062,6 +1142,8 @@ def train_frame_nvs(scene,
             tag = f'{tag}_dsig{densify_signal}'
         if learn_positions_lr > 0.0:
             tag = f'{tag}_lpos{learn_positions_lr:g}L2{learn_positions_l2:g}'
+        if phase4_d_lambda > 0.0:
+            tag = f'{tag}_p4d{phase4_d_lambda:g}k{phase4_d_test_knn}'
         output_dir = os.path.join(
             PROJECT_ROOT, 'mm25DGS_v5_v4', 'output_frame_nvs', f'{scene}_{tag}')
     os.makedirs(output_dir, exist_ok=True)
@@ -1274,6 +1356,15 @@ if __name__ == '__main__':
     ap.add_argument('--learn_positions_l2', type=float, default=1e3,
                     help='L2 anchor coefficient on (positions − init). '
                          'Keeps positions sub-mm from LiDAR seed.')
+    ap.add_argument('--phase4_d_lambda', type=float, default=0.0,
+                    help='v5_v4 Phase 4 (D) — per-train-view membership. '
+                         '> 0 enables a learnable (N × V) matrix m where '
+                         'sigmoid(m[:, v]) is the per-view opacity '
+                         'multiplier on each point. λ is the L1 sparsity '
+                         'weight on sigmoid(m). At test, KNN-average over '
+                         'the nearest train views (--phase4_d_test_knn).')
+    ap.add_argument('--phase4_d_test_knn', type=int, default=2,
+                    help='K for the KNN-over-train-views test deployment.')
     args = ap.parse_args()
 
     train_frames = [int(x) for x in args.train_frames.split(',') if x.strip()]
@@ -1312,4 +1403,6 @@ if __name__ == '__main__':
         init_variant=args.init_variant,
         densify_signal=args.densify_signal,
         learn_positions_lr=args.learn_positions_lr,
-        learn_positions_l2=args.learn_positions_l2)
+        learn_positions_l2=args.learn_positions_l2,
+        phase4_d_lambda=args.phase4_d_lambda,
+        phase4_d_test_knn=args.phase4_d_test_knn)
