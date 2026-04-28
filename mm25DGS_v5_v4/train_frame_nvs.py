@@ -550,8 +550,16 @@ def train_frame_nvs(scene,
                     phase4_d_lambda=0.0,      # v5_v4 Phase 4 (D): > 0 enables per-train-view
                                               # membership. sigmoid(m[:, v]) is opacity per view.
                                               # λ is the L1 sparsity on sigmoid(m).
-                    phase4_d_test_knn=2):     # at test, average sigmoid(m[:, v]) over the K
+                    phase4_d_test_knn=2,     # at test, average sigmoid(m[:, v]) over the K
                                               # nearest train views by 6-DoF pose distance.
+                    mlp_a_lr=0.0,
+                    mlp_a_hidden_dim=64,
+                    mlp_a_n_layers=3,
+                    mlp_a_max_dpos_m=0.05,
+                    mlp_a_max_dalpha=1.0,
+                    mlp_a_l2_dpos=100.0,
+                    mlp_a_l1_dalpha=0.01,
+                    mlp_a_warmup_iters=50):
     assert v5cuda.is_available(), (
         'v5 CUDA extension not built. '
         'cd mm25DGS_v5_v4/cuda && python setup.py build_ext --inplace')
@@ -709,6 +717,11 @@ def train_frame_nvs(scene,
     phase4_m = None
     train_view_index = {}    # frame_idx → v ∈ [0, V)
     train_view_centers = []  # list of (3,) tensors
+    # MLP-A closures — same hoist pattern.
+    mlp_a = None
+    pose6d_per_sample = {}
+    pos_local_seed = None
+    R_radar2world_seed_t = None
 
     def _finalize_cart(sample):
         with torch.no_grad():
@@ -752,10 +765,34 @@ def train_frame_nvs(scene,
                 areas = vertex_areas if m_knn is None else (vertex_areas * m_knn)
             else:
                 areas = vertex_areas
+            # MLP-A — apply pose-conditioned deformation at this sample's
+            # pose. Train samples reuse their cached pose_6d; the test
+            # sample uses its own. Test pose's geometry is permitted.
+            pos_override = None
+            if mlp_a is not None:
+                if int(sample['frame_idx']) in pose6d_per_sample:
+                    pose6d_s = pose6d_per_sample[int(sample['frame_idx'])]
+                else:
+                    # test sample (or any out-of-cache pose): re-encode now.
+                    from .mlp_a import encode_pose_from_dict
+                    rx_seed_np = rast.rx_positions.mean(dim=0).detach().cpu().numpy()
+                    bs_seed_np = rast.tx_boresights.mean(dim=0).detach().cpu().numpy()
+                    bs_seed_np = bs_seed_np / max(np.linalg.norm(bs_seed_np), 1e-12)
+                    from .voxel_grid import _rodrigues_align
+                    R = _rodrigues_align(bs_seed_np,
+                                          np.array([0.0, 1.0, 0.0],
+                                                    dtype=np.float32))
+                    pose6d_s = encode_pose_from_dict(
+                        sample['pose'], rx_seed_np, R)
+                dp_local, dalpha = mlp_a(pose6d_s, pos_local_seed)
+                dp_world = dp_local @ R_radar2world_seed_t.T
+                pos_override = model.positions + dp_world
+                areas = areas * torch.clamp(1.0 + dalpha, min=0.0, max=2.0)
             rp_real, rp_imag = render_gaussians(
                 model, rast, vertex_areas=areas,
                 active_mask=active_mask, shadow_mask=None,
-                bsdf_mode='full', disabled_components=None)
+                bsdf_mode='full', disabled_components=None,
+                positions_override=pos_override)
             ra_polar = range_profile_to_ra_mag(rp_real, rp_imag)
             ra_cart = polar_to_cart_torch(ra_polar, sample_grid)
             cc = cart_corr_torch(ra_cart, sample['gt_cart_norm']).item()
@@ -808,6 +845,59 @@ def train_frame_nvs(scene,
             print(f'  [v5_v4 P4] phase4_d_lambda={phase4_d_lambda:g}  '
                   f'V={V} train views; sigmoid(m[:, v]) opacity multiplier '
                   f'(KNN K={phase4_d_test_knn} for test)')
+    # MLP-A — pose-conditioned per-Gaussian deformation MLP.
+    # mlp_a, pose6d_per_sample, pos_local_seed, R_radar2world_seed_t are
+    # already None / empty from the closure-hoist above.
+    test_pose6d = None
+    if mlp_a_lr > 0.0:
+        from .mlp_a import (
+            PoseConditionedDeformationMLP, encode_pose_from_dict,
+        )
+        from .voxel_grid import _rodrigues_align
+        # Seed-pose proxies (same as the rasterizer was built from).
+        rx_seed = rast.rx_positions.mean(dim=0).detach().cpu().numpy()
+        bs_seed = rast.tx_boresights.mean(dim=0).detach().cpu().numpy()
+        bs_seed = bs_seed / max(np.linalg.norm(bs_seed), 1e-12)
+        R_w2r_seed = _rodrigues_align(bs_seed,
+                                       np.array([0.0, 1.0, 0.0],
+                                                 dtype=np.float32))
+        # Cache (radar→world) = R_w2r.T for converting MLP outputs back.
+        R_radar2world_seed_t = torch.from_numpy(
+            R_w2r_seed.T.astype(np.float32)).to(model.positions)
+        # Gaussian positions in seed-pose radar local frame.
+        with torch.no_grad():
+            R_t = torch.from_numpy(R_w2r_seed.astype(np.float32)).to(model.positions)
+            rx_seed_t = torch.from_numpy(rx_seed.astype(np.float32)).to(model.positions)
+            pos_local_seed = (model.positions - rx_seed_t) @ R_t.T  # (N, 3)
+        # Build the MLP.
+        mlp_a = PoseConditionedDeformationMLP(
+            hidden_dim=int(mlp_a_hidden_dim),
+            n_layers=int(mlp_a_n_layers),
+            max_dpos_m=float(mlp_a_max_dpos_m),
+            max_dalpha=float(mlp_a_max_dalpha),
+        ).to(DEVICE)
+        # Pre-compute pose_6d for every train sample's pose + the test pose.
+        # Caches keyed by frame_idx (chirp 0 only, matches train_loops=[0]).
+        for s in train_samples:
+            if int(s['frame_idx']) not in pose6d_per_sample:
+                pose6d_per_sample[int(s['frame_idx'])] = encode_pose_from_dict(
+                    s['pose'], rx_seed, R_w2r_seed)
+        test_pose6d = encode_pose_from_dict(
+            test_sample['pose'], rx_seed, R_w2r_seed)
+        # Add MLP params to optimizer.
+        param_groups.append({
+            'params': list(mlp_a.parameters()),
+            'lr': float(mlp_a_lr),
+            'name': 'mlp_a',
+        })
+        clip_vals['mlp_a'] = 0.5
+        if verbose:
+            print(f'  [MLP-A] enabled  lr={mlp_a_lr:g}  hidden={mlp_a_hidden_dim}'
+                  f' × {mlp_a_n_layers}  max_dpos={mlp_a_max_dpos_m:g}m  '
+                  f'max_dalpha={mlp_a_max_dalpha:g}  warmup={mlp_a_warmup_iters}')
+            print(f'  [MLP-A] pre-computed pose_6d for {len(pose6d_per_sample)} '
+                  f'train poses + 1 test pose.')
+
     base_lrs = {g['name']: g['lr'] for g in param_groups}
     optimizer = torch.optim.Adam(param_groups, betas=(0.9, 0.999), eps=1e-8)
 
@@ -888,12 +978,39 @@ def train_frame_nvs(scene,
                     areas_s = vertex_areas
             else:
                 areas_s = vertex_areas
+            # MLP-A — pose-conditioned per-Gaussian deformation. After warmup,
+            # query the MLP with the sample's pose_6d + base position to get
+            # (Δp, Δα). Inject Δp via positions_override, modulate Δα onto
+            # vertex_areas. AMPLITUDE-PATH ONLY (detach_phase=True is enforced
+            # downstream).
+            pos_override_s = None
+            mlp_dalpha_s = None
+            mlp_dp_local_s = None
+            if mlp_a is not None and it >= mlp_a_warmup_iters:
+                pose6d_s = pose6d_per_sample.get(int(s['frame_idx']))
+                if pose6d_s is not None:
+                    dp_local, dalpha = mlp_a(pose6d_s, pos_local_seed)
+                    mlp_dp_local_s = dp_local
+                    mlp_dalpha_s = dalpha
+                    # Rotate Δp from seed-radar local frame back to world.
+                    dp_world = dp_local @ R_radar2world_seed_t.T
+                    pos_override_s = model.positions + dp_world
+                    # Multiplicative opacity modulation: clamp(1 + Δα, [0, 2]).
+                    areas_s = areas_s * torch.clamp(1.0 + dalpha, min=0.0, max=2.0)
             rp_real, rp_imag = render_gaussians(
                 model, rast, vertex_areas=areas_s,
                 active_mask=active_mask, shadow_mask=None,
-                bsdf_mode='full', disabled_components=None)
+                bsdf_mode='full', disabled_components=None,
+                positions_override=pos_override_s)
             loss_k, _ = compute_ra_loss_rp(
                 rp_real, rp_imag, s['gt_loss'], loss_type=loss_type)
+            # MLP-A regularisation: keep Δp small (L2 anchor), Δα sparse (L1).
+            # Folded into the per-sample loss so we backward exactly once.
+            if mlp_dp_local_s is not None:
+                if mlp_a_l2_dpos > 0.0:
+                    loss_k = loss_k + mlp_a_l2_dpos * mlp_dp_local_s.pow(2).mean()
+                if mlp_a_l1_dalpha > 0.0:
+                    loss_k = loss_k + mlp_a_l1_dalpha * mlp_dalpha_s.abs().mean()
             (loss_k * loss_scale).backward()
             with torch.no_grad():
                 ra_polar = range_profile_to_ra_mag(rp_real.detach(), rp_imag.detach())
@@ -1461,6 +1578,24 @@ if __name__ == '__main__':
                          'the nearest train views (--phase4_d_test_knn).')
     ap.add_argument('--phase4_d_test_knn', type=int, default=2,
                     help='K for the KNN-over-train-views test deployment.')
+    # MLP-A — pose-conditioned per-Gaussian deformation MLP
+    ap.add_argument('--mlp_a_lr', type=float, default=0.0,
+                    help='MLP-A learning rate. > 0 enables MLP-A, a '
+                         'pose-conditioned per-Gaussian deformation field. '
+                         'See md/mm25dgs_v5_v4_mlp_options.md.')
+    ap.add_argument('--mlp_a_hidden_dim', type=int, default=64)
+    ap.add_argument('--mlp_a_n_layers', type=int, default=3)
+    ap.add_argument('--mlp_a_max_dpos_m', type=float, default=0.05,
+                    help='Bound on per-Gaussian Δposition magnitude (m).')
+    ap.add_argument('--mlp_a_max_dalpha', type=float, default=1.0,
+                    help='Bound on per-Gaussian Δopacity magnitude.')
+    ap.add_argument('--mlp_a_l2_dpos', type=float, default=100.0,
+                    help='L2 anchor weight on Δposition outputs (per-Gaussian).')
+    ap.add_argument('--mlp_a_l1_dalpha', type=float, default=0.01,
+                    help='L1 sparsity weight on Δopacity outputs.')
+    ap.add_argument('--mlp_a_warmup_iters', type=int, default=50,
+                    help='Iters to keep MLP-A frozen at zero before training '
+                         '(let materials/rotations settle first).')
     args = ap.parse_args()
 
     train_frames = [int(x) for x in args.train_frames.split(',') if x.strip()]
@@ -1501,4 +1636,12 @@ if __name__ == '__main__':
         learn_positions_lr=args.learn_positions_lr,
         learn_positions_l2=args.learn_positions_l2,
         phase4_d_lambda=args.phase4_d_lambda,
-        phase4_d_test_knn=args.phase4_d_test_knn)
+        phase4_d_test_knn=args.phase4_d_test_knn,
+        mlp_a_lr=args.mlp_a_lr,
+        mlp_a_hidden_dim=args.mlp_a_hidden_dim,
+        mlp_a_n_layers=args.mlp_a_n_layers,
+        mlp_a_max_dpos_m=args.mlp_a_max_dpos_m,
+        mlp_a_max_dalpha=args.mlp_a_max_dalpha,
+        mlp_a_l2_dpos=args.mlp_a_l2_dpos,
+        mlp_a_l1_dalpha=args.mlp_a_l1_dalpha,
+        mlp_a_warmup_iters=args.mlp_a_warmup_iters)

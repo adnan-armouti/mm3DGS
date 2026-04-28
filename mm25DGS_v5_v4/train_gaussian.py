@@ -1228,11 +1228,16 @@ def init_visible_weighted_radar_aware(
 
 def render_gaussians(model, rast, vertex_areas, active_mask=None,
                      shadow_mask=None, detach_phase=True, bsdf_mode='full',
-                     disabled_components=None):
+                     disabled_components=None, positions_override=None):
     """Range-profile splatting renderer wrapper.
 
     `vertex_areas` carries the precomputed per-point hemisphere weight
     (uniform = 1.0 for active points, 0.0 for inactive).
+
+    `positions_override`: if provided, an (N, 3) tensor used as positions
+    instead of `model.positions`. Used by MLP-A to inject pose-conditioned
+    position deformations without mutating model state. Must have the
+    same N as the model, before any active_mask is applied.
 
     Renders the full active set in one shot — no chunking. The dominant
     intermediate is the (M, n_tx, n_rx) BSDF tensor which at our scales
@@ -1241,7 +1246,7 @@ def render_gaussians(model, rast, vertex_areas, active_mask=None,
     """
     from mm25DGS_v5_v4.rasterizer_factorized import render_factorized
 
-    positions = model.positions
+    positions = positions_override if positions_override is not None else model.positions
     normals = model.get_normals()
     raw_materials = model.raw_materials
 
