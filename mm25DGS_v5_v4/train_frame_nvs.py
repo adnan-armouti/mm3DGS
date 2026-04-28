@@ -540,8 +540,13 @@ def train_frame_nvs(scene,
                     reg_densify_pool_selection='nearest',
                     seed_frame=None,
                     init_variant='baseline',  # v5_v4 Phase 2: A1..A5 or 'baseline'
-                    densify_signal='fisher'): # v5_v4 Phase 3: 'fisher' (legacy)
+                    densify_signal='fisher',  # v5_v4 Phase 3: 'fisher' (legacy)
                                               # | 'pos_grad_amp' (Phase 3)
+                    learn_positions_lr=0.0,   # v5_v2 Phase 1 carryover: > 0 → enable
+                                              # learnable positions, AMPLITUDE GRADIENT
+                                              # ONLY (phase remains detached). Sub-mm
+                                              # bounded; L2 anchor to LiDAR init.
+                    learn_positions_l2=1e3):  # L2 anchor coefficient on (pos − init)
     assert v5cuda.is_available(), (
         'v5 CUDA extension not built. '
         'cd mm25DGS_v5_v4/cuda && python setup.py build_ext --inplace')
@@ -703,6 +708,20 @@ def train_frame_nvs(scene,
         {'params': [model.rotations],     'lr': rot_lr, 'name': 'rotations'},
     ]
     clip_vals = {'materials': 1.0, 'rotations': 0.5}
+    # v5_v2 Phase 1 carryover — learnable positions, AMPLITUDE GRADIENT ONLY.
+    # detach_phase=True (v5 default) ensures position gradient flows ONLY
+    # through alpha_tx, BSDF cos terms, antenna gain — not through
+    # phi_carrier or n_peak. NO PHASE GRADIENTS, by construction.
+    if learn_positions_lr > 0.0:
+        model.positions.requires_grad_(True)
+        param_groups.append({'params': [model.positions], 'lr': learn_positions_lr,
+                              'name': 'positions'})
+        # Tight clip — bounded sub-mm motion. Phase wraps every 0.97 mm at
+        # 77 GHz so we want movement << 1 mm per step.
+        clip_vals['positions'] = 0.001  # 1 mm/step grad-norm cap
+        if verbose:
+            print(f'  [v5_v2 P1] learn_positions_lr={learn_positions_lr:g} '
+                  f'(amplitude-path only, L2 anchor λ={learn_positions_l2:g})')
     base_lrs = {g['name']: g['lr'] for g in param_groups}
     optimizer = torch.optim.Adam(param_groups, betas=(0.9, 0.999), eps=1e-8)
 
@@ -714,6 +733,8 @@ def train_frame_nvs(scene,
     # Snapshot init surface normals (from the quaternion init computed from
     # pcl.npy LiDAR normals). Needed for S2's rotation-drift penalty.
     init_normals = model.get_normals().detach().clone()  # (N, 3)
+    # v5_v2 Phase 1 — snapshot init positions for L2 anchor against drift.
+    init_positions = model.positions.detach().clone()  # (N, 3)
     active_pts_mask = None
     # S2: per-point Fisher weights on rotations, snapshot at warmup using
     # Adam's exp_avg_sq. Stays None until reg_warm_iters.
@@ -791,6 +812,15 @@ def train_frame_nvs(scene,
             reg_loss = reg_l2_drift_lambda * drift.pow(2).mean()
             reg_loss.backward()
             loss_sum += float(reg_loss.item())
+
+        # v5_v2 Phase 1 — L2 anchor on positions when learnable.
+        # Phase wraps every 0.97 mm at 77 GHz; we want positions to drift
+        # only sub-mm at most. λ ~ 1e3 keeps ‖Δp‖ in O(0.1 mm).
+        if learn_positions_lr > 0.0 and learn_positions_l2 > 0.0:
+            pos_drift = model.positions - init_positions
+            reg_pos = learn_positions_l2 * pos_drift.pow(2).mean()
+            reg_pos.backward()
+            loss_sum += float(reg_pos.item())
 
         # S2 reg: Fisher-weighted penalty on rotation drift from a target.
         # Target is either `init_normals` (Option 1) or an EMA of the
@@ -1030,6 +1060,8 @@ def train_frame_nvs(scene,
             tag = f'{tag}_init{init_variant}'
         if densify_signal != 'fisher' and reg_densify_interval > 0:
             tag = f'{tag}_dsig{densify_signal}'
+        if learn_positions_lr > 0.0:
+            tag = f'{tag}_lpos{learn_positions_lr:g}L2{learn_positions_l2:g}'
         output_dir = os.path.join(
             PROJECT_ROOT, 'mm25DGS_v5_v4', 'output_frame_nvs', f'{scene}_{tag}')
     os.makedirs(output_dir, exist_ok=True)
@@ -1232,6 +1264,16 @@ if __name__ == '__main__':
                          'used as the densify selection signal '
                          '(see md/mm25dgs_v5_v4_smart_sampling_'
                          'and_densification.md §4).')
+    ap.add_argument('--learn_positions_lr', type=float, default=0.0,
+                    help='v5_v2 Phase 1 carryover. > 0 enables learnable '
+                         'positions (added to Adam at this LR). Gradient '
+                         'flows AMPLITUDE-PATH ONLY (detach_phase=True is '
+                         'enforced by the renderer; phi_carrier and n_peak '
+                         'are detached). Try 5e-5 to start. NO PHASE '
+                         'GRADIENTS by construction.')
+    ap.add_argument('--learn_positions_l2', type=float, default=1e3,
+                    help='L2 anchor coefficient on (positions − init). '
+                         'Keeps positions sub-mm from LiDAR seed.')
     args = ap.parse_args()
 
     train_frames = [int(x) for x in args.train_frames.split(',') if x.strip()]
@@ -1268,4 +1310,6 @@ if __name__ == '__main__':
         reg_densify_pool_selection=args.reg_densify_pool_selection,
         seed_frame=args.seed_frame,
         init_variant=args.init_variant,
-        densify_signal=args.densify_signal)
+        densify_signal=args.densify_signal,
+        learn_positions_lr=args.learn_positions_lr,
+        learn_positions_l2=args.learn_positions_l2)
