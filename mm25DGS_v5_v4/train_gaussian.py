@@ -669,6 +669,10 @@ _INIT_VARIANTS = {
                          'cells by aggregate score, take the single highest-'
                          'score candidate from each. Forces spatial uniformity '
                          '— at most one Gaussian per RA cell.',
+    'C2_voxel_v2': 'V2 with measured-signal modulation: C1 multiplied by '
+                    'per-voxel mean train RA magnitude (averaged across the '
+                    '8 train frames after motion-compensated voxel projection). '
+                    'Train signal only — never test signal.',
 }
 
 
@@ -783,6 +787,8 @@ def init_visible_weighted_radar_aware(
     return_pool=False,
     verbose=True,
     test_pose_chirp0=None,
+    train_ra_mag_list=None,   # for C2_voxel_v2: list of (n_az, n_range) tensors
+    c2_signal_gamma=1.0,      # C2: cell weight *= (signal^gamma)
 ):
     """v5_v4 Phase 2 — radar-aware initialization.
 
@@ -927,7 +933,7 @@ def init_visible_weighted_radar_aware(
     # voxel_aware_init.md). Builds on B2's strict-AND visibility but
     # replaces FPS with a per-voxel cosine-hemisphere allocator + within-
     # voxel top-K scoring.
-    if variant in ('C1_voxel_v1', 'C1b_voxel_capped'):
+    if variant in ('C1_voxel_v1', 'C1b_voxel_capped', 'C2_voxel_v2'):
         # 1. Per-pose visibility (strict AND across 9 poses).
         and_poses = list(train_poses_chirp0)
         if test_pose_chirp0 is not None:
@@ -1034,6 +1040,29 @@ def init_visible_weighted_radar_aware(
         # cell_weight[c] = sum of scores in cell c
         cell_weight = np.bincount(cell_id, weights=score, minlength=n_cells_eff)
         cell_capacity = np.bincount(cell_id, minlength=n_cells_eff)
+
+        # C2: multiply cell weights by per-voxel measured RA signal,
+        # averaged across the 8 train frames (motion-compensated by
+        # projecting the seed-pose voxel centres into each train frame's
+        # polar bin). Train signal only — test RA never touched.
+        if variant == 'C2_voxel_v2':
+            assert train_ra_mag_list is not None, \
+                'C2_voxel_v2 requires train_ra_mag_list (kwarg).'
+            from .voxel_grid import per_voxel_ra_signal
+            sig = per_voxel_ra_signal(grid, train_poses_chirp0,
+                                       train_ra_mag_list, range_res)
+            # Pad signal to n_cells_eff if we tagged out-of-grid singletons.
+            if n_cells_eff > len(sig):
+                sig = np.concatenate([sig,
+                                       np.zeros(n_cells_eff - len(sig),
+                                                 dtype=sig.dtype)])
+            sig_n = sig / max(sig.max(), 1e-12)        # normalise to [0, 1]
+            mod = sig_n ** c2_signal_gamma
+            cell_weight = cell_weight * mod
+            if verbose:
+                n_signal_cells = int((sig > 0).sum())
+                print(f"  [v5_v4 init/{variant}] RA signal: {n_signal_cells:,} "
+                      f"cells with non-zero measured signal (γ={c2_signal_gamma})")
 
         # 5. Per-voxel budget allocation.
         if variant == 'C1b_voxel_capped':

@@ -644,17 +644,30 @@ def train_frame_nvs(scene,
         if verbose:
             print(f'  [v5_v4] init variant: {init_variant}  '
                   f'over {len(train_poses_chirp0)} train poses')
-        # B2 / C1 / C1b need the test pose. Test POSE (geometry only) is
-        # permitted under NVS conventions; test SIGNAL is never used for init.
+        # B2 / C1 / C1b / C2 need the test pose. Test POSE (geometry only)
+        # is permitted under NVS conventions; test SIGNAL is never used for
+        # init.
         test_pose_chirp0 = None
         if init_variant in ('B2_strict_and_with_test', 'C1_voxel_v1',
-                             'C1b_voxel_capped'):
+                             'C1b_voxel_capped', 'C2_voxel_v2'):
             test_poses_b2, _ = _build_frame_poses(
                 scene, test_frame, use_pass2=use_pass2_alignment,
                 data_root=data_root, loop_dt_s=loop_dt_s,
                 frame_period_s=frame_period_s,
                 anchor_source=anchor_source, device=DEVICE)
             test_pose_chirp0 = test_poses_b2[0]
+        # C2 also needs the 8 train RA polar magnitudes (chirp 0).
+        train_ra_mag_list = None
+        if init_variant == 'C2_voxel_v2':
+            radar_dir_c2 = os.path.join(data_root, scene, 'radar')
+            train_ra_mag_list = []
+            for f in train_frames:
+                adc_npy = os.path.join(radar_dir_c2, f'cascaded_frame_{f}.npy')
+                gt = _build_per_loop_gt(adc_npy, 0, loss_type, DEVICE)
+                train_ra_mag_list.append(gt['gt_ra_polar'])
+            if verbose:
+                print(f'  [C2] loaded {len(train_ra_mag_list)} train RA polar maps '
+                      f'(shape {tuple(train_ra_mag_list[0].shape)})')
         model = init_visible_weighted_radar_aware(
             scene, rast,
             train_poses_chirp0=train_poses_chirp0,
@@ -662,6 +675,7 @@ def train_frame_nvs(scene,
             variant=init_variant,
             verbose=verbose,
             test_pose_chirp0=test_pose_chirp0,
+            train_ra_mag_list=train_ra_mag_list,
         )
         pool_xyz = pool_normals = slot_to_pool_idx = None
     rast.free_mi_scene()
@@ -1404,7 +1418,8 @@ if __name__ == '__main__':
                              'B1_strict_and_train',
                              'B2_strict_and_with_test',
                              'C1_voxel_v1',
-                             'C1b_voxel_capped'],
+                             'C1b_voxel_capped',
+                             'C2_voxel_v2'],
                     help='v5_v4 Phase 2 init variant. "baseline" = v5 init '
                          '(seed-pose FOV+RX+cosine resample+FPS). A2-A5 do '
                          'union-amplitude importance sampling across train '

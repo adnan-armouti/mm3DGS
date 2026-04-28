@@ -166,6 +166,81 @@ def cell_to_world_center(r_bin: int, az_bin: int, grid: RadarGridSpecs) -> np.nd
     return (R_inv @ pt_radar) + grid.rx_center
 
 
+def all_cell_world_centers(grid: RadarGridSpecs) -> np.ndarray:
+    """Vectorised version of cell_to_world_center for the full grid.
+
+    Returns: (n_cells, 3) where row r*n_az + a is the world centre of
+    cell (range_bin=r, az_bin=a). Cell elevation is fixed at 0 in the
+    radar local frame (matches the 2D RA assumption — full elevation
+    extent collapsed).
+    """
+    r_centers = grid.range_centers                              # (n_range,)
+    sin_centers = grid.sin_centers                              # (n_az,)
+    cos_centers = np.sqrt(np.clip(1.0 - sin_centers ** 2, 0.0, 1.0))
+    # Outer product: (n_range, n_az)
+    x_radar = -np.outer(r_centers, sin_centers)                 # (n_range, n_az)
+    y_radar = np.outer(r_centers, cos_centers)                  # (n_range, n_az)
+    z_radar = np.zeros_like(x_radar)
+    pts_radar = np.stack([x_radar.ravel(), y_radar.ravel(), z_radar.ravel()], axis=1).astype(np.float32)
+    R_inv = grid.R_world2radar.T
+    pts_world = (R_inv @ pts_radar.T).T + grid.rx_center
+    return pts_world.astype(np.float32)
+
+
+def per_voxel_ra_signal(grid_seed: RadarGridSpecs,
+                         train_pose_dicts,
+                         train_ra_mag_list,
+                         range_res: float,
+                         ) -> np.ndarray:
+    """Compute per-voxel measured RA magnitude, averaged across train frames.
+
+    For each cell in `grid_seed`, take its world centre and project into
+    every train frame's polar grid. Look up the train RA magnitude at the
+    corresponding (az_bin_F, r_bin_F). Return the average across the train
+    frames where the projection lands inside the grid.
+
+    Args:
+      grid_seed: voxel grid in seed pose's coords.
+      train_pose_dicts: list of pose dicts ({rx_positions, tx_boresights}).
+      train_ra_mag_list: list of (n_az, n_range) numpy arrays (or torch
+        tensors) — measured RA magnitudes per train frame.
+      range_res: range resolution (matches the grid).
+
+    Returns:
+      signal_avg: (n_cells,) numpy array. signal_avg[r*n_az + a] is the
+        mean of train_ra_F[a_F, r_F] across train frames F where the
+        seed-pose centre of (r, a) projects into F's grid.
+    """
+    n_cells = grid_seed.n_az * grid_seed.n_range
+    centers = all_cell_world_centers(grid_seed)                # (n_cells, 3)
+
+    signal_sum = np.zeros(n_cells, dtype=np.float64)
+    valid_count = np.zeros(n_cells, dtype=np.int64)
+
+    for pose, ra in zip(train_pose_dicts, train_ra_mag_list):
+        rx_c = pose['rx_positions'].mean(dim=0).cpu().numpy()
+        bs = pose['tx_boresights'].mean(dim=0).cpu().numpy()
+        grid_F = make_grid_specs(rx_c, bs, range_res, near_field_m=grid_seed.near_field_m)
+        r_bin_F, az_bin_F, valid_F, _ = bin_points(centers, grid_F)
+        if hasattr(ra, 'cpu'):
+            ra_np = ra.detach().cpu().numpy()
+        else:
+            ra_np = np.asarray(ra)
+        ra_np = ra_np.astype(np.float64)
+        # ra shape (n_az, n_range) per project convention.
+        valid_idx = np.flatnonzero(valid_F)
+        if len(valid_idx) == 0:
+            continue
+        sig = ra_np[az_bin_F[valid_idx], r_bin_F[valid_idx]]
+        signal_sum[valid_idx] += sig
+        valid_count[valid_idx] += 1
+
+    signal_avg = np.where(valid_count > 0,
+                           signal_sum / np.maximum(valid_count, 1),
+                           0.0)
+    return signal_avg.astype(np.float32)
+
+
 def grid_specs_from_rast(rast, range_res: float) -> RadarGridSpecs:
     """Convenience: build grid specs from a Rasterizer instance.
 
