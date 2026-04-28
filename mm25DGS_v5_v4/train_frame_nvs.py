@@ -1223,18 +1223,22 @@ if __name__ == '__main__':
     ap.add_argument('--train_frames', required=True,
                     help='comma-separated list, e.g. 434,435,436,437,439,440,441,442')
     ap.add_argument('--held_out_loop', type=int, default=0)
-    ap.add_argument('--train_loops', default=None,
+    ap.add_argument('--train_loops', default='0',
                     help='Comma-separated chirp-loop indices to train on; '
-                         'default = all 16 loops. Pass "0" for first-chirp-'
-                         'only training (NOT to be confused with single-chip '
-                         'radar hardware — this is still the cascaded radar, '
-                         'just restricted to its first chirp loop per frame).')
+                         'default = "0" (first chirp loop only — the v5_v4 '
+                         'combo_jitter recipe). Pass "" or omit to fall back '
+                         'to None which expands to all 16 loops. NOT to be '
+                         'confused with single-chip radar hardware — this is '
+                         'still the cascaded radar, just restricted to its '
+                         'first chirp loop per frame.')
     ap.add_argument('--iters', type=int, default=500)
     ap.add_argument('--mat_lr', type=float, default=0.01)
     ap.add_argument('--rot_lr', type=float, default=5e-3)
     ap.add_argument('--loss_type', default='mse_raw',
                     choices=['mse', 'pearson', 'mse_raw'])
-    ap.add_argument('--target_n', type=int, default=90000)
+    ap.add_argument('--target_n', type=int, default=20000,
+                    help='Target Gaussian count after init. Default 20000 '
+                         '(v5_v4 combo_jitter recipe).')
     ap.add_argument('--frame_period_s', type=float, default=0.1)
     ap.add_argument('--loop_dt_s', type=float, default=7.87e-3 / 16.0)
     ap.add_argument('--anchor_source', default='pass2_lerp',
@@ -1253,9 +1257,10 @@ if __name__ == '__main__':
                     help='H7: keep top-frac points by Adam exp_avg_sq '
                          '(training-set Fisher proxy) trainable after warm-up; '
                          'freeze the rest. None = disabled.')
-    ap.add_argument('--reg_warm_iters', type=int, default=50,
+    ap.add_argument('--reg_warm_iters', type=int, default=100,
                     help='H7 / S2: warmup iters before snapshotting '
-                         'Fisher-weighted activity / rotation mask.')
+                         'Fisher-weighted activity / rotation mask. '
+                         'Default 100 (v5_v4 combo_jitter recipe).')
     ap.add_argument('--reg_fisher_rot_lambda', type=float, default=0.0,
                     help='S2: Fisher-weighted L2 on rotation drift from '
                          'init. Penalty: λ · Σ_i F_i · ||n(q_i) − n(target_i)||². '
@@ -1277,31 +1282,35 @@ if __name__ == '__main__':
                          '*beyond* this threshold (in degrees). Soft Huber-'
                          'style: loss ∝ max(0, drift° − θ)². 0 = disabled '
                          '(full L2 penalty). Typical: 30–60°.')
-    ap.add_argument('--reg_densify_interval', type=int, default=0,
+    ap.add_argument('--reg_densify_interval', type=int, default=100,
                     help='S4: densify/prune every N iters after --reg_warm_iters. '
-                         '0 = disabled. Typical: 50.')
-    ap.add_argument('--reg_densify_split_frac', type=float, default=0.02,
-                    help='S4: fraction of top-Fisher points to split per round.')
-    ap.add_argument('--reg_densify_prune_frac', type=float, default=0.02,
-                    help='S4: fraction of bottom-Fisher points to prune per round '
-                         '(must equal --reg_densify_split_frac to keep N fixed).')
-    ap.add_argument('--reg_densify_until', type=int, default=300,
+                         'Default 100 (v5_v4 combo_jitter); 0 = disabled.')
+    ap.add_argument('--reg_densify_split_frac', type=float, default=0.05,
+                    help='S4: fraction of top-signal points to split per round. '
+                         'Default 0.05 (v5_v4 combo_jitter).')
+    ap.add_argument('--reg_densify_prune_frac', type=float, default=0.05,
+                    help='S4: fraction of bottom-signal points to prune per round '
+                         '(must equal --reg_densify_split_frac to keep N fixed). '
+                         'Default 0.05 (v5_v4 combo_jitter).')
+    ap.add_argument('--reg_densify_until', type=int, default=400,
                     help='S4: stop densifying past this iter (lets the final '
-                         'iters converge on a stable point set).')
+                         'iters converge on a stable point set). Default 400 '
+                         '(v5_v4 combo_jitter).')
     ap.add_argument('--reg_densify_pos_jitter_m', type=float, default=0.02,
                     help='S4: std (m) of isotropic Gaussian position noise for '
                          'new child points. 0.02 = 2 cm ≈ 5λ at 77 GHz.')
     ap.add_argument('--reg_densify_mat_jitter', type=float, default=0.1,
                     help='S4: std of Gaussian noise added to raw_materials for '
                          'child points (raw units).')
-    ap.add_argument('--reg_densify_child_source', default='pool_knn',
+    ap.add_argument('--reg_densify_child_source', default='jitter',
                     choices=['pool_knn', 'jitter'],
-                    help='S4 child source. "pool_knn" (default): draw '
-                         'child position + normal from the nearest-unused '
-                         'point in the post-resample LiDAR pool within '
-                         '--reg_densify_pool_radius_m of each parent. '
-                         '"jitter" (legacy): child = parent + Gaussian '
-                         'position/quaternion noise (may drift off-surface).')
+                    help='S4 child source. "jitter" (default, v5_v4 combo_'
+                         'jitter recipe): child = parent + Gaussian '
+                         'position/quaternion noise. Empirically beats '
+                         'pool_knn by +0.020 mean test cc. "pool_knn": '
+                         'draw child from the nearest-unused point in the '
+                         'post-resample LiDAR pool within '
+                         '--reg_densify_pool_radius_m of each parent.')
     ap.add_argument('--reg_densify_pool_radius_m', type=float, default=0.15,
                     help='S4 pool_knn mode: max distance (m) from parent to '
                          'a candidate pool point. Parents with no pool point '
@@ -1335,27 +1344,29 @@ if __name__ == '__main__':
                          'union-amplitude importance sampling across train '
                          'poses (see md/mm25dgs_v5_v4_smart_sampling_'
                          'and_densification.md §2.5).')
-    ap.add_argument('--densify_signal', default='fisher',
+    ap.add_argument('--densify_signal', default='pos_grad_amp',
                     choices=['fisher', 'pos_grad_amp'],
-                    help='v5_v4 Phase 3 densify selection signal. "fisher" '
-                         '(legacy v5 default) uses Adam exp_avg_sq summed '
-                         'across material+rotation params. "pos_grad_amp" '
-                         'uses the accumulated amplitude-path position '
+                    help='v5_v4 Phase 3 densify selection signal. '
+                         '"pos_grad_amp" (default, v5_v4 combo_jitter '
+                         'recipe): accumulated amplitude-path position '
                          'gradient magnitude — positions remain frozen but '
                          'their .grad is captured (NOT in optimizer) and '
-                         'used as the densify selection signal '
-                         '(see md/mm25dgs_v5_v4_smart_sampling_'
-                         'and_densification.md §4).')
-    ap.add_argument('--learn_positions_lr', type=float, default=0.0,
+                         'used as the densify selection signal. "fisher" '
+                         '(legacy v5) uses Adam exp_avg_sq summed across '
+                         'material+rotation params (see md/mm25dgs_v5_v4_'
+                         'smart_sampling_and_densification.md §4).')
+    ap.add_argument('--learn_positions_lr', type=float, default=1e-5,
                     help='v5_v2 Phase 1 carryover. > 0 enables learnable '
-                         'positions (added to Adam at this LR). Gradient '
-                         'flows AMPLITUDE-PATH ONLY (detach_phase=True is '
-                         'enforced by the renderer; phi_carrier and n_peak '
-                         'are detached). Try 5e-5 to start. NO PHASE '
-                         'GRADIENTS by construction.')
-    ap.add_argument('--learn_positions_l2', type=float, default=1e3,
+                         'positions (added to Adam at this LR). Default '
+                         '1e-5 (v5_v4 combo_jitter recipe). Gradient flows '
+                         'AMPLITUDE-PATH ONLY (detach_phase=True is enforced '
+                         'by the renderer; phi_carrier and n_peak are '
+                         'detached). NO PHASE GRADIENTS by construction. '
+                         'Set 0.0 to freeze positions.')
+    ap.add_argument('--learn_positions_l2', type=float, default=100.0,
                     help='L2 anchor coefficient on (positions − init). '
-                         'Keeps positions sub-mm from LiDAR seed.')
+                         'Default 100 (v5_v4 combo_jitter). Keeps positions '
+                         'sub-mm from LiDAR seed.')
     ap.add_argument('--phase4_d_lambda', type=float, default=0.0,
                     help='v5_v4 Phase 4 (D) — per-train-view membership. '
                          '> 0 enables a learnable (N × V) matrix m where '
