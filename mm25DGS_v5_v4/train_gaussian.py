@@ -660,6 +660,15 @@ _INIT_VARIANTS = {
     'B2_strict_and_with_test': 'B1 + test pose included in the AND '
                                 '(uses test POSE only, never test signal — '
                                 'analogous to test-camera frustum cull in 3DGS)',
+    'C1_voxel_v1': 'voxel-aware init: strict-AND across 9 poses (8 train + '
+                    'test pose, geometry only) → bin into seed-pose RA grid '
+                    '→ multi-view cosine-hemisphere score per candidate → '
+                    'per-voxel proportional budget → within-voxel top-K by '
+                    'score. Replaces FPS with radar-resolution-aware sampling.',
+    'C1b_voxel_capped': 'C1 with per-cell budget capped at 1: pick the top-N '
+                         'cells by aggregate score, take the single highest-'
+                         'score candidate from each. Forces spatial uniformity '
+                         '— at most one Gaussian per RA cell.',
 }
 
 
@@ -898,6 +907,179 @@ def init_visible_weighted_radar_aware(
         xyz = xyz_pre[chosen]
         normals = nrm_pre[chosen]
         # Skip down to model construction (same as A2-A5 tail).
+        if verbose:
+            print(f"  [v5_v4 init/{variant}] final N: {len(xyz):,} points")
+        N = len(xyz)
+        model = PointPrimitives(N, device=device)
+        with torch.no_grad():
+            model.positions.copy_(torch.from_numpy(xyz).to(device))
+            raw_default = inverse_reparameterize_torch(ITU_CONCRETE)
+            model.raw_materials.copy_(
+                torch.from_numpy(np.tile(raw_default, (N, 1))).to(device))
+            quats = _normals_to_quaternions(normals)
+            model.rotations.copy_(torch.from_numpy(quats).to(device))
+        if return_pool:
+            return model, xyz_pre, nrm_pre, np.arange(N).astype(np.int64)
+        return model
+
+    # C1 — voxel-aware init.
+    # Stage 4-7 of the v5_v4 voxel-aware init plan (see md/mm25dgs_v5_v4_
+    # voxel_aware_init.md). Builds on B2's strict-AND visibility but
+    # replaces FPS with a per-voxel cosine-hemisphere allocator + within-
+    # voxel top-K scoring.
+    if variant in ('C1_voxel_v1', 'C1b_voxel_capped'):
+        # 1. Per-pose visibility (strict AND across 9 poses).
+        and_poses = list(train_poses_chirp0)
+        if test_pose_chirp0 is not None:
+            and_poses = and_poses + [test_pose_chirp0]
+        masks = _per_pose_visibility_masks(
+            xyz_pre, and_poses,
+            cos_bore_min=cos_bore_min, max_range=max_range,
+            mi_scene=rast._mi_scene, device=device)
+        and_mask = masks.all(axis=0)
+        n_and = int(and_mask.sum())
+        if verbose:
+            print(f"  [v5_v4 init/{variant}] {len(and_poses)} poses in AND set; "
+                  f"AND survivors: {n_and:,}")
+        if n_and < target_n:
+            print(f"  [v5_v4 init/{variant}] WARNING: AND survivors {n_and} < "
+                  f"target_n {target_n}; will select all and pad random later.")
+
+        cand_idx = np.flatnonzero(and_mask)
+        cand_xyz = xyz_pre[cand_idx]      # (n_cand, 3)
+        cand_nrm = nrm_pre[cand_idx]      # (n_cand, 3)
+        cand_int = int_pre[cand_idx]      # (n_cand,)
+
+        # 2. Multi-view cosine-hemisphere score per candidate, summed across
+        # the 9 poses. Same kernel as `_per_pose_amplitude_score` but we
+        # sum directly here over the AND-survivor set (no need to recheck
+        # visibility — they're already AND-visible).
+        from .voxel_grid import (
+            grid_specs_from_rast, bin_points,
+            proportional_budget, within_voxel_topk,
+            COS_BORE_MIN as _COS_BORE_FROM_GRID,
+        )
+
+        score = np.zeros(len(cand_idx), dtype=np.float64)
+        for pose in and_poses:
+            rx_c = pose['rx_positions'].mean(dim=0).cpu().numpy()
+            bs_F = pose['tx_boresights'].mean(dim=0).cpu().numpy()
+            bs_F = bs_F / max(np.linalg.norm(bs_F), 1e-8)
+            delta = cand_xyz - rx_c                               # (n, 3)
+            d = np.linalg.norm(delta, axis=1).clip(min=1e-6)      # (n,)
+            dir_to_pt = delta / d[:, None]                         # (n, 3)
+            cos_bore_F = (dir_to_pt * bs_F).sum(axis=-1)          # (n,)
+            # cos θ_i — incidence on the surface (double-sided).
+            cos_i_F = np.abs((cand_nrm * (-dir_to_pt)).sum(axis=-1))  # (n,)
+            # Per-pose contribution: cos(boresight) · cos θ_i · 1/d²,
+            # gated by whether this pose's cone admits the point.
+            in_cone = cos_bore_F > cos_bore_min
+            contrib = (cos_bore_F * np.maximum(cos_i_F, 0.0)
+                       * (1.0 / (d * d)) * in_cone.astype(np.float64))
+            score += contrib
+        # LiDAR intensity prior (matches A4): score *= intensity^0.5.
+        if intensity_alpha > 0:
+            score = score * (np.maximum(cand_int, 1.0) ** intensity_alpha)
+        # Avoid all-zero scores collapsing the allocator.
+        if score.sum() <= 0:
+            score = np.ones_like(score)
+
+        # 3. Build the seed-pose voxel grid + bin candidates.
+        # Use the seed RX/boresight that the rast was constructed for.
+        seed_pose = {'rx_positions': rast.rx_positions,
+                     'tx_boresights': rast.tx_boresights}
+        seed_rx_c = seed_pose['rx_positions'].mean(dim=0).cpu().numpy()
+        seed_bs = seed_pose['tx_boresights'].mean(dim=0).cpu().numpy()
+        seed_bs = seed_bs / max(np.linalg.norm(seed_bs), 1e-8)
+        from .voxel_grid import make_grid_specs
+        # range_res derived from the radar config the rast was built from.
+        c0 = 299792458.0
+        range_res = c0 / (2.0 * rast.slope * (rast.K / rast.sample_rate))
+        grid = make_grid_specs(seed_rx_c, seed_bs, range_res)
+        r_bin, az_bin, valid_grid, _ = bin_points(cand_xyz, grid)
+
+        # 4. Per-voxel weight = sum of candidate scores in that cell.
+        n_cells = grid.n_az * grid.n_range
+        cell_id = np.where(valid_grid,
+                           r_bin.astype(np.int64) * grid.n_az + az_bin.astype(np.int64),
+                           -1)
+        in_grid = cell_id >= 0
+        n_in_grid = int(in_grid.sum())
+        if verbose:
+            print(f"  [v5_v4 init/{variant}] AND points binnable into RA grid: "
+                  f"{n_in_grid:,} of {len(cand_idx):,}")
+
+        if n_in_grid < target_n:
+            # If the grid doesn't cover enough candidates, fall back to
+            # tagging out-of-grid points as their own pseudo-cells (one per
+            # point) so they retain a budget chance.
+            print(f"  [v5_v4 init/{variant}] only {n_in_grid:,} in-grid; "
+                  f"tagging {len(cand_idx) - n_in_grid:,} out-of-grid points "
+                  f"as singleton cells.")
+            next_cell = n_cells
+            cell_id_full = cell_id.copy()
+            oog_pos = np.flatnonzero(~in_grid)
+            cell_id_full[oog_pos] = next_cell + np.arange(len(oog_pos))
+            n_cells_eff = next_cell + len(oog_pos)
+            cell_id = cell_id_full
+        else:
+            n_cells_eff = n_cells
+            # Restrict to in-grid candidates (drop out-of-grid).
+            score = score[in_grid]
+            cell_id = cell_id[in_grid]
+            cand_idx = cand_idx[in_grid]
+            cand_xyz = cand_xyz[in_grid]
+            cand_nrm = cand_nrm[in_grid]
+
+        # cell_weight[c] = sum of scores in cell c
+        cell_weight = np.bincount(cell_id, weights=score, minlength=n_cells_eff)
+        cell_capacity = np.bincount(cell_id, minlength=n_cells_eff)
+
+        # 5. Per-voxel budget allocation.
+        if variant == 'C1b_voxel_capped':
+            # Cap per-cell budget at 1: pick top-N cells by score, give each 1.
+            cap = np.minimum(cell_capacity, 1)            # at most 1 per cell
+            # Among occupied cells (capacity >= 1), keep the top-target_n by weight.
+            occ = cap > 0
+            n_occ = int(occ.sum())
+            if n_occ <= target_n:
+                budget = cap
+                # If fewer occupied cells than target_n, we'll need more —
+                # let later padding logic backfill. (Rare for typical scenes.)
+            else:
+                # Rank occupied cells by weight, keep top target_n.
+                occ_idx = np.flatnonzero(occ)
+                w_occ = cell_weight[occ_idx]
+                top = occ_idx[np.argsort(-w_occ)[:target_n]]
+                budget = np.zeros_like(cap)
+                budget[top] = 1
+        else:
+            budget = proportional_budget(cell_weight, cell_capacity, target_n)
+        n_alloc = int(budget.sum())
+        n_voxels_used = int((budget > 0).sum())
+        if verbose:
+            print(f"  [v5_v4 init/{variant}] budget allocated to "
+                  f"{n_voxels_used:,} cells; total = {n_alloc:,} "
+                  f"(target = {target_n:,})")
+
+        # 6. Within-voxel top-K by score.
+        sel_local = within_voxel_topk(score, cell_id, budget)
+        chosen = cand_idx[sel_local]
+        xyz = xyz_pre[chosen]
+        normals = nrm_pre[chosen]
+
+        if len(xyz) < target_n:
+            # Pad if needed (should not happen given n_and >= target_n above).
+            rng = np.random.default_rng(42)
+            need = target_n - len(xyz)
+            extra_pool = np.setdiff1d(np.arange(len(xyz_pre)), chosen,
+                                       assume_unique=False)
+            if len(extra_pool) > 0:
+                pad = rng.choice(extra_pool, size=min(need, len(extra_pool)),
+                                  replace=False)
+                xyz = np.concatenate([xyz, xyz_pre[pad]])
+                normals = np.concatenate([normals, nrm_pre[pad]])
+
         if verbose:
             print(f"  [v5_v4 init/{variant}] final N: {len(xyz):,} points")
         N = len(xyz)

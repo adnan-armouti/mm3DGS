@@ -644,10 +644,11 @@ def train_frame_nvs(scene,
         if verbose:
             print(f'  [v5_v4] init variant: {init_variant}  '
                   f'over {len(train_poses_chirp0)} train poses')
-        # B2 needs the test pose. Test POSE (geometry only) is permitted
-        # under NVS conventions; test SIGNAL is never used for init.
+        # B2 / C1 / C1b need the test pose. Test POSE (geometry only) is
+        # permitted under NVS conventions; test SIGNAL is never used for init.
         test_pose_chirp0 = None
-        if init_variant == 'B2_strict_and_with_test':
+        if init_variant in ('B2_strict_and_with_test', 'C1_voxel_v1',
+                             'C1b_voxel_capped'):
             test_poses_b2, _ = _build_frame_poses(
                 scene, test_frame, use_pass2=use_pass2_alignment,
                 data_root=data_root, loop_dt_s=loop_dt_s,
@@ -1401,7 +1402,9 @@ if __name__ == '__main__':
                              'A3_union_amplitude', 'A4_union_amp_lidar',
                              'A5_amp_lidar_fps',
                              'B1_strict_and_train',
-                             'B2_strict_and_with_test'],
+                             'B2_strict_and_with_test',
+                             'C1_voxel_v1',
+                             'C1b_voxel_capped'],
                     help='v5_v4 Phase 2 init variant. "baseline" = v5 init '
                          '(seed-pose FOV+RX+cosine resample+FPS). A2-A5 do '
                          'union-amplitude importance sampling across train '
