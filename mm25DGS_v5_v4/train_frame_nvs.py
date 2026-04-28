@@ -644,12 +644,23 @@ def train_frame_nvs(scene,
         if verbose:
             print(f'  [v5_v4] init variant: {init_variant}  '
                   f'over {len(train_poses_chirp0)} train poses')
+        # B2 needs the test pose. Test POSE (geometry only) is permitted
+        # under NVS conventions; test SIGNAL is never used for init.
+        test_pose_chirp0 = None
+        if init_variant == 'B2_strict_and_with_test':
+            test_poses_b2, _ = _build_frame_poses(
+                scene, test_frame, use_pass2=use_pass2_alignment,
+                data_root=data_root, loop_dt_s=loop_dt_s,
+                frame_period_s=frame_period_s,
+                anchor_source=anchor_source, device=DEVICE)
+            test_pose_chirp0 = test_poses_b2[0]
         model = init_visible_weighted_radar_aware(
             scene, rast,
             train_poses_chirp0=train_poses_chirp0,
             target_n=target_n,
             variant=init_variant,
             verbose=verbose,
+            test_pose_chirp0=test_pose_chirp0,
         )
         pool_xyz = pool_normals = slot_to_pool_idx = None
     rast.free_mi_scene()
@@ -1388,12 +1399,18 @@ if __name__ == '__main__':
     ap.add_argument('--init_variant', default='baseline',
                     choices=['baseline', 'A1_no_fps', 'A2_union_cos',
                              'A3_union_amplitude', 'A4_union_amp_lidar',
-                             'A5_amp_lidar_fps'],
+                             'A5_amp_lidar_fps',
+                             'B1_strict_and_train',
+                             'B2_strict_and_with_test'],
                     help='v5_v4 Phase 2 init variant. "baseline" = v5 init '
                          '(seed-pose FOV+RX+cosine resample+FPS). A2-A5 do '
                          'union-amplitude importance sampling across train '
                          'poses (see md/mm25dgs_v5_v4_smart_sampling_'
-                         'and_densification.md §2.5).')
+                         'and_densification.md §2.5). B1/B2 do strict-AND '
+                         'visibility (B1: 8 train poses; B2: +test pose) '
+                         'then FPS within the surviving set — addresses '
+                         'the Fisher-imbalance finding that flatter init '
+                         'concentration correlates with better test cc.')
     ap.add_argument('--densify_signal', default='pos_grad_amp',
                     choices=['fisher', 'pos_grad_amp'],
                     help='v5_v4 Phase 3 densify selection signal. '

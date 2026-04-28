@@ -655,7 +655,48 @@ _INIT_VARIANTS = {
     'A3_union_amplitude': 'union over train poses, weight = sum_F cos θ · 1/d²',
     'A4_union_amp_lidar': 'A3 × LiDAR intensity (column 6 of pcl.npy)',
     'A5_amp_lidar_fps':   'A4 then mild FPS (target → 1.5N → cosine resample → N)',
+    'B1_strict_and_train': 'strict-AND visibility across all 8 train poses '
+                            '(FOV cone + Mitsuba LOS), then FPS to target_n',
+    'B2_strict_and_with_test': 'B1 + test pose included in the AND '
+                                '(uses test POSE only, never test signal — '
+                                'analogous to test-camera frustum cull in 3DGS)',
 }
+
+
+def _per_pose_visibility_masks(xyz, pose_dict_list,
+                                 cos_bore_min=0.05,
+                                 max_range=None,
+                                 mi_scene=None,
+                                 device='cuda'):
+    """Per-point per-pose binary visibility masks. Returns
+    masks: (n_poses, N) bool. masks[F, p] = True iff point p is in
+    pose F's FOV cone AND in distance range AND has line-of-sight to
+    pose F's RX center (Mitsuba ray test).
+    """
+    xyz_np = np.asarray(xyz, dtype=np.float32)
+    N = len(xyz_np)
+    masks = np.zeros((len(pose_dict_list), N), dtype=bool)
+    for i, pose in enumerate(pose_dict_list):
+        rx_center = pose['rx_positions'].mean(dim=0).cpu().numpy()
+        boresight = pose['tx_boresights'].mean(dim=0).cpu().numpy()
+        boresight = boresight / max(np.linalg.norm(boresight), 1e-8)
+        delta = xyz_np - rx_center
+        dist  = np.linalg.norm(delta, axis=1).clip(min=1e-6)
+        cos_bore = ((delta / dist[:, None]) * boresight).sum(axis=-1)
+        in_fov = (cos_bore > cos_bore_min) & (dist > 1.5)
+        if max_range is not None:
+            in_fov &= dist < max_range
+        if mi_scene is not None and in_fov.sum() > 0:
+            visible_idx = np.flatnonzero(in_fov)
+            visible_pts = xyz_np[visible_idx]
+            vis = _ray_test_visibility_batched(
+                visible_pts, rx_center, mi_scene)
+            mask = np.zeros(N, dtype=bool)
+            mask[visible_idx[vis]] = True
+        else:
+            mask = in_fov.copy()
+        masks[i] = mask
+    return masks
 
 
 def _per_pose_amplitude_score(xyz, normals, pose_dict_list,
@@ -732,6 +773,7 @@ def init_visible_weighted_radar_aware(
     device=DEVICE,
     return_pool=False,
     verbose=True,
+    test_pose_chirp0=None,
 ):
     """v5_v4 Phase 2 — radar-aware initialization.
 
@@ -799,6 +841,76 @@ def init_visible_weighted_radar_aware(
         model = init_visible_weighted(scene, rast, target_n=target_n,
                                         cos_bore_min=cos_bore_min, device=device,
                                         return_pool=return_pool)
+        return model
+
+    # B1/B2 — strict-AND visibility init.
+    # Filter the loose pre-cull pool to points visible from EVERY pose
+    # in the AND set (8 train poses for B1, +1 test pose for B2 as an
+    # informational ablation), then FPS to target_n. If fewer than
+    # target_n survive, pad with random samples from the union (any-
+    # pose-visible) set so the budget is honoured.
+    if variant in ('B1_strict_and_train', 'B2_strict_and_with_test'):
+        and_poses = list(train_poses_chirp0)
+        if variant == 'B2_strict_and_with_test':
+            assert test_pose_chirp0 is not None, \
+                'B2 requires test_pose_chirp0; pass it from train_frame_nvs.'
+            and_poses = and_poses + [test_pose_chirp0]
+        masks = _per_pose_visibility_masks(
+            xyz_pre, and_poses,
+            cos_bore_min=cos_bore_min, max_range=max_range,
+            mi_scene=rast._mi_scene, device=device)
+        and_mask = masks.all(axis=0)
+        union_mask = masks.any(axis=0)
+        n_and = int(and_mask.sum())
+        n_union = int(union_mask.sum())
+        if verbose:
+            print(f"  [v5_v4 init/{variant}] {len(and_poses)} poses in AND set; "
+                  f"AND survivors: {n_and:,};  UNION survivors: {n_union:,}")
+        rng = np.random.default_rng(42)
+        if n_and >= target_n:
+            cand_idx = np.flatnonzero(and_mask)
+            cand_xyz = xyz_pre[cand_idx]
+            pts_t = torch.from_numpy(cand_xyz).to(device)
+            sel = _farthest_point_sampling(pts_t, target_n).cpu().numpy()
+            chosen = cand_idx[sel]
+        else:
+            # AND set too small. Take all AND survivors, then pad with
+            # random samples from the union-only points (visible from at
+            # least one pose, but not all).
+            and_idx = np.flatnonzero(and_mask)
+            union_only_idx = np.flatnonzero(union_mask & ~and_mask)
+            n_pad = target_n - n_and
+            if n_pad > len(union_only_idx):
+                # Even union is too small; fill the rest from outside-union
+                # (extreme pad — shouldn't happen with reasonable scenes).
+                outside_idx = np.flatnonzero(~union_mask)
+                n_outside_pad = n_pad - len(union_only_idx)
+                pad = np.concatenate([
+                    union_only_idx,
+                    rng.choice(outside_idx, size=n_outside_pad, replace=False),
+                ])
+            else:
+                pad = rng.choice(union_only_idx, size=n_pad, replace=False)
+            chosen = np.concatenate([and_idx, pad])
+            if verbose:
+                print(f"  [v5_v4 init/{variant}] AND too small "
+                      f"({n_and:,} < {target_n:,}); padded {n_pad:,} from union-only")
+        xyz = xyz_pre[chosen]
+        normals = nrm_pre[chosen]
+        # Skip down to model construction (same as A2-A5 tail).
+        if verbose:
+            print(f"  [v5_v4 init/{variant}] final N: {len(xyz):,} points")
+        N = len(xyz)
+        model = PointPrimitives(N, device=device)
+        with torch.no_grad():
+            model.positions.copy_(torch.from_numpy(xyz).to(device))
+            raw_default = inverse_reparameterize_torch(ITU_CONCRETE)
+            model.raw_materials.copy_(
+                torch.from_numpy(np.tile(raw_default, (N, 1))).to(device))
+            quats = _normals_to_quaternions(normals)
+            model.rotations.copy_(torch.from_numpy(quats).to(device))
+        if return_pool:
+            return model, xyz_pre, nrm_pre, np.arange(N).astype(np.int64)
         return model
 
     # Compute the per-point importance score.
