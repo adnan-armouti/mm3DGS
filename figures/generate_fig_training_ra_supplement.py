@@ -248,21 +248,25 @@ def generate_one_scene(scene: str, test_frame: int,
     n_cols = len(columns)
 
     # Use a wider layout for the supplement (9 cols vs 6 in main paper).
-    # Match the cell-aspect (square) of Fig 2; widen the figure to keep
-    # cells legible.
+    # Tighter left label gutter + larger inter-column gap than Fig 2 so
+    # the red test-pose column tile sits in a clearly visible band of
+    # gap on either side instead of crowding the F-1 / F+1 image edges.
     layout = GridLayout.from_fig_width(
         n_rows=n_rows, n_cols=n_cols,
         fig_width_in=FIG_WIDTH_INCHES * 1.5,
         img_aspect=1.0,
-        margin_in=0.10, col_gap_in=0.05, row_gap_in=0.05,
-        header_in=0.30, label_w_in=0.55,
+        margin_in=0.10, col_gap_in=0.16, row_gap_in=0.05,
+        header_in=0.30, label_w_in=0.30,
     )
 
     fig = plt.figure(figsize=(layout.fig_w, layout.fig_h),
                      facecolor=BACKGROUND_COLOR)
     add_rounded_bg(fig)
+    # Extend the red tile ~half-way into the col_gap on each side of the
+    # F cells so the column boundary against the grey bg is unambiguous.
     add_column_highlight(fig, layout, test_col_idx,
-                          color=TEST_COL_COLOR)
+                          color=TEST_COL_COLOR,
+                          inset_in=layout.col_gap_in * 0.45)
 
     # Column headers
     for j, off in enumerate(col_offsets):
