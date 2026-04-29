@@ -1,4 +1,4 @@
-\begin{thebibliography}{23}
+\begin{thebibliography}{28}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -62,6 +62,20 @@ Tianshu Huang, Samir Gadre, Yifan Xu, Thomas Whelan, and Krishna~Murthy
 \newblock Dart: Implicit doppler tomography for radar novel view synthesis.
 \newblock In \emph{CVPR}, 2024.
 
+\bibitem[{ITU-R}(2023)]{itu_p2040}
+{ITU-R}.
+\newblock Effects of building materials and structures on radiowave propagation
+  above about 100 mhz.
+\newblock \emph{Recommendation ITU-R P.2040-3}, 2023.
+
+\bibitem[Jakob et~al.(2022)Jakob, Speierer, Roussel, Nimier-David, Vicini,
+  Zeltner, Nicolet, Crespo, L{\'e}opold, and Fascione]{jakob2022dr}
+Wenzel Jakob, S{\'e}bastien Speierer, Nicolas Roussel, Merlin Nimier-David,
+  Delio Vicini, Tizian Zeltner, Baptiste Nicolet, Miguel Crespo, Vincent
+  L{\'e}opold, and Luca Fascione.
+\newblock Dr.jit: A just-in-time compiler for differentiable rendering.
+\newblock \emph{SIGGRAPH}, 2022.
+
 \bibitem[Jiang et~al.(2025)Jiang, Sun, Li, Wang, Li, and
   Ramamoorthi]{jiang2025surfels}
 Kaiwen Jiang, Jia-Mu Sun, Zilu Li, Dan Wang, Tzu-Mao Li, and Ravi Ramamoorthi.
@@ -116,6 +130,20 @@ Erfan Rafidashti et~al.
 \newblock Neuradar: Neural radiance fields for automotive radar.
 \newblock In \emph{ICRA}, 2025.
 
+\bibitem[Sch{\"u}{\ss}ler et~al.(2021)Sch{\"u}{\ss}ler, Hoffmann, Br{\"a}unig,
+  Ullmann, Ebelt, and Vossiek]{9533181}
+Christian Sch{\"u}{\ss}ler, Marcel Hoffmann, Johanna Br{\"a}unig, Ingrid
+  Ullmann, Randolf Ebelt, and Martin Vossiek.
+\newblock A realistic radar ray tracing simulator for large mimo-arrays in
+  automotive environments.
+\newblock \emph{IEEE Journal of Microwaves}, 1\penalty0 (4):\penalty0 962--974,
+  2021.
+
+\bibitem[Skolnik(2001)]{skolnik2001introduction}
+Merrill~I. Skolnik.
+\newblock \emph{Introduction to Radar Systems}.
+\newblock McGraw-Hill, New York, 3rd edition, 2001.
+
 \bibitem[Sun et~al.(2020)Sun, Petropulu, and Poor]{sun2020mimo}
 Shunqiao Sun, Athina~P Petropulu, and H~Vincent Poor.
 \newblock Mimo radar for advanced driver-assistance systems and autonomous
@@ -134,6 +162,11 @@ Christopher~M Watts, David Shrekenhamer, John Montoya, Guy Lipworth, John Hunt,
   Timothy Sleasman, Sanjay Krishna, David~R Smith, and Willie~J Padilla.
 \newblock 2-d and 3-d synthetic aperture radar images.
 \newblock \emph{Advanced Optical Materials}, 2016.
+
+\bibitem[Wei et~al.(2024)]{wei2024csvbsdf}
+Mengqi Wei et~al.
+\newblock Coherent spatially varying bsdf.
+\newblock In \emph{SIGGRAPH}, 2024.
 
 \bibitem[Zhang et~al.(2022)Zhang, Fujita, Jia, Liu, and
   Ramamoorthi]{zhang2022iron}

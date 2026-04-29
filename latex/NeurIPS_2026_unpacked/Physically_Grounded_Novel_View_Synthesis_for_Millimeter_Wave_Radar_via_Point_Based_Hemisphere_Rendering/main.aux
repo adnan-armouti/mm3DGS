@@ -68,65 +68,91 @@
 \citation{mmIR2026}
 \@writefile{toc}{\contentsline {section}{\numberline {3}Method}{4}{section.3}\protected@file@percent }
 \newlabel{sec:methods}{{3}{4}{Method}{section.3}{}}
+\citation{skolnik2001introduction}
 \citation{mmIR2026}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Radar forward model}{5}{subsection.3.1}\protected@file@percent }
-\newlabel{sec:methods:fwd}{{3.1}{5}{Radar forward model}{subsection.3.1}{}}
-\newlabel{eq:fwd}{{1}{5}{Radar forward model}{equation.3.1}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Per-point ITU BSDF}{5}{subsection.3.2}\protected@file@percent }
-\newlabel{sec:methods:bsdf}{{3.2}{5}{Per-point ITU BSDF}{subsection.3.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Range-profile splatting}{5}{subsection.3.3}\protected@file@percent }
-\newlabel{sec:methods:psf}{{3.3}{5}{Range-profile splatting}{subsection.3.3}{}}
+\citation{mmIR2026}
+\citation{mmIR2026}
+\citation{mmIR2026,9533181}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Radar forward model and range-profile splatting}{5}{subsection.3.1}\protected@file@percent }
+\newlabel{sec:methods:fwd}{{3.1}{5}{Radar forward model and range-profile splatting}{subsection.3.1}{}}
+\newlabel{eq:radar_bistatic}{{1}{5}{Radar forward model and range-profile splatting}{equation.3.1}{}}
+\newlabel{eq:radar_solid_angle}{{2}{5}{Radar forward model and range-profile splatting}{equation.3.2}{}}
+\newlabel{eq:single_bounce_mc}{{3}{5}{Radar forward model and range-profile splatting}{equation.3.3}{}}
+\newlabel{eq:adc_synth}{{4}{5}{Radar forward model and range-profile splatting}{equation.3.4}{}}
+\newlabel{eq:psf_splat}{{5}{5}{Radar forward model and range-profile splatting}{equation.3.5}{}}
+\citation{mmIR2026}
+\citation{mmIR2026,itu_p2040,wei2024csvbsdf}
+\citation{jakob2022dr}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Per-point ITU BSDF}{6}{subsection.3.2}\protected@file@percent }
+\newlabel{sec:methods:bsdf}{{3.2}{6}{Per-point ITU BSDF}{subsection.3.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Point initialization from LiDAR}{6}{subsection.3.3}\protected@file@percent }
+\newlabel{sec:methods:init}{{3.3}{6}{Point initialization from LiDAR}{subsection.3.3}{}}
 \citation{3dgs}
-\newlabel{eq:splat}{{2}{6}{Range-profile splatting}{equation.3.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Point initialization from LiDAR}{6}{subsection.3.4}\protected@file@percent }
-\newlabel{sec:methods:init}{{3.4}{6}{Point initialization from LiDAR}{subsection.3.4}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}Differentiable optimization}{6}{subsection.3.5}\protected@file@percent }
-\newlabel{sec:methods:opt}{{3.5}{6}{Differentiable optimization}{subsection.3.5}{}}
 \citation{kramer2022coloradar}
 \citation{huang2024dart}
 \citation{10.1145/3641519.3657510}
 \citation{kung2025radarsplat}
-\citation{kramer2022coloradar}
-\citation{mmIR2026}
+\citation{3dgs}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Differentiable optimization}{7}{subsection.3.4}\protected@file@percent }
+\newlabel{sec:methods:opt}{{3.4}{7}{Differentiable optimization}{subsection.3.4}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {4}Experiments}{7}{section.4}\protected@file@percent }
 \newlabel{sec:experiments}{{4}{7}{Experiments}{section.4}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Experimental setup}{7}{subsection.4.1}\protected@file@percent }
 \newlabel{sec:experiments:setup}{{4.1}{7}{Experimental setup}{subsection.4.1}{}}
+\citation{kramer2022coloradar}
+\citation{mmIR2026}
 \@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Held-out novel-view test |RA| metrics across six ColoRadar scenes. For each scene, mm3DGS trains on the 8 cascaded radar frames adjacent to the held-out test frame ($F\!\pm \!1\!\ldots  \!\pm \!4$, chirp 0 only) and is evaluated on the held-out test frame ($F$, chirp 0). Metrics: Pearson correlation (Corr), peak signal-to-noise ratio (PSNR, dB), structural similarity (SSIM), and root-mean-square error (RMSE) on min-max-normalized 399$\times $399 Cartesian $|\mathrm  {RA}|$ images. Best per-scene \textbf  {bold}.}}{8}{table.2}\protected@file@percent }
 \newlabel{tab:test_ra}{{2}{8}{Held-out novel-view test |RA| metrics across six ColoRadar scenes. For each scene, mm3DGS trains on the 8 cascaded radar frames adjacent to the held-out test frame ($F\!\pm \!1\!\ldots \!\pm \!4$, chirp 0 only) and is evaluated on the held-out test frame ($F$, chirp 0). Metrics: Pearson correlation (Corr), peak signal-to-noise ratio (PSNR, dB), structural similarity (SSIM), and root-mean-square error (RMSE) on min-max-normalized 399$\times $399 Cartesian $|\mathrm {RA}|$ images. Best per-scene \textbf {bold}}{table.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Held-out novel-view |RA| reconstruction}{8}{subsection.4.2}\protected@file@percent }
 \newlabel{sec:experiments:test}{{4.2}{8}{Held-out novel-view |RA| reconstruction}{subsection.4.2}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces \textbf  {Held-out novel-view $|\mathrm  {RA}|$ comparison} on six ColoRadar scenes (columns, sorted by mm3DGS test CC descending). Rows: ground truth (GT), mm3DGS (Ours), RadarSplat, Radar Fields, DART (cascaded). Per-cell test CC overlaid in white. mm3DGS consistently preserves wall and vehicle structure across all scenes; baseline methods exhibit characteristic failure modes — RadarSplat over-smooths azimuth, Radar Fields and DART smear range bins.}}{9}{figure.2}\protected@file@percent }
-\newlabel{fig:training_ra}{{2}{9}{\textbf {Held-out novel-view $|\mathrm {RA}|$ comparison} on six ColoRadar scenes (columns, sorted by mm3DGS test CC descending). Rows: ground truth (GT), mm3DGS (Ours), RadarSplat, Radar Fields, DART (cascaded). Per-cell test CC overlaid in white. mm3DGS consistently preserves wall and vehicle structure across all scenes; baseline methods exhibit characteristic failure modes — RadarSplat over-smooths azimuth, Radar Fields and DART smear range bins}{figure.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Training-view fit}{9}{subsection.4.3}\protected@file@percent }
-\newlabel{sec:experiments:train}{{4.3}{9}{Training-view fit}{subsection.4.3}{}}
 \bibstyle{plainnat}
 \bibdata{main}
 \bibcite{mmIR2026}{{1}{2026}{{Anonymous}}{{}}}
 \bibcite{10.1145/3641519.3657510}{{2}{2024}{{Borts et~al.}}{{Borts, Lian, Zhang, Huang, Fidler, Achlioptas, and Law}}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Training-view |RA| metrics on the same six ColoRadar scenes. Each cell is the mean across the 8 training frames per scene (chirp 0 only). Same metric harness as Table\nobreakspace  {}\ref  {tab:test_ra} (\texttt  {compute\_cart\_ra\_metrics}). Best per scene \textbf  {bold}.}}{9}{table.3}\protected@file@percent }
+\newlabel{tab:train_ra}{{3}{9}{Training-view |RA| metrics on the same six ColoRadar scenes. Each cell is the mean across the 8 training frames per scene (chirp 0 only). Same metric harness as Table~\ref {tab:test_ra} (\texttt {compute\_cart\_ra\_metrics}). Best per scene \textbf {bold}}{table.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Training-view fit}{9}{subsection.4.3}\protected@file@percent }
+\newlabel{sec:experiments:train}{{4.3}{9}{Training-view fit}{subsection.4.3}{}}
 \bibcite{chen2025invertwin}{{3}{2025}{{Chen et~al.}}{{}}}
 \bibcite{dudek2010millimeter}{{4}{2010}{{Dudek}}{{}}}
 \bibcite{gao2019experiments}{{5}{2019}{{Gao et~al.}}{{Gao, Xiang, Desai, Bhat, Alizadeh, Kaboli, Gupta, and Roy}}}
 \bibcite{guan2020through}{{6}{2020}{{Guan et~al.}}{{Guan, Madani, Jog, Gurel, Fang, and Hassanieh}}}
 \bibcite{hofmann2025inverse}{{7}{2025}{{Hofmann et~al.}}{{Hofmann, Weinmann, and Klein}}}
-\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Training-view |RA| metrics on the same six ColoRadar scenes. Each cell is the mean across the 8 training frames per scene (chirp 0 only). Same metric harness as Table\nobreakspace  {}\ref  {tab:test_ra} (\texttt  {compute\_cart\_ra\_metrics}). Best per scene \textbf  {bold}.}}{10}{table.3}\protected@file@percent }
-\newlabel{tab:train_ra}{{3}{10}{Training-view |RA| metrics on the same six ColoRadar scenes. Each cell is the mean across the 8 training frames per scene (chirp 0 only). Same metric harness as Table~\ref {tab:test_ra} (\texttt {compute\_cart\_ra\_metrics}). Best per scene \textbf {bold}}{table.3}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Negative results and ablation summary}{10}{subsection.4.4}\protected@file@percent }
-\newlabel{sec:experiments:ablations}{{4.4}{10}{Negative results and ablation summary}{subsection.4.4}{}}
 \bibcite{sionna}{{8}{2023}{{Hoydis et~al.}}{{Hoydis, Cammerer, Ait~Aoudia, Nimier-David, Binder, Marcus, and Keller}}}
 \bibcite{huang2024dart}{{9}{2024}{{Huang et~al.}}{{Huang, Gadre, Xu, Whelan, and Jatavallabhula}}}
-\bibcite{jiang2025surfels}{{10}{2025}{{Jiang et~al.}}{{Jiang, Sun, Li, Wang, Li, and Ramamoorthi}}}
-\bibcite{jin2024diffsound}{{11}{2024}{{Jin et~al.}}{{}}}
-\bibcite{3dgs}{{12}{2023}{{Kerbl et~al.}}{{Kerbl, Kopanas, Leimk{\"u}hler, and Drettakis}}}
-\bibcite{kramer2022coloradar}{{13}{2022}{{Kramer et~al.}}{{Kramer, Harber, Rivkin, Elmes, Arledge, and Heckman}}}
-\bibcite{kung2025radarsplat}{{14}{2025}{{Kung et~al.}}{{Kung, Chou, Geiger, Fidler, and Law}}}
-\bibcite{li2018differentiable}{{15}{2018}{{Li et~al.}}{{Li, Aittala, Durand, and Lehtinen}}}
-\bibcite{lu2024newrf}{{16}{2024}{{Lu et~al.}}{{}}}
-\bibcite{mildenhall2021nerf}{{17}{2020}{{Mildenhall et~al.}}{{Mildenhall, Srinivasan, Tancik, Barron, Ramamoorthi, and Ng}}}
-\bibcite{rafidashti2025neuradar}{{18}{2025}{{Rafidashti et~al.}}{{}}}
-\bibcite{sun2020mimo}{{19}{2020}{{Sun et~al.}}{{Sun, Petropulu, and Poor}}}
-\bibcite{takawale2025spinr}{{20}{2025}{{Takawale et~al.}}{{Takawale, Tancik, and Ramamoorthi}}}
-\bibcite{watts20162d}{{21}{2016}{{Watts et~al.}}{{Watts, Shrekenhamer, Montoya, Lipworth, Hunt, Sleasman, Krishna, Smith, and Padilla}}}
-\bibcite{zhang2022iron}{{22}{2022}{{Zhang et~al.}}{{Zhang, Fujita, Jia, Liu, and Ramamoorthi}}}
-\bibcite{zhang2025rf4d}{{23}{2025}{{Zhang et~al.}}{{}}}
-\gdef \@abspage@last{11}
+\bibcite{itu_p2040}{{10}{2023}{{ITU-R}}{{}}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces \textbf  {Held-out novel-view $|\mathrm  {RA}|$ comparison} on six ColoRadar scenes (columns, sorted by mm3DGS test CC descending). Rows: ground truth (GT), mm3DGS (Ours), RadarSplat, Radar Fields, DART (cascaded). Per-cell test CC overlaid in white. mm3DGS consistently preserves wall and vehicle structure across all scenes; baseline methods exhibit characteristic failure modes --- RadarSplat over-smooths azimuth, Radar Fields smears range bins, and DART smears across range and Doppler.}}{10}{figure.2}\protected@file@percent }
+\newlabel{fig:training_ra}{{2}{10}{\textbf {Held-out novel-view $|\mathrm {RA}|$ comparison} on six ColoRadar scenes (columns, sorted by mm3DGS test CC descending). Rows: ground truth (GT), mm3DGS (Ours), RadarSplat, Radar Fields, DART (cascaded). Per-cell test CC overlaid in white. mm3DGS consistently preserves wall and vehicle structure across all scenes; baseline methods exhibit characteristic failure modes --- RadarSplat over-smooths azimuth, Radar Fields smears range bins, and DART smears across range and Doppler}{figure.2}{}}
+\bibcite{jakob2022dr}{{11}{2022}{{Jakob et~al.}}{{Jakob, Speierer, Roussel, Nimier-David, Vicini, Zeltner, Nicolet, Crespo, L{\'e}opold, and Fascione}}}
+\bibcite{jiang2025surfels}{{12}{2025}{{Jiang et~al.}}{{Jiang, Sun, Li, Wang, Li, and Ramamoorthi}}}
+\bibcite{jin2024diffsound}{{13}{2024}{{Jin et~al.}}{{}}}
+\bibcite{3dgs}{{14}{2023}{{Kerbl et~al.}}{{Kerbl, Kopanas, Leimk{\"u}hler, and Drettakis}}}
+\bibcite{kramer2022coloradar}{{15}{2022}{{Kramer et~al.}}{{Kramer, Harber, Rivkin, Elmes, Arledge, and Heckman}}}
+\bibcite{kung2025radarsplat}{{16}{2025}{{Kung et~al.}}{{Kung, Chou, Geiger, Fidler, and Law}}}
+\bibcite{li2018differentiable}{{17}{2018}{{Li et~al.}}{{Li, Aittala, Durand, and Lehtinen}}}
+\bibcite{lu2024newrf}{{18}{2024}{{Lu et~al.}}{{}}}
+\bibcite{mildenhall2021nerf}{{19}{2020}{{Mildenhall et~al.}}{{Mildenhall, Srinivasan, Tancik, Barron, Ramamoorthi, and Ng}}}
+\bibcite{rafidashti2025neuradar}{{20}{2025}{{Rafidashti et~al.}}{{}}}
+\bibcite{9533181}{{21}{2021}{{Sch{\"u}{\ss }ler et~al.}}{{Sch{\"u}{\ss }ler, Hoffmann, Br{\"a}unig, Ullmann, Ebelt, and Vossiek}}}
+\bibcite{skolnik2001introduction}{{22}{2001}{{Skolnik}}{{}}}
+\bibcite{sun2020mimo}{{23}{2020}{{Sun et~al.}}{{Sun, Petropulu, and Poor}}}
+\bibcite{takawale2025spinr}{{24}{2025}{{Takawale et~al.}}{{Takawale, Tancik, and Ramamoorthi}}}
+\bibcite{watts20162d}{{25}{2016}{{Watts et~al.}}{{Watts, Shrekenhamer, Montoya, Lipworth, Hunt, Sleasman, Krishna, Smith, and Padilla}}}
+\bibcite{wei2024csvbsdf}{{26}{2024}{{Wei et~al.}}{{}}}
+\bibcite{zhang2022iron}{{27}{2022}{{Zhang et~al.}}{{Zhang, Fujita, Jia, Liu, and Ramamoorthi}}}
+\bibcite{zhang2025rf4d}{{28}{2025}{{Zhang et~al.}}{{}}}
+\@writefile{toc}{\contentsline {section}{\numberline {A}Per-scene training-view qualitative comparison}{11}{appendix.A}\protected@file@percent }
+\newlabel{app:per_scene_train}{{A}{11}{Per-scene training-view qualitative comparison}{appendix.A}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces \textbf  {Per-frame $|\mathrm  {RA}|$ comparison, scene S0\,F135.} Columns: 8 training frames ($F\!\pm \!1\!\ldots  \!\pm \!4$, black headers) and 1 held-out test frame ($F$, red header). Rows: GT, mm3DGS (Ours), RadarSplat, Radar Fields, DART. Per-cell CC overlaid.}}{12}{figure.3}\protected@file@percent }
+\newlabel{fig:supp_s0_f135}{{3}{12}{\textbf {Per-frame $|\mathrm {RA}|$ comparison, scene S0\,F135.} Columns: 8 training frames ($F\!\pm \!1\!\ldots \!\pm \!4$, black headers) and 1 held-out test frame ($F$, red header). Rows: GT, mm3DGS (Ours), RadarSplat, Radar Fields, DART. Per-cell CC overlaid}{figure.3}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces \textbf  {Per-frame $|\mathrm  {RA}|$ comparison, scene S1\,F185.}}}{12}{figure.4}\protected@file@percent }
+\newlabel{fig:supp_s1_f185}{{4}{12}{\textbf {Per-frame $|\mathrm {RA}|$ comparison, scene S1\,F185.}}{figure.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces \textbf  {Per-frame $|\mathrm  {RA}|$ comparison, scene S1\,F438.}}}{13}{figure.5}\protected@file@percent }
+\newlabel{fig:supp_s1_f438}{{5}{13}{\textbf {Per-frame $|\mathrm {RA}|$ comparison, scene S1\,F438.}}{figure.5}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces \textbf  {Per-frame $|\mathrm  {RA}|$ comparison, scene S2\,F105.}}}{13}{figure.6}\protected@file@percent }
+\newlabel{fig:supp_s2_f105}{{6}{13}{\textbf {Per-frame $|\mathrm {RA}|$ comparison, scene S2\,F105.}}{figure.6}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces \textbf  {Per-frame $|\mathrm  {RA}|$ comparison, scene S2\,F160.}}}{14}{figure.7}\protected@file@percent }
+\newlabel{fig:supp_s2_f160}{{7}{14}{\textbf {Per-frame $|\mathrm {RA}|$ comparison, scene S2\,F160.}}{figure.7}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces \textbf  {Per-frame $|\mathrm  {RA}|$ comparison, scene S2\,F300.}}}{14}{figure.8}\protected@file@percent }
+\newlabel{fig:supp_s2_f300}{{8}{14}{\textbf {Per-frame $|\mathrm {RA}|$ comparison, scene S2\,F300.}}{figure.8}{}}
+\gdef \@abspage@last{14}
