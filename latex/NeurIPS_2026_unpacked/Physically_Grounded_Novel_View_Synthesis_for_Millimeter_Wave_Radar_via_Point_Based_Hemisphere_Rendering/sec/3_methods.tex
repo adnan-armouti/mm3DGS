@@ -8,19 +8,21 @@ surface normal and six physically interpretable ITU-R~P.2040 material
 parameters. Compared to mesh-based Monte Carlo path tracing
 (mmIR~\cite{mmIR2026}), the point primitive eliminates per-iteration ray
 intersection, allowing all $N$ scene points to contribute deterministically
-to every (TX,~RX) pair via fused CUDA kernels. Sec.~\ref{sec:methods:fwd}
-states the radar forward model from the bistatic equation through a
-single-bounce Monte Carlo (MC) ADC estimator, and introduces our
-core idea: \emph{splat to range profile}, replacing per-path ADC
-synthesis with a deterministic point-spread-function (PSF) splat into
-range bins, MIMO-factorized across the (TX,~RX) array.
-Sec.~\ref{sec:methods:bsdf} specifies the per-point ITU BSDF.
-Sec.~\ref{sec:methods:init} describes the LiDAR-derived point
-initialization, and Sec.~\ref{sec:methods:opt} defines the differentiable
+to every (TX,~RX) pair via fused CUDA kernels.
+Sec.~\ref{sec:methods:fwd} states the radar forward model from the
+bistatic equation through a single-bounce Monte Carlo (MC) ADC estimator
+(the mmIR baseline). Sec.~\ref{sec:methods:splat} introduces our core
+idea: \emph{splat to range profile}, replacing per-path ADC synthesis
+with a deterministic point-spread-function (PSF) splat into range bins,
+MIMO-factorized across the (TX,~RX) array and accelerated by fused CUDA
+kernels.
+Sec.~\ref{sec:methods:init} describes the LiDAR-derived geometric prior
+that initializes the point set. Sec.~\ref{sec:methods:bsdf} specifies the
+per-point ITU BSDF. Sec.~\ref{sec:methods:opt} defines the differentiable
 optimization with adaptive density control.
 
 % ---------------------------------------------------------------------
-\subsection{Radar forward model and range-profile splatting}
+\subsection{Radar forward model}
 \label{sec:methods:fwd}
 
 \textbf{Bistatic radar equation.} For a single TX--RX pair observing a
@@ -79,13 +81,18 @@ $\mathcal{O}(N\!\cdot\!N_{\text{TX}}\!\cdot\!N_{\text{RX}}\!\cdot\!K\,
 forward+backward pass takes ${\sim}$20~minutes for 500 iterations on
 a single viewpoint~\cite{mmIR2026}.
 
+% ---------------------------------------------------------------------
+\subsection{Range-profile splatting}
+\label{sec:methods:splat}
+
 \textbf{Our idea: splat to range profile via PSF, not ADC.} The
-$D{=}1$ MC estimator already provides, per scene point, a complex
-amplitude and a path length to each (TX,~RX) pair. Rather than
-synthesizing an ADC time series and then range-FFT-ing it, we observe
-that the range FFT of a single-path ADC contribution (Eq.~\ref{eq:adc_synth})
-is a windowed $\mathrm{sinc}$ pulse centered at the path's bistatic
-range bin, fully determined by the chirp's bandwidth and FFT window.
+$D{=}1$ MC estimator (Eq.~\ref{eq:single_bounce_mc}) already provides,
+per scene point, a complex amplitude and a path length to each
+(TX,~RX) pair. Rather than synthesizing an ADC time series and then
+range-FFT-ing it, we observe that the range FFT of a single-path ADC
+contribution (Eq.~\ref{eq:adc_synth}) is a windowed $\mathrm{sinc}$
+pulse centered at the path's bistatic range bin, fully determined by
+the chirp's bandwidth and FFT window.
 We precompute this point-spread function $\mathrm{PSF}(r) \in
 \mathbb{C}^K$ once on a $K{=}256$ bin grid at the radar's range
 resolution $\Delta r = c/(2\,B_{\text{chirp}}) = 5.93$~cm, where
@@ -150,6 +157,40 @@ with a 500-iteration training pass over the 8 training viewpoints
 completing in ${\sim}$2.3~minutes per scene.
 
 % ---------------------------------------------------------------------
+\subsection{LiDAR-derived geometric prior and point initialization}
+\label{sec:methods:init}
+
+Radar's narrow azimuth resolution (several degrees~\cite{gao2019experiments})
+makes recovering geometry from radar alone impractical, so we condition
+the renderer on a LiDAR-derived geometric prior: the scene's $N$
+oriented points are initialized from a co-registered LiDAR point cloud
+and remain anchored to it throughout training. Geometric scaffold
+initialization uses the per-scene LiDAR cloud
+$\mathcal{P}_{\text{LiDAR}}\!\in\!\mathbb{R}^{M\times 7}$ ($M$ ranges
+from ${\sim}$2.7 to 6.5 million across our scenes; columns are $xyz$,
+surface normals, and LiDAR intensity), reduced to $N\!=\!20{,}000$
+oriented points by a four-stage pipeline. We first cull points outside
+the radar's azimuth cone
+($\cos(\angle(\hat{\mathbf{d}},\hat{\mathbf{b}}))>\cos(79.86^\circ)
+{=}0.1761$, matching the arcsin-spaced azimuth grid) and outside the
+radial range $1.5\,\text{m}\!<\!d\!<\!K\,\Delta r\!=\!15.2\,\text{m}$
+from the array centroid at the seed pose. Second, we cast a Mitsuba~3
+ray~\cite{jakob2022dr} from each surviving point toward the array
+centroid and drop occluded points; this is the only ray-tracing call
+in our pipeline. Third, we resample $3N$ candidates from the visible
+set with replacement at probability proportional to
+$\max(\cos(\angle(\hat{\mathbf{d}},\hat{\mathbf{b}})),0.01)$, biasing
+selection toward boresight-aligned regions where the antenna pattern
+is strongest, and take the unique set. Finally, we reduce to exactly
+$N\!=\!20{,}000$ points via greedy farthest-point sampling on the
+resampled set, ensuring spatial uniformity within the radar's main
+beam. Each surviving point inherits a quaternion encoding its LiDAR
+surface normal and a uniform ITU-concrete material prior. During
+training (Sec.~\ref{sec:methods:opt}) positions are bounded sub-mm
+relative to this prior by an L2 anchor, while the adaptive density
+control redistributes the point budget toward radar-bright features.
+
+% ---------------------------------------------------------------------
 \subsection{Per-point ITU BSDF}
 \label{sec:methods:bsdf}
 
@@ -184,34 +225,6 @@ complex Jones reflection coefficients per polarization. The full
 factored form is identical to the one used by mmIR (see their
 supplement); we reuse the same reparameterization and lobe
 decomposition so our materials are directly interoperable.
-
-% ---------------------------------------------------------------------
-\subsection{Point initialization from LiDAR}
-\label{sec:methods:init}
-
-Geometric scaffold initialization uses the per-scene LiDAR point cloud
-$\mathcal{P}_{\text{LiDAR}}\!\in\!\mathbb{R}^{M\times 7}$ ($M$ ranges
-from ${\sim}$2.7 to 6.5 million across our scenes; columns are $xyz$,
-surface normals, and LiDAR intensity), reduced to $N\!=\!20{,}000$
-oriented points by a four-stage pipeline. We first cull points outside
-the radar's azimuth cone
-($\cos(\angle(\hat{\mathbf{d}},\hat{\mathbf{b}}))>\cos(79.86^\circ)
-{=}0.1761$, matching the arcsin-spaced azimuth grid) and outside the
-radial range $1.5\,\text{m}\!<\!d\!<\!K\,\Delta r\!=\!15.2\,\text{m}$
-from the array centroid at the seed pose. Second, we cast a Mitsuba~3
-ray~\cite{jakob2022dr} from each surviving point toward the array
-centroid and drop occluded points; this is the only ray-tracing call
-in our pipeline. Third, we resample $3N$ candidates from the visible
-set with replacement at probability proportional to
-$\max(\cos(\angle(\hat{\mathbf{d}},\hat{\mathbf{b}})),0.01)$, biasing
-selection toward boresight-aligned regions where the antenna pattern
-is strongest, and take the unique set. Finally, we reduce to exactly
-$N\!=\!20{,}000$ points via greedy farthest-point sampling on the
-resampled set, ensuring spatial uniformity within the radar's main
-beam. Each surviving point is assigned a quaternion encoding the
-LiDAR surface normal and a uniform ITU-concrete material prior; the
-adaptive density control during training (Sec.~\ref{sec:methods:opt})
-then redistributes the point budget toward radar-bright features.
 
 % ---------------------------------------------------------------------
 \subsection{Differentiable optimization}
