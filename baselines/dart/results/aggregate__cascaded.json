@@ -4,56 +4,56 @@
   "scenes": [
     {
       "scene": "seq_0_frame_135",
-      "ra_corr": 0.01956095757018523,
-      "range_profile_corr": 0.2410057139490659,
-      "wall_time_seconds": 25.293553352355957,
+      "ra_corr": 0.027594142207394274,
+      "range_profile_corr": 0.2526626705277807,
+      "wall_time_seconds": 25.615388870239258,
       "peak_gpu_mem_mib": 0.0
     },
     {
       "scene": "seq_1_frame_185",
-      "ra_corr": 0.07394704693096364,
-      "range_profile_corr": -0.18961003936810378,
-      "wall_time_seconds": 25.75985288619995,
+      "ra_corr": 0.04272784932420375,
+      "range_profile_corr": -0.029852505750493936,
+      "wall_time_seconds": 26.258942127227783,
       "peak_gpu_mem_mib": 0.0
     },
     {
       "scene": "seq_1_frame_438",
-      "ra_corr": 0.10740096365187643,
-      "range_profile_corr": -0.06424086534091944,
-      "wall_time_seconds": 25.655300617218018,
+      "ra_corr": 0.06596979212984883,
+      "range_profile_corr": -0.08829841396271529,
+      "wall_time_seconds": 26.069912672042847,
       "peak_gpu_mem_mib": 0.0
     },
     {
       "scene": "seq_2_frame_160",
-      "ra_corr": 0.1145324317420775,
-      "range_profile_corr": -0.30624807241759333,
-      "wall_time_seconds": 26.657938718795776,
+      "ra_corr": 0.07918908405407495,
+      "range_profile_corr": -0.270094480738022,
+      "wall_time_seconds": 25.87861943244934,
       "peak_gpu_mem_mib": 0.0
     },
     {
       "scene": "seq_2_frame_300",
-      "ra_corr": 0.052925586644828555,
-      "range_profile_corr": 0.6928056482444772,
-      "wall_time_seconds": 25.256198167800903,
+      "ra_corr": 0.034118974437184264,
+      "range_profile_corr": 0.7222871876075058,
+      "wall_time_seconds": 26.016017198562622,
       "peak_gpu_mem_mib": 0.0
     },
     {
       "scene": "seq_2_frame_105",
-      "ra_corr": 0.22566269875025427,
-      "range_profile_corr": 0.6852807899765985,
-      "wall_time_seconds": 25.302866458892822,
+      "ra_corr": 0.23708884339409492,
+      "range_profile_corr": 0.7093368395936153,
+      "wall_time_seconds": 25.990983247756958,
       "peak_gpu_mem_mib": 0.0
     }
   ],
   "n_scenes": 6,
   "ra_corr": {
-    "mean": 0.09900494754836427,
-    "stdev": 0.07129703390688726,
+    "mean": 0.08111478092446683,
+    "stdev": 0.07887662298940286,
     "n": 6
   },
   "range_profile_corr": {
-    "mean": 0.17649886250725416,
-    "stdev": 0.4369505300092421,
+    "mean": 0.21600688287961176,
+    "stdev": 0.42199074119930796,
     "n": 6
   }
 }

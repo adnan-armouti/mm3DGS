@@ -1,0 +1,123 @@
+{
+  "per_frame": [
+    {
+      "baseline": "dart",
+      "scene": "seq_2_frame_300",
+      "ra_corr": -0.018382910191460954,
+      "range_profile_corr": 0.01682974622284241,
+      "cart_mse": 0.004376985132694244,
+      "cart_rmse": 0.06615878726740873,
+      "cart_psnr": 23.588249285524828,
+      "cart_ssim": 0.33171298884867423,
+      "frame": 296,
+      "test_frame": 300,
+      "mode": "cascaded"
+    },
+    {
+      "baseline": "dart",
+      "scene": "seq_2_frame_300",
+      "ra_corr": 0.043679255934847776,
+      "range_profile_corr": 0.21493915152560664,
+      "cart_mse": 0.006203072145581245,
+      "cart_rmse": 0.07875958446805853,
+      "cart_psnr": 22.07393167691132,
+      "cart_ssim": 0.25000238919321377,
+      "frame": 297,
+      "test_frame": 300,
+      "mode": "cascaded"
+    },
+    {
+      "baseline": "dart",
+      "scene": "seq_2_frame_300",
+      "ra_corr": 0.015240574557665641,
+      "range_profile_corr": 0.553362712233056,
+      "cart_mse": 0.0009342370904050767,
+      "cart_rmse": 0.030565292251262324,
+      "cart_psnr": 30.29542894660637,
+      "cart_ssim": 0.7346455787559621,
+      "frame": 298,
+      "test_frame": 300,
+      "mode": "cascaded"
+    },
+    {
+      "baseline": "dart",
+      "scene": "seq_2_frame_300",
+      "ra_corr": 0.13443251645076795,
+      "range_profile_corr": 0.6069441385568943,
+      "cart_mse": 0.0018526882631704211,
+      "cart_rmse": 0.04304286541542537,
+      "cart_psnr": 27.32197649744443,
+      "cart_ssim": 0.5936105608077509,
+      "frame": 299,
+      "test_frame": 300,
+      "mode": "cascaded"
+    },
+    {
+      "baseline": "dart",
+      "scene": "seq_2_frame_300",
+      "ra_corr": 0.09242305897727622,
+      "range_profile_corr": 0.35608225627116763,
+      "cart_mse": 0.004085065796971321,
+      "cart_rmse": 0.06391451945349602,
+      "cart_psnr": 23.888009440198292,
+      "cart_ssim": 0.5482919465521069,
+      "frame": 301,
+      "test_frame": 300,
+      "mode": "cascaded"
+    },
+    {
+      "baseline": "dart",
+      "scene": "seq_2_frame_300",
+      "ra_corr": 0.14395097461525042,
+      "range_profile_corr": 0.1736008364902619,
+      "cart_mse": 0.002192755462601781,
+      "cart_rmse": 0.04682686688859058,
+      "cart_psnr": 26.590097984019387,
+      "cart_ssim": 0.5234802432083403,
+      "frame": 302,
+      "test_frame": 300,
+      "mode": "cascaded"
+    },
+    {
+      "baseline": "dart",
+      "scene": "seq_2_frame_300",
+      "ra_corr": 0.054876158633880984,
+      "range_profile_corr": 0.6145941003076293,
+      "cart_mse": 0.0013112835586071014,
+      "cart_rmse": 0.0362116494875213,
+      "cart_psnr": 28.823033841128655,
+      "cart_ssim": 0.5668593893327134,
+      "frame": 303,
+      "test_frame": 300,
+      "mode": "cascaded"
+    },
+    {
+      "baseline": "dart",
+      "scene": "seq_2_frame_300",
+      "ra_corr": 0.031041873430367416,
+      "range_profile_corr": 0.5062830512608703,
+      "cart_mse": 0.009029150940477848,
+      "cart_rmse": 0.09502184454365137,
+      "cart_psnr": 20.443530868074383,
+      "cart_ssim": 0.3969703306943638,
+      "frame": 304,
+      "test_frame": 300,
+      "mode": "cascaded"
+    }
+  ],
+  "ra_corr_mean": 0.06215768780107443,
+  "ra_corr_std": 0.05347950047907572,
+  "ra_corr_per_frame": [
+    -0.018382910191460954,
+    0.043679255934847776,
+    0.015240574557665641,
+    0.13443251645076795,
+    0.09242305897727622,
+    0.14395097461525042,
+    0.054876158633880984,
+    0.031041873430367416
+  ],
+  "range_profile_corr_mean": 0.3803294991085411,
+  "range_profile_corr_std": 0.2106091149754632,
+  "n_train_frames": 8
+}

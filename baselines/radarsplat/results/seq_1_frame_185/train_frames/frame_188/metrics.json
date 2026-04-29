@@ -1,0 +1,12 @@
+{
+  "baseline": "radarsplat",
+  "scene": "seq_1_frame_185",
+  "ra_corr": 0.7423825938374042,
+  "range_profile_corr": 0.8199126387564787,
+  "cart_mse": 0.0005640168092213571,
+  "cart_rmse": 0.023749038069390455,
+  "cart_psnr": 32.487079526774785,
+  "cart_ssim": 0.7383098607578612,
+  "frame": 188,
+  "test_frame": 185
+}

@@ -11,7 +11,7 @@
     108,
     109
   ],
-  "wall_time_seconds": 98.21223568916321,
+  "wall_time_seconds": 98.50660109519958,
   "peak_gpu_mem_mib": 2434.0751953125,
   "deviations_from_reference": [
     "Synthetic 9-frame sequence rather than upstream's longer driving sequences.",

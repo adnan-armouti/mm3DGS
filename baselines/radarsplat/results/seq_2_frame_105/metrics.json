@@ -1,12 +1,12 @@
 {
   "baseline": "radarsplat",
   "scene": "seq_2_frame_105",
-  "ra_corr": 0.36693834673316866,
-  "range_profile_corr": 0.48888343155387176,
-  "cart_mse": 0.001979566179215908,
-  "cart_rmse": 0.04449231595698192,
-  "cart_psnr": 27.03429974695887,
-  "cart_ssim": 0.5208864218110714,
+  "ra_corr": 0.36562500002510606,
+  "range_profile_corr": 0.4871196854286027,
+  "cart_mse": 0.00220069894567132,
+  "cart_rmse": 0.046911607792435764,
+  "cart_psnr": 26.574393646144372,
+  "cart_ssim": 0.5209219561518224,
   "test_frame": 105,
   "train_frames": [
     101,
@@ -18,7 +18,7 @@
     108,
     109
   ],
-  "wall_time_seconds": 1266.3873682022095,
+  "wall_time_seconds": 1272.757639169693,
   "peak_gpu_mem_mib": 14199.84228515625,
   "deviations_from_reference": [
     "Synthetic 9-frame sequence rather than Boreas 40-frame window.",
@@ -33,7 +33,7 @@
     "multipath_weight=0, l1occloss_lambda=0 (components shipped degenerate; see adapter)."
   ],
   "upstream_commit": "ea9c8f530c708622cc3b1b560436b5557ac6a49b",
-  "upstream_result_dir": "/home/adnan/Desktop/mm3DGS/baselines/radarsplat/upstream_results/seq_2_frame_105/seq_2_frame_105_frame_0_9_20260424_213400",
+  "upstream_result_dir": "/home/adnan/Desktop/mm3DGS/baselines/radarsplat/upstream_results/seq_2_frame_105/seq_2_frame_105_frame_0_9_20260429_002429",
   "max_steps": 2000,
   "init_num_pts": 20000
 }

@@ -1,0 +1,13 @@
+{
+  "baseline": "dart",
+  "scene": "seq_2_frame_160",
+  "ra_corr": 0.0005827145039238056,
+  "range_profile_corr": 0.49867603789403486,
+  "cart_mse": 0.009021247737109661,
+  "cart_rmse": 0.09498024919481766,
+  "cart_psnr": 20.44733390632611,
+  "cart_ssim": 0.49926544155052893,
+  "frame": 156,
+  "test_frame": 160,
+  "mode": "cascaded"
+}

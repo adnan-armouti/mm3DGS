@@ -1,12 +1,12 @@
 {
   "baseline": "dart",
   "scene": "seq_2_frame_160",
-  "ra_corr": 0.1145324317420775,
-  "range_profile_corr": -0.30624807241759333,
-  "cart_mse": 0.0023005492985248566,
-  "cart_rmse": 0.047964041724242304,
-  "cart_psnr": 26.381684557928338,
-  "cart_ssim": 0.6106555274319352,
+  "ra_corr": 0.07918908405407495,
+  "range_profile_corr": -0.270094480738022,
+  "cart_mse": 0.002341309329494834,
+  "cart_rmse": 0.04838707812520646,
+  "cart_psnr": 26.305412043222045,
+  "cart_ssim": 0.6072060490208154,
   "test_frame": 160,
   "train_frames": [
     156,
@@ -18,7 +18,7 @@
     163,
     164
   ],
-  "wall_time_seconds": 26.657938718795776,
+  "wall_time_seconds": 25.87861943244934,
   "peak_gpu_mem_mib": 0.0,
   "deviations_from_reference": [
     "DART mode: cascaded.",

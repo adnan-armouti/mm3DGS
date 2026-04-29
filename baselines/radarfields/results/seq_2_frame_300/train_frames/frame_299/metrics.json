@@ -1,0 +1,12 @@
+{
+  "baseline": "radarfields",
+  "scene": "seq_2_frame_300",
+  "ra_corr": 0.3942373127856024,
+  "range_profile_corr": 0.5846944177878279,
+  "cart_mse": 0.0009975270368158817,
+  "cart_rmse": 0.031583651416767534,
+  "cart_psnr": 30.010753244323737,
+  "cart_ssim": 0.6740152794375588,
+  "frame": 299,
+  "test_frame": 300
+}

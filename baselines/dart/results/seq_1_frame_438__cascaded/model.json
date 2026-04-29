@@ -1,0 +1,17 @@
+{
+    "ngpsh": {
+        "grid": "ngpsh/grid"
+    },
+    "ngpsh/~/linear": {
+        "b": "ngpsh/~/linear/b",
+        "w": "ngpsh/~/linear/w"
+    },
+    "ngpsh/~/linear_1": {
+        "b": "ngpsh/~/linear_1/b",
+        "w": "ngpsh/~/linear_1/w"
+    },
+    "ngpsh/~/linear_2": {
+        "b": "ngpsh/~/linear_2/b",
+        "w": "ngpsh/~/linear_2/w"
+    }
+}

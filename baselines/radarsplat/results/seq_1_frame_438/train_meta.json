@@ -11,7 +11,7 @@
     441,
     442
   ],
-  "wall_time_seconds": 1136.0961737632751,
+  "wall_time_seconds": 1141.9251437187195,
   "peak_gpu_mem_mib": 13838.224609375,
   "deviations_from_reference": [
     "Synthetic 9-frame sequence rather than Boreas 40-frame window.",
@@ -26,7 +26,7 @@
     "multipath_weight=0, l1occloss_lambda=0 (components shipped degenerate; see adapter)."
   ],
   "upstream_commit": "ea9c8f530c708622cc3b1b560436b5557ac6a49b",
-  "upstream_result_dir": "/home/adnan/Desktop/mm3DGS/baselines/radarsplat/upstream_results/seq_1_frame_438/seq_1_frame_438_frame_0_9_20260424_210644",
+  "upstream_result_dir": "/home/adnan/Desktop/mm3DGS/baselines/radarsplat/upstream_results/seq_1_frame_438/seq_1_frame_438_frame_0_9_20260428_235653",
   "max_steps": 2000,
   "init_num_pts": 20000
 }

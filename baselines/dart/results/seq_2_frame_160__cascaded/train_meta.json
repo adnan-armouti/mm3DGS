@@ -12,7 +12,7 @@
     163,
     164
   ],
-  "wall_time_seconds": 26.657938718795776,
+  "wall_time_seconds": 25.87861943244934,
   "peak_gpu_mem_mib": 0.0,
   "deviations_from_reference": [
     "DART mode: cascaded.",
