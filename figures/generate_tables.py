@@ -1,23 +1,23 @@
 """Generate the two LaTeX results tables for the NeurIPS paper.
 
-Tables:
-  1. test_ra_results.tex   — per-scene + mean test |RA| Pearson CC for
-                              Ours / DART / RadarSplat / RadarFields,
-                              held-out NVS test frame.
-  2. train_ra_results.tex  — per-scene + mean train |RA| Pearson CC,
-                              ours only (baselines do not expose
-                              per-train-frame metrics).
+Mirrors the mmIR ECCV training_ra.tex format: per-scene + mean for the full
+metric set (RA Corr, RA PSNR, RA SSIM, RA RMSE) across all four methods
+(Ours / RadarSplat / Radar Fields / DART).
+
+Tables produced:
+  1. test_ra_results.tex   — held-out test |RA| metrics, all four methods
+  2. train_ra_results.tex  — train |RA| metrics, mm3DGS only (baselines do
+                              not yet expose per-train-frame metrics)
 
 Reads:
   - mm25DGS_v5_v4/output_frame_nvs/<scene>.../results.json
-        (final_test_cc, final_train_mean_cc, final_train_std_cc)
+        (final_test_cart_corr, final_test_cart_mse, _rmse, _psnr, _ssim)
+  - mm25DGS_v5_v4/output_frame_nvs/<scene>.../metrics_train.json
+        (ra_corr.mean/std, cart_psnr.mean/std, cart_ssim.mean/std,
+         cart_mse.mean/std, cart_rmse.mean/std)
   - baselines/{dart,radarsplat,radarfields}/results/<scene>/metrics.json
-        (ra_corr — held-out test frame)
-  - For DART, also baselines/dart/results/<scene>__cascaded/metrics.json
-        is the cascaded-radar variant (default in our paper).
-
-Writes the two `.tex` files into the paper's `figs/` (or wherever
-specified via --output_dir).
+        (ra_corr, cart_mse, cart_rmse, cart_psnr, cart_ssim)
+        For DART, also __cascaded variant.
 
 Usage:
     python -m figures.generate_tables \
@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import glob
 import json
+import math
 import os
 from typing import Optional
 
@@ -51,6 +52,27 @@ SCENE_SHORT = {
     'seq_2_frame_300': 'S2\\,F300',
 }
 
+METHODS = ('ours', 'radarsplat', 'radarfields', 'dart')
+METHOD_PRETTY = {
+    'ours':        '\\textbf{mm3DGS}',
+    'radarsplat':  'RadarSplat~\\cite{kung2025radarsplat}',
+    'radarfields': 'Radar Fields~\\cite{10.1145/3641519.3657510}',
+    'dart':        'DART~\\cite{huang2024dart}',
+}
+
+# Metrics to render. higher_is_better controls which method gets bolded
+# per scene. Display formatters per metric.
+METRICS = [
+    ('cart_corr', 'RA Corr',  '$\\uparrow$',  True,  '{:.3f}'),
+    ('cart_psnr', 'RA PSNR',  '$\\uparrow$',  True,  '{:.1f}'),
+    ('cart_ssim', 'RA SSIM',  '$\\uparrow$',  True,  '{:.3f}'),
+    ('cart_rmse', 'RA RMSE',  '$\\downarrow$', False, '{:.4f}'),
+]
+
+
+# ---------------------------------------------------------------------------
+# Loaders
+# ---------------------------------------------------------------------------
 
 def find_ours_results(scene: str, ours_dir: str) -> Optional[str]:
     pat1 = os.path.join(ours_dir, f'{scene}_*_pass2_N20000', 'results.json')
@@ -64,21 +86,49 @@ def find_ours_results(scene: str, ours_dir: str) -> Optional[str]:
     return matches[0] if matches else None
 
 
-def load_ours(scene: str, ours_dir: str) -> dict | None:
+def load_ours_test_metrics(scene: str, ours_dir: str) -> Optional[dict]:
+    """Return the test-frame metric dict (cart_corr, mse, rmse, psnr, ssim).
+    Falls back to final_test_cc + None for the other metrics if the run is
+    pre-metrics-upgrade."""
     p = find_ours_results(scene, ours_dir)
     if p is None:
         return None
     with open(p) as f:
         d = json.load(f)
     return {
-        'test':  float(d['final_test_cc']),
-        'train': float(d['final_train_mean_cc']),
-        'train_std': float(d.get('final_train_std_cc', 0.0)),
-        'init_test': float(d.get('init_test_cc', 0.0)),
+        'cart_corr': d.get('final_test_cart_corr', d.get('final_test_cc')),
+        'cart_mse':  d.get('final_test_cart_mse'),
+        'cart_rmse': d.get('final_test_cart_rmse'),
+        'cart_psnr': d.get('final_test_cart_psnr'),
+        'cart_ssim': d.get('final_test_cart_ssim'),
     }
 
 
-def load_baseline(baseline: str, scene: str, baselines_dir: str) -> dict | None:
+def load_ours_train_metrics(scene: str, ours_dir: str) -> Optional[dict]:
+    """Return the per-metric mean+std across train frames for one scene.
+
+    Output dict: {metric_key: {'mean': float, 'std': float}}.
+    """
+    p = find_ours_results(scene, ours_dir)
+    if p is None:
+        return None
+    train_p = os.path.join(os.path.dirname(p), 'metrics_train.json')
+    if not os.path.exists(train_p):
+        return None
+    with open(train_p) as f:
+        d = json.load(f)
+    out = {}
+    for key in ('ra_corr', 'cart_mse', 'cart_rmse', 'cart_psnr', 'cart_ssim'):
+        v = d.get(key)
+        if isinstance(v, dict) and v.get('mean') is not None:
+            # ours uses ra_corr (== cart_corr) — alias for the table.
+            tk = 'cart_corr' if key == 'ra_corr' else key
+            out[tk] = {'mean': v['mean'], 'std': v.get('std', 0.0)}
+    return out
+
+
+def load_baseline_metrics(baseline: str, scene: str, baselines_dir: str
+                           ) -> Optional[dict]:
     if baseline == 'dart':
         p = os.path.join(baselines_dir, 'dart', 'results',
                           f'{scene}__cascaded', 'metrics.json')
@@ -89,106 +139,206 @@ def load_baseline(baseline: str, scene: str, baselines_dir: str) -> dict | None:
     with open(p) as f:
         d = json.load(f)
     return {
-        'test': float(d.get('ra_corr', float('nan'))),
-        'rp':   float(d.get('range_profile_corr', float('nan'))),
+        'cart_corr': d.get('ra_corr'),
+        'cart_mse':  d.get('cart_mse'),
+        'cart_rmse': d.get('cart_rmse'),
+        'cart_psnr': d.get('cart_psnr'),
+        'cart_ssim': d.get('cart_ssim'),
     }
 
 
-def fmt(x: float | None, decimals: int = 3) -> str:
-    if x is None or (isinstance(x, float) and (x != x)):
+# ---------------------------------------------------------------------------
+# Formatting helpers
+# ---------------------------------------------------------------------------
+
+def fmt(v: Optional[float], spec: str) -> str:
+    if v is None or (isinstance(v, float) and math.isnan(v)):
         return '--'
-    return f'{x:.{decimals}f}'
+    return spec.format(v)
 
 
-def write_test_table(rows: dict[str, dict[str, float]], path: str):
-    """rows: {method: {scene: cc, 'mean': mean_cc}}."""
-    methods = ['ours', 'radarsplat', 'radarfields', 'dart']
-    pretty = {'ours': '\\textbf{mm3DGS (Ours)}',
-              'radarsplat': 'RadarSplat~\\cite{kung2025radarsplat}',
-              'radarfields': 'Radar Fields~\\cite{10.1145/3641519.3657510}',
-              'dart': 'DART~\\cite{huang2024dart}'}
+def fmt_pm(v: Optional[float], s: Optional[float], spec: str) -> str:
+    if v is None or (isinstance(v, float) and math.isnan(v)):
+        return '--'
+    a = spec.format(v)
+    if s is None:
+        return a
+    return f'{a}$\\pm${spec.format(s)}'
+
+
+def best_method(per_method: dict[str, Optional[float]],
+                higher_is_better: bool) -> Optional[str]:
+    cands = [(m, v) for m, v in per_method.items()
+             if v is not None and not (isinstance(v, float) and math.isnan(v))]
+    if not cands:
+        return None
+    cands.sort(key=lambda x: -x[1] if higher_is_better else x[1])
+    return cands[0][0]
+
+
+# ---------------------------------------------------------------------------
+# Table emitters
+# ---------------------------------------------------------------------------
+
+def write_test_table(rows: dict, path: str):
+    """Render the held-out test |RA| comparison table.
+
+    Layout:
+      |  scene | RA Corr (4 cols) | RA PSNR (4) | RA SSIM (4) | RA RMSE (4) |
+    Columns within each metric: mm3DGS / RadarSplat / Radar Fields / DART.
+    """
+    n_methods = len(METHODS)
+    n_metrics = len(METRICS)
+    # Column spec
+    col_spec = 'l|' + '|'.join('cccc' for _ in METRICS)
     lines = []
-    lines.append('\\begin{table}[t]')
+    lines.append('\\begin{table*}[t]')
     lines.append('\\centering')
-    lines.append('\\caption{Held-out novel-view test |RA| Pearson correlation '
-                  'across six ColoRadar scenes. For each scene we train on the '
-                  '8 cascaded radar frames adjacent to the held-out test frame '
-                  '($F\\!\\pm\\!1\\!\\ldots\\!\\pm\\!4$, chirp 0 only) and '
-                  'evaluate on the held-out test frame ($F$, chirp 0). Higher '
-                  'is better. Bold marks the best per scene.}')
+    lines.append('\\caption{Held-out novel-view test |RA| metrics across six '
+                  'ColoRadar scenes. For each scene, mm3DGS trains on the 8 '
+                  'cascaded radar frames adjacent to the held-out test frame '
+                  '($F\\!\\pm\\!1\\!\\ldots\\!\\pm\\!4$, chirp 0 only) and is '
+                  'evaluated on the held-out test frame ($F$, chirp 0). '
+                  'Metrics: Pearson correlation (Corr), peak signal-to-noise '
+                  'ratio (PSNR, dB), structural similarity (SSIM), and root-'
+                  'mean-square error (RMSE) on min-max-normalized 399$\\times$'
+                  '399 Cartesian $|\\mathrm{RA}|$ images. Best per-scene '
+                  '\\textbf{bold}.}')
     lines.append('\\label{tab:test_ra}')
     lines.append('\\small')
-    lines.append('\\setlength{\\tabcolsep}{4pt}')
-    lines.append('\\begin{tabular}{l|cccccc|c}')
+    lines.append('\\setlength{\\tabcolsep}{2.4pt}')
+    lines.append('\\resizebox{\\linewidth}{!}{')
+    lines.append(f'\\begin{{tabular}}{{{col_spec}}}')
     lines.append('\\toprule')
-    header = '\\textbf{Method} & ' + ' & '.join(
-        SCENE_SHORT[s] for s in SCENES) + ' & \\textbf{Mean} \\\\'
-    lines.append(header)
+    # Header row 1: metric groups
+    head1 = ['']
+    for _, label, arrow, *_ in METRICS:
+        head1.append(f'\\multicolumn{{{n_methods}}}{{c}}{{{label} {arrow}}}')
+    lines.append(' & '.join(head1) + ' \\\\')
+    # cmidrules
+    cm = []
+    for i in range(n_metrics):
+        a = 2 + i * n_methods
+        b = a + n_methods - 1
+        cm.append(f'\\cmidrule(lr){{{a}-{b}}}')
+    lines.append(''.join(cm))
+    # Header row 2: method names per group
+    head2 = ['Scene']
+    for _ in METRICS:
+        for m in METHODS:
+            short = {'ours': 'Ours',
+                     'radarsplat': 'RSplat',
+                     'radarfields': 'RFields',
+                     'dart': 'DART'}[m]
+            head2.append(short)
+    lines.append(' & '.join(head2) + ' \\\\')
     lines.append('\\midrule')
-    # Find best per scene to bold.
-    bests = {}
-    for s in SCENES:
-        vals = {m: rows.get(m, {}).get(s) for m in methods}
-        best_m = max((v for v in vals.values() if v is not None), default=None)
-        for m, v in vals.items():
-            if v is not None and v == best_m:
-                bests[s] = m
-    for m in methods:
-        cells = [pretty[m]]
-        for s in SCENES:
-            v = rows.get(m, {}).get(s)
-            cell = fmt(v)
-            if bests.get(s) == m:
-                cell = f'\\textbf{{{cell}}}'
-            cells.append(cell)
-        cells.append(f'\\textbf{{{fmt(rows.get(m, {}).get("mean"))}}}')
+    # Per-scene rows
+    for scene in SCENES:
+        cells = [SCENE_SHORT[scene]]
+        for mkey, _, _, hib, spec in METRICS:
+            per_method = {m: rows.get(m, {}).get(scene, {}).get(mkey)
+                          for m in METHODS}
+            best = best_method(per_method, hib)
+            for m in METHODS:
+                v = per_method[m]
+                s = fmt(v, spec)
+                if best == m and s != '--':
+                    s = f'\\textbf{{{s}}}'
+                cells.append(s)
         lines.append(' & '.join(cells) + ' \\\\')
+    # Mean row
+    lines.append('\\midrule')
+    cells = ['\\textbf{Mean}']
+    for mkey, _, _, hib, spec in METRICS:
+        # Compute per-method mean across scenes
+        means = {}
+        for m in METHODS:
+            vals = [rows.get(m, {}).get(s, {}).get(mkey) for s in SCENES]
+            vals = [v for v in vals
+                    if v is not None and not (isinstance(v, float) and math.isnan(v))]
+            means[m] = (sum(vals) / len(vals)) if vals else None
+        best = best_method(means, hib)
+        for m in METHODS:
+            s = fmt(means[m], spec)
+            if best == m and s != '--':
+                s = f'\\textbf{{{s}}}'
+            cells.append(s)
+    lines.append(' & '.join(cells) + ' \\\\')
     lines.append('\\bottomrule')
     lines.append('\\end{tabular}')
-    lines.append('\\end{table}')
+    lines.append('}')
+    lines.append('\\end{table*}')
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w') as f:
         f.write('\n'.join(lines) + '\n')
 
 
-def write_train_table(ours_rows: dict[str, dict], path: str):
-    """ours_rows[scene] = {'train': cc, 'train_std': std, 'init_test': init}.
-    Plus a 'mean' key with means.
-    """
+def write_train_table(ours_train: dict, init_test_cc: dict, path: str):
+    """Render train-view metric table, mm3DGS only (baselines lack
+    per-train-frame metrics in their public release)."""
+    metric_keys = ['cart_corr', 'cart_psnr', 'cart_ssim', 'cart_rmse']
+    metric_labels = {
+        'cart_corr': 'RA Corr $\\uparrow$',
+        'cart_psnr': 'RA PSNR $\\uparrow$',
+        'cart_ssim': 'RA SSIM $\\uparrow$',
+        'cart_rmse': 'RA RMSE $\\downarrow$',
+    }
+    metric_specs = {
+        'cart_corr': '{:.3f}',
+        'cart_psnr': '{:.1f}',
+        'cart_ssim': '{:.3f}',
+        'cart_rmse': '{:.4f}',
+    }
     lines = []
     lines.append('\\begin{table}[t]')
     lines.append('\\centering')
-    lines.append('\\caption{Training-view |RA| Pearson correlation. mm3DGS '
-                  'mean across the 8 train frames per scene (chirp 0 only); '
-                  'std is the across-frame deviation. Pre-training (init) '
-                  'CC is reported alongside to quantify the optimization '
-                  'lift. Baseline methods do not expose per-train-frame '
-                  'metrics in their public release; we mark them as ``--\'\' '
-                  '(re-rendering each baseline at all 8 train poses is left '
-                  'to future work).}')
+    lines.append('\\caption{Training-view |RA| metrics for mm3DGS (mean$\\pm$'
+                  'std across the 8 train frames per scene; chirp 0 only). '
+                  'Per-scene init-test correlation reported alongside to '
+                  'quantify the optimisation lift. Baseline methods do not '
+                  'expose per-train-frame metrics in their public release; '
+                  'all-baseline columns are pending re-runs.}')
     lines.append('\\label{tab:train_ra}')
     lines.append('\\small')
-    lines.append('\\setlength{\\tabcolsep}{6pt}')
-    lines.append('\\begin{tabular}{l|cccc}')
+    lines.append('\\setlength{\\tabcolsep}{4pt}')
+    cs = 'l|c|' + '|'.join('c' for _ in metric_keys)
+    lines.append(f'\\begin{{tabular}}{{{cs}}}')
     lines.append('\\toprule')
-    lines.append('\\textbf{Scene} & '
-                  '\\textbf{init test CC} & '
-                  '\\textbf{train mean CC (std)} & '
-                  '\\textbf{Baselines} \\\\')
+    head = ['Scene', 'init test CC'] + [metric_labels[k] for k in metric_keys]
+    lines.append(' & '.join(head) + ' \\\\')
     lines.append('\\midrule')
-    for s in SCENES:
-        r = ours_rows.get(s, {})
-        init = fmt(r.get('init_test'))
-        tr = fmt(r.get('train'))
-        std = fmt(r.get('train_std'))
-        lines.append(
-            f'{SCENE_SHORT[s]} & {init} & {tr}\\,({std}) & -- \\\\')
-    mr = ours_rows.get('mean', {})
+    for scene in SCENES:
+        rec = ours_train.get(scene, {})
+        cells = [SCENE_SHORT[scene],
+                 fmt(init_test_cc.get(scene), '{:.3f}')]
+        for mk in metric_keys:
+            v = rec.get(mk)
+            if v is None:
+                cells.append('--')
+            else:
+                cells.append(fmt_pm(v.get('mean'), v.get('std'),
+                                      metric_specs[mk]))
+        lines.append(' & '.join(cells) + ' \\\\')
     lines.append('\\midrule')
-    lines.append(
-        f'\\textbf{{Mean}} & '
-        f'\\textbf{{{fmt(mr.get("init_test"))}}} & '
-        f'\\textbf{{{fmt(mr.get("train"))}}} & -- \\\\')
+    # Mean row
+    cells = ['\\textbf{Mean}']
+    init_vals = [v for v in init_test_cc.values()
+                 if v is not None and not math.isnan(v)]
+    cells.append(fmt(sum(init_vals)/len(init_vals) if init_vals else None,
+                      '{:.3f}'))
+    for mk in metric_keys:
+        means = []
+        stds = []
+        for scene in SCENES:
+            rec = ours_train.get(scene, {}).get(mk)
+            if rec is not None:
+                means.append(rec.get('mean'))
+                stds.append(rec.get('std', 0.0))
+        m_of_m = sum(means)/len(means) if means else None
+        s_of_m = (sum(stds)/len(stds) if stds else None)
+        cells.append(fmt_pm(m_of_m, s_of_m, metric_specs[mk]))
+    lines.append(' & '.join(cells) + ' \\\\')
     lines.append('\\bottomrule')
     lines.append('\\end{tabular}')
     lines.append('\\end{table}')
@@ -196,6 +346,10 @@ def write_train_table(ours_rows: dict[str, dict], path: str):
     with open(path, 'w') as f:
         f.write('\n'.join(lines) + '\n')
 
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 def main():
     ap = argparse.ArgumentParser()
@@ -206,51 +360,52 @@ def main():
         'for_Millimeter_Wave_Radar_via_Point_Based_Hemisphere_Rendering/tables'))
     args = ap.parse_args()
 
-    rows = {'ours': {}, 'dart': {}, 'radarsplat': {}, 'radarfields': {}}
-    ours_rows = {}
+    # Test metrics table: rows[method][scene][metric_key] = float
+    rows: dict = {m: {} for m in METHODS}
+    init_test_cc = {}
+    ours_train = {}
+    ours_init = {}
 
-    for s in SCENES:
-        o = load_ours(s, args.ours_dir)
-        if o is not None:
-            rows['ours'][s] = o['test']
-            ours_rows[s] = o
-        else:
-            print(f'[!] no ours results for {s}')
+    for scene in SCENES:
+        # Ours
+        ours_t = load_ours_test_metrics(scene, args.ours_dir)
+        if ours_t is not None:
+            rows['ours'][scene] = ours_t
+        ours_tr = load_ours_train_metrics(scene, args.ours_dir)
+        if ours_tr is not None:
+            ours_train[scene] = ours_tr
+        # Init test CC for the per-scene side column.
+        p = find_ours_results(scene, args.ours_dir)
+        if p is not None:
+            with open(p) as f:
+                d = json.load(f)
+            init_test_cc[scene] = d.get('init_test_cc')
+
+        # Baselines
         for b in ('dart', 'radarsplat', 'radarfields'):
-            r = load_baseline(b, s, args.baselines_dir)
+            r = load_baseline_metrics(b, scene, args.baselines_dir)
             if r is not None:
-                rows[b][s] = r['test']
-
-    # Per-method test mean
-    for m in rows:
-        vals = list(rows[m].values())
-        rows[m]['mean'] = sum(vals) / len(vals) if vals else float('nan')
-
-    # Ours train mean across scenes
-    if ours_rows:
-        ours_rows['mean'] = {
-            'init_test': sum(o['init_test'] for o in ours_rows.values()) / len(ours_rows),
-            'train': sum(o['train'] for o in ours_rows.values()) / len(ours_rows),
-            'train_std': sum(o['train_std'] for o in ours_rows.values()) / len(ours_rows),
-        }
+                rows[b][scene] = r
 
     # Write
     write_test_table(rows,
                      os.path.join(args.output_dir, 'test_ra_results.tex'))
-    write_train_table(ours_rows,
+    write_train_table(ours_train, init_test_cc,
                       os.path.join(args.output_dir, 'train_ra_results.tex'))
     print(f'[done] wrote tables under {args.output_dir}/')
 
-    # Print summary
-    print('\n=== per-method test |RA| CC mean ===')
-    for m in ('ours', 'radarsplat', 'radarfields', 'dart'):
-        print(f'  {m:>14}: {rows[m].get("mean", float("nan")):.4f}')
-    print('\n=== ours per-scene ===')
-    for s in SCENES:
-        if s in ours_rows:
-            o = ours_rows[s]
-            print(f'  {s:>20}: init {o["init_test"]:.4f}  '
-                  f'test {o["test"]:.4f}  train {o["train"]:.4f}±{o["train_std"]:.4f}')
+    # Summary print
+    print('\n=== test |RA| metric means ===')
+    for m in METHODS:
+        line = f'  {m:>14}: '
+        for mkey, label, _, _, spec in METRICS:
+            vals = [rows[m].get(s, {}).get(mkey) for s in SCENES]
+            vals = [v for v in vals
+                    if v is not None and not (isinstance(v, float) and math.isnan(v))]
+            mean = sum(vals)/len(vals) if vals else None
+            s = fmt(mean, spec)
+            line += f'  {label}={s}'
+        print(line)
 
 
 if __name__ == '__main__':

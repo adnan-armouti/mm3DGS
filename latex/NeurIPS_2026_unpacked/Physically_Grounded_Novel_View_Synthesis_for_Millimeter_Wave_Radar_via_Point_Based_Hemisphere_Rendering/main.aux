@@ -92,22 +92,15 @@
 \newlabel{sec:experiments}{{4}{7}{Experiments}{section.4}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Experimental setup}{7}{subsection.4.1}\protected@file@percent }
 \newlabel{sec:experiments:setup}{{4.1}{7}{Experimental setup}{subsection.4.1}{}}
-\citation{kung2025radarsplat}
-\citation{10.1145/3641519.3657510}
-\citation{huang2024dart}
 \citation{kradar2022}
-\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Held-out novel-view test |RA| Pearson correlation across six ColoRadar scenes. For each scene we train on the 8 cascaded radar frames adjacent to the held-out test frame ($F\!\pm \!1\!\ldots  \!\pm \!4$, chirp 0 only) and evaluate on the held-out test frame ($F$, chirp 0). Higher is better. Bold marks the best per scene.}}{8}{table.2}\protected@file@percent }
-\newlabel{tab:test_ra}{{2}{8}{Held-out novel-view test |RA| Pearson correlation across six ColoRadar scenes. For each scene we train on the 8 cascaded radar frames adjacent to the held-out test frame ($F\!\pm \!1\!\ldots \!\pm \!4$, chirp 0 only) and evaluate on the held-out test frame ($F$, chirp 0). Higher is better. Bold marks the best per scene}{table.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Held-out novel-view test |RA| metrics across six ColoRadar scenes. For each scene, mm3DGS trains on the 8 cascaded radar frames adjacent to the held-out test frame ($F\!\pm \!1\!\ldots  \!\pm \!4$, chirp 0 only) and is evaluated on the held-out test frame ($F$, chirp 0). Metrics: Pearson correlation (Corr), peak signal-to-noise ratio (PSNR, dB), structural similarity (SSIM), and root-mean-square error (RMSE) on min-max-normalized 399$\times $399 Cartesian $|\mathrm  {RA}|$ images. Best per-scene \textbf  {bold}.}}{8}{table.2}\protected@file@percent }
+\newlabel{tab:test_ra}{{2}{8}{Held-out novel-view test |RA| metrics across six ColoRadar scenes. For each scene, mm3DGS trains on the 8 cascaded radar frames adjacent to the held-out test frame ($F\!\pm \!1\!\ldots \!\pm \!4$, chirp 0 only) and is evaluated on the held-out test frame ($F$, chirp 0). Metrics: Pearson correlation (Corr), peak signal-to-noise ratio (PSNR, dB), structural similarity (SSIM), and root-mean-square error (RMSE) on min-max-normalized 399$\times $399 Cartesian $|\mathrm {RA}|$ images. Best per-scene \textbf {bold}}{table.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Held-out novel-view |RA| reconstruction}{8}{subsection.4.2}\protected@file@percent }
 \newlabel{sec:experiments:test}{{4.2}{8}{Held-out novel-view |RA| reconstruction}{subsection.4.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Training-view fit}{8}{subsection.4.3}\protected@file@percent }
-\newlabel{sec:experiments:train}{{4.3}{8}{Training-view fit}{subsection.4.3}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces \textbf  {Held-out novel-view $|\mathrm  {RA}|$ comparison} on six ColoRadar scenes (columns, sorted by mm3DGS test CC descending). Rows: ground truth (GT), mm3DGS (Ours), RadarSplat, Radar Fields, DART (cascaded). Per-cell test CC overlaid in white. mm3DGS consistently preserves wall and vehicle structure across all scenes; baseline methods exhibit characteristic failure modes — RadarSplat over-smooths azimuth, Radar Fields and DART smear range bins.}}{9}{figure.2}\protected@file@percent }
 \newlabel{fig:training_ra}{{2}{9}{\textbf {Held-out novel-view $|\mathrm {RA}|$ comparison} on six ColoRadar scenes (columns, sorted by mm3DGS test CC descending). Rows: ground truth (GT), mm3DGS (Ours), RadarSplat, Radar Fields, DART (cascaded). Per-cell test CC overlaid in white. mm3DGS consistently preserves wall and vehicle structure across all scenes; baseline methods exhibit characteristic failure modes — RadarSplat over-smooths azimuth, Radar Fields and DART smear range bins}{figure.2}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Training-view |RA| Pearson correlation. mm3DGS mean across the 8 train frames per scene (chirp 0 only); std is the across-frame deviation. Pre-training (init) CC is reported alongside to quantify the optimization lift. Baseline methods do not expose per-train-frame metrics in their public release; we mark them as ``--'' (re-rendering each baseline at all 8 train poses is left to future work).}}{9}{table.3}\protected@file@percent }
-\newlabel{tab:train_ra}{{3}{9}{Training-view |RA| Pearson correlation. mm3DGS mean across the 8 train frames per scene (chirp 0 only); std is the across-frame deviation. Pre-training (init) CC is reported alongside to quantify the optimization lift. Baseline methods do not expose per-train-frame metrics in their public release; we mark them as ``--'' (re-rendering each baseline at all 8 train poses is left to future work)}{table.3}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Negative results and ablation summary}{9}{subsection.4.4}\protected@file@percent }
-\newlabel{sec:experiments:ablations}{{4.4}{9}{Negative results and ablation summary}{subsection.4.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Training-view fit}{9}{subsection.4.3}\protected@file@percent }
+\newlabel{sec:experiments:train}{{4.3}{9}{Training-view fit}{subsection.4.3}{}}
 \citation{kradar2022}
 \citation{radarml2024}
 \bibstyle{plainnat}
@@ -119,6 +112,10 @@
 \bibcite{gao2019experiments}{{5}{2019}{{Gao et~al.}}{{Gao, Xiang, Desai, Bhat, Alizadeh, Kaboli, Gupta, and Roy}}}
 \bibcite{guan2020through}{{6}{2020}{{Guan et~al.}}{{Guan, Madani, Jog, Gurel, Fang, and Hassanieh}}}
 \bibcite{hofmann2025inverse}{{7}{2025}{{Hofmann et~al.}}{{Hofmann, Weinmann, and Klein}}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Training-view |RA| metrics for mm3DGS (mean$\pm $std across the 8 train frames per scene; chirp 0 only). Per-scene init-test correlation reported alongside to quantify the optimisation lift. Baseline methods do not expose per-train-frame metrics in their public release; all-baseline columns are pending re-runs.}}{10}{table.3}\protected@file@percent }
+\newlabel{tab:train_ra}{{3}{10}{Training-view |RA| metrics for mm3DGS (mean$\pm $std across the 8 train frames per scene; chirp 0 only). Per-scene init-test correlation reported alongside to quantify the optimisation lift. Baseline methods do not expose per-train-frame metrics in their public release; all-baseline columns are pending re-runs}{table.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Negative results and ablation summary}{10}{subsection.4.4}\protected@file@percent }
+\newlabel{sec:experiments:ablations}{{4.4}{10}{Negative results and ablation summary}{subsection.4.4}{}}
 \bibcite{sionna}{{8}{2023}{{Hoydis et~al.}}{{Hoydis, Cammerer, Ait~Aoudia, Nimier-David, Binder, Marcus, and Keller}}}
 \bibcite{huang2024dart}{{9}{2024{a}}{{Huang et~al.}}{{Huang, Gadre, Xu, Whelan, and Jatavallabhula}}}
 \bibcite{radarml2024}{{10}{2024{b}}{{Huang et~al.}}{{}}}

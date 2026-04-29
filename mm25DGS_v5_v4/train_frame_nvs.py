@@ -699,6 +699,19 @@ def train_frame_nvs(scene,
         test_ra_cart = polar_to_cart_torch(test_ra_polar, sample_grid)
         gt_ra_cart = polar_to_cart_torch(test_sample['gt_ra_polar'], sample_grid)
 
+    # Compute the full RA metric set on the test frame (matches baselines).
+    from mmir.evaluation.utils.metrics import compute_cart_ra_metrics as _cm
+    test_metrics = _cm(
+        gt_ra_cart.detach().cpu().numpy().astype(np.float32),
+        test_ra_cart.detach().cpu().numpy().astype(np.float32),
+    )
+    final_test_cart_corr = float(test_metrics['cart_corr'])
+    final_test_cart_mse = float(test_metrics['mse'])
+    final_test_cart_rmse = float(test_metrics['rmse'])
+    final_test_cart_psnr = float(test_metrics['psnr'])
+    final_test_cart_ssim = (float(test_metrics['ssim'])
+                             if test_metrics['ssim'] is not None else None)
+
     if verbose:
         print(f'\n  [final] test  cc = {final_test_cc:.4f} '
               f'(init was {init_test_cc:.4f}, Δ {final_test_cc-init_test_cc:+.4f})')
@@ -737,6 +750,12 @@ def train_frame_nvs(scene,
         'best_mean_train_cc': float(best_mean_train_cc),
         'init_test_cc': float(init_test_cc),
         'final_test_cc': float(final_test_cc),
+        # Full RA metric set on the test frame (matches baselines' metrics.json).
+        'final_test_cart_corr': final_test_cart_corr,
+        'final_test_cart_mse':  final_test_cart_mse,
+        'final_test_cart_rmse': final_test_cart_rmse,
+        'final_test_cart_psnr': final_test_cart_psnr,
+        'final_test_cart_ssim': final_test_cart_ssim,
         'init_train_mean_cc': float(np.mean(init_train_ccs)),
         'final_train_mean_cc': float(final_train_mean),
         'init_train_std_cc': float(np.std(init_train_ccs)),
@@ -880,7 +899,6 @@ def _save_train_frames_export(*, output_dir, scene, train_samples, rast, model,
             ra_cart = polar_to_cart_torch(ra_polar, sample_grid)
             gt_polar = s['gt_ra_polar']
             gt_cart_full = polar_to_cart_torch(gt_polar, sample_grid)
-            cc = float(cart_corr_torch(ra_cart, s['gt_cart_norm']).item())
 
         rendered_polar_np = ra_polar.detach().cpu().numpy().astype(np.float32)
         rendered_cart_np = ra_cart.detach().cpu().numpy().astype(np.float32)
@@ -899,31 +917,44 @@ def _save_train_frames_export(*, output_dir, scene, train_samples, rast, model,
         _save_ra_pngs_torch(gt_cart_np, frame_dir, 'gt_ra',
                             range_res, f'GT train frame {f} loop {loop_idx}')
 
+        # Compute the full RA metric set via the SAME harness the baselines
+        # use (mmir.evaluation.utils.metrics.compute_cart_ra_metrics) so
+        # numbers are bit-identical to baseline metrics.json.
+        from mmir.evaluation.utils.metrics import compute_cart_ra_metrics
+        m = compute_cart_ra_metrics(gt_cart_np, rendered_cart_np)
         per_frame_metric = {
             'baseline': 'mm3dgs',
             'scene': scene,
             'frame': f,
             'loop_idx': loop_idx,
-            'ra_corr': cc,
-            # range_profile_corr / mse / etc are not computed by cart_corr_torch
-            # — left absent so the parallel structure to baselines is honest.
+            'ra_corr':         m['cart_corr'],
+            'cart_mse':        m['mse'],
+            'cart_rmse':       m['rmse'],
+            'cart_psnr':       m['psnr'],
+            'cart_ssim':       m['ssim'],
             'range_profile_corr': None,
         }
         with open(os.path.join(frame_dir, 'metrics.json'), 'w') as f_:
             json.dump(per_frame_metric, f_, indent=2)
         per_frame_records.append(per_frame_metric)
-        ra_corr_per_frame.append(cc)
+        ra_corr_per_frame.append(per_frame_metric['ra_corr'])
 
+    # Aggregate every per-frame metric across the train set.
+    def _agg(key):
+        vals = [r.get(key) for r in per_frame_records
+                if r.get(key) is not None]
+        return ({'mean': float(np.mean(vals)),
+                  'std':  float(np.std(vals)),
+                  'per_frame': vals}
+                 if vals else None)
     agg = {
         'per_frame': per_frame_records,
-        'ra_corr_per_frame': ra_corr_per_frame,
-        'ra_corr_mean': float(np.mean(ra_corr_per_frame))
-                        if ra_corr_per_frame else None,
-        'ra_corr_std':  float(np.std(ra_corr_per_frame))
-                        if ra_corr_per_frame else None,
-        'range_profile_corr_mean': None,
-        'range_profile_corr_std':  None,
         'n_train_frames': len(per_frame_records),
+        'ra_corr':   _agg('ra_corr'),
+        'cart_mse':  _agg('cart_mse'),
+        'cart_rmse': _agg('cart_rmse'),
+        'cart_psnr': _agg('cart_psnr'),
+        'cart_ssim': _agg('cart_ssim'),
     }
     with open(os.path.join(output_dir, 'metrics_train.json'), 'w') as f_:
         json.dump(agg, f_, indent=2)

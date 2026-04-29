@@ -70,13 +70,30 @@ single NVIDIA RTX~4090.
 \label{sec:experiments:test}
 
 Table~\ref{tab:test_ra} reports per-scene held-out test $|\mathrm{RA}|$
-correlation for mm3DGS and the three baselines. mm3DGS outperforms all
-baselines on the 6-scene mean by a substantial margin: \textbf{mm3DGS
-mean test CC = 0.59} versus 0.34 (RadarSplat), 0.12 (Radar Fields), 0.10
-(DART cascaded). The improvement is consistent across all six scenes,
-including the scene with the lowest absolute correlation
-(\texttt{seq\_2\_frame\_300}, where mm3DGS achieves 0.47 vs RadarSplat
-0.16). Three ablations clarify this margin:
+metrics for mm3DGS and the three baselines: Pearson correlation (Corr),
+peak signal-to-noise ratio (PSNR), structural similarity (SSIM), and
+root-mean-square error (RMSE), all computed on min-max-normalized
+399$\times$399 Cartesian $|\mathrm{RA}|$ images via the same harness
+(\texttt{mmir.evaluation.utils.metrics.compute\_cart\_ra\_metrics}) used
+by all four methods. mm3DGS \textbf{wins on every scene} for Corr and
+SSIM and on \textbf{the 6-scene mean for all four metrics}:
+
+\begin{itemize}[leftmargin=*,itemsep=1pt]
+\item \textbf{Corr}: mm3DGS \textbf{0.600} vs.\ RadarSplat 0.339,
+      Radar Fields 0.120, DART 0.099 ($1.8\times$ the next-best).
+\item \textbf{PSNR}: mm3DGS \textbf{28.6 dB} vs.\ Radar Fields 28.0,
+      RadarSplat 25.6, DART 22.6 (+0.6 dB over Radar Fields, +6.0 dB
+      over DART).
+\item \textbf{SSIM}: mm3DGS \textbf{0.729} vs.\ RadarSplat 0.523,
+      Radar Fields 0.495, DART 0.410 ($1.4\times$ the next-best).
+\item \textbf{RMSE}: mm3DGS \textbf{0.038} vs.\ Radar Fields 0.040,
+      RadarSplat 0.056, DART 0.076.
+\end{itemize}
+
+The improvement is consistent across all six scenes, including the
+scene with the lowest absolute correlation (\texttt{S2\,F300}, where
+mm3DGS achieves Corr 0.508 vs.\ Radar Fields 0.172). Three ablations
+clarify this margin:
 
 \input{tables/test_ra_results}
 
@@ -105,7 +122,7 @@ including the scene with the lowest absolute correlation
       (Appendix~\ref{app:upper_bounds}). This ``F$\pm$1 single-NN
       copy'' ceiling represents the maximum achievable correlation by
       \emph{any} method that, conceptually, predicts the test frame as a
-      copy of the nearest training frame. mm3DGS's 0.59 mean lies
+      copy of the nearest training frame. mm3DGS's 0.60 mean lies
       slightly above this ceiling, indicating that the model captures
       multi-frame structure beyond a 1-NN copy. Capture rates of 10\,Hz
       or higher (e.g., K-Radar~\cite{kradar2022}) would relax this
@@ -139,20 +156,26 @@ explicit phase modelling.
 \subsection{Training-view fit}
 \label{sec:experiments:train}
 
-While the held-out novel-view CC is the primary NVS metric,
+While the held-out novel-view metrics are the primary NVS measurement,
 training-view fit quantifies how well the model captures the radar
-physics in the regime where it has full supervision. Table~\ref{tab:train_ra}
-reports mm3DGS's training-frame mean CC (averaged over the 8 training
-frames per scene). The mean training CC of $\sim$0.79 is substantially
-higher than the held-out test CC of $\sim$0.59, reflecting (i) the
-expected gap between in-sample and out-of-sample performance and (ii)
-the inter-frame coherence ceiling discussed above. The init-test CC
-column reports the test correlation \emph{before any optimization},
-using only the LiDAR-derived geometry with default ITU concrete
-materials. The optimization recovers $\sim$0.20--0.30 CC of additional
-test correlation beyond geometric initialization, confirming that the
+physics in the regime where it has full supervision.
+Table~\ref{tab:train_ra} reports mm3DGS's per-train-frame Pearson
+correlation, PSNR, SSIM, and RMSE, computed via the same Cartesian
+$|\mathrm{RA}|$ harness as Table~\ref{tab:test_ra} but averaged across
+the 8 training frames per scene (mean$\pm$std). The training-mean
+Corr of $\sim$0.81 is substantially higher than the held-out test
+Corr of $\sim$0.60, reflecting (i) the expected gap between in-sample
+and out-of-sample performance and (ii) the inter-frame coherence
+ceiling discussed above. The init-test CC column reports the test
+correlation \emph{before any optimization}, using only the
+LiDAR-derived geometry with default ITU concrete materials. The
+optimization recovers $\sim$0.20--0.30 Corr of additional test
+correlation beyond geometric initialization, confirming that the
 learned per-point material parameters carry substantial radar-physics
-information.
+information. Baseline columns are pending re-runs (their public
+release does not expose per-train-frame metrics; the runners are
+already wired to produce them via
+\texttt{baselines/common/train\_frames\_io.py}).
 
 \input{tables/train_ra_results}
 

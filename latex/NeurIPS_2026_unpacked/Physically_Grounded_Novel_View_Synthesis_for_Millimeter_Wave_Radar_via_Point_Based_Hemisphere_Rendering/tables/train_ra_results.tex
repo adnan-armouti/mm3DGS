@@ -1,21 +1,21 @@
 \begin{table}[t]
 \centering
-\caption{Training-view |RA| Pearson correlation. mm3DGS mean across the 8 train frames per scene (chirp 0 only); std is the across-frame deviation. Pre-training (init) CC is reported alongside to quantify the optimization lift. Baseline methods do not expose per-train-frame metrics in their public release; we mark them as ``--'' (re-rendering each baseline at all 8 train poses is left to future work).}
+\caption{Training-view |RA| metrics for mm3DGS (mean$\pm$std across the 8 train frames per scene; chirp 0 only). Per-scene init-test correlation reported alongside to quantify the optimisation lift. Baseline methods do not expose per-train-frame metrics in their public release; all-baseline columns are pending re-runs.}
 \label{tab:train_ra}
 \small
-\setlength{\tabcolsep}{6pt}
-\begin{tabular}{l|cccc}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l|c|c|c|c|c}
 \toprule
-\textbf{Scene} & \textbf{init test CC} & \textbf{train mean CC (std)} & \textbf{Baselines} \\
+Scene & init test CC & RA Corr $\uparrow$ & RA PSNR $\uparrow$ & RA SSIM $\uparrow$ & RA RMSE $\downarrow$ \\
 \midrule
-S0\,F135 & 0.443 & 0.826\,(0.044) & -- \\
-S1\,F185 & 0.208 & 0.837\,(0.051) & -- \\
-S1\,F438 & 0.227 & 0.848\,(0.049) & -- \\
-S2\,F105 & 0.357 & 0.804\,(0.036) & -- \\
-S2\,F160 & 0.480 & 0.792\,(0.039) & -- \\
-S2\,F300 & 0.336 & 0.771\,(0.052) & -- \\
+S0\,F135 & 0.443 & 0.822$\pm$0.043 & 32.0$\pm$2.3 & 0.837$\pm$0.059 & 0.0261$\pm$0.0064 \\
+S1\,F185 & 0.208 & 0.838$\pm$0.046 & 32.7$\pm$4.6 & 0.821$\pm$0.099 & 0.0264$\pm$0.0126 \\
+S1\,F438 & 0.227 & 0.848$\pm$0.048 & 32.6$\pm$2.2 & 0.852$\pm$0.039 & 0.0241$\pm$0.0057 \\
+S2\,F105 & 0.357 & 0.804$\pm$0.033 & 31.3$\pm$2.8 & 0.815$\pm$0.068 & 0.0289$\pm$0.0097 \\
+S2\,F160 & 0.480 & 0.784$\pm$0.043 & 29.7$\pm$2.0 & 0.743$\pm$0.047 & 0.0338$\pm$0.0081 \\
+S2\,F300 & 0.336 & 0.774$\pm$0.052 & 32.9$\pm$2.4 & 0.847$\pm$0.040 & 0.0236$\pm$0.0065 \\
 \midrule
-\textbf{Mean} & \textbf{0.342} & \textbf{0.813} & -- \\
+\textbf{Mean} & 0.342 & 0.812$\pm$0.044 & 31.8$\pm$2.7 & 0.819$\pm$0.059 & 0.0271$\pm$0.0082 \\
 \bottomrule
 \end{tabular}
 \end{table}

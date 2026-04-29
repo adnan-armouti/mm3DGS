@@ -1,17 +1,25 @@
-\begin{table}[t]
+\begin{table*}[t]
 \centering
-\caption{Held-out novel-view test |RA| Pearson correlation across six ColoRadar scenes. For each scene we train on the 8 cascaded radar frames adjacent to the held-out test frame ($F\!\pm\!1\!\ldots\!\pm\!4$, chirp 0 only) and evaluate on the held-out test frame ($F$, chirp 0). Higher is better. Bold marks the best per scene.}
+\caption{Held-out novel-view test |RA| metrics across six ColoRadar scenes. For each scene, mm3DGS trains on the 8 cascaded radar frames adjacent to the held-out test frame ($F\!\pm\!1\!\ldots\!\pm\!4$, chirp 0 only) and is evaluated on the held-out test frame ($F$, chirp 0). Metrics: Pearson correlation (Corr), peak signal-to-noise ratio (PSNR, dB), structural similarity (SSIM), and root-mean-square error (RMSE) on min-max-normalized 399$\times$399 Cartesian $|\mathrm{RA}|$ images. Best per-scene \textbf{bold}.}
 \label{tab:test_ra}
 \small
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{l|cccccc|c}
+\setlength{\tabcolsep}{2.4pt}
+\resizebox{\linewidth}{!}{
+\begin{tabular}{l|cccc|cccc|cccc|cccc}
 \toprule
-\textbf{Method} & S0\,F135 & S1\,F185 & S1\,F438 & S2\,F105 & S2\,F160 & S2\,F300 & \textbf{Mean} \\
+ & \multicolumn{4}{c}{RA Corr $\uparrow$} & \multicolumn{4}{c}{RA PSNR $\uparrow$} & \multicolumn{4}{c}{RA SSIM $\uparrow$} & \multicolumn{4}{c}{RA RMSE $\downarrow$} \\
+\cmidrule(lr){2-5}\cmidrule(lr){6-9}\cmidrule(lr){10-13}\cmidrule(lr){14-17}
+Scene & Ours & RSplat & RFields & DART & Ours & RSplat & RFields & DART & Ours & RSplat & RFields & DART & Ours & RSplat & RFields & DART \\
 \midrule
-\textbf{mm3DGS (Ours)} & \textbf{0.637} & \textbf{0.572} & \textbf{0.696} & \textbf{0.543} & \textbf{0.639} & \textbf{0.473} & \textbf{0.593} \\
-RadarSplat~\cite{kung2025radarsplat} & 0.421 & 0.268 & 0.253 & 0.367 & 0.563 & 0.163 & \textbf{0.339} \\
-Radar Fields~\cite{10.1145/3641519.3657510} & 0.107 & 0.085 & 0.040 & 0.210 & 0.103 & 0.172 & \textbf{0.120} \\
-DART~\cite{huang2024dart} & 0.020 & 0.074 & 0.107 & 0.226 & 0.115 & 0.053 & \textbf{0.099} \\
+S0\,F135 & \textbf{0.644} & 0.421 & 0.107 & 0.020 & \textbf{31.3} & 28.5 & 29.1 & 22.0 & \textbf{0.839} & 0.557 & 0.617 & 0.317 & \textbf{0.0273} & 0.0374 & 0.0349 & 0.0796 \\
+S1\,F185 & \textbf{0.593} & 0.268 & 0.085 & 0.074 & 28.3 & \textbf{28.7} & 28.3 & 21.8 & \textbf{0.751} & 0.617 & 0.579 & 0.302 & 0.0387 & \textbf{0.0369} & 0.0385 & 0.0817 \\
+S1\,F438 & \textbf{0.642} & 0.253 & 0.040 & 0.107 & \textbf{27.1} & 24.5 & 27.1 & 23.4 & \textbf{0.663} & 0.524 & 0.434 & 0.429 & \textbf{0.0442} & 0.0594 & 0.0444 & 0.0675 \\
+S2\,F105 & \textbf{0.553} & 0.367 & 0.210 & 0.226 & 27.6 & 27.0 & \textbf{28.0} & 22.7 & \textbf{0.683} & 0.521 & 0.438 & 0.527 & 0.0415 & 0.0445 & \textbf{0.0399} & 0.0732 \\
+S2\,F160 & \textbf{0.657} & 0.563 & 0.103 & 0.115 & \textbf{27.7} & 20.7 & 26.3 & 26.4 & \textbf{0.653} & 0.386 & 0.315 & 0.611 & \textbf{0.0413} & 0.0918 & 0.0483 & 0.0480 \\
+S2\,F300 & \textbf{0.508} & 0.163 & 0.172 & 0.053 & \textbf{29.4} & 24.0 & 29.0 & 19.6 & \textbf{0.785} & 0.533 & 0.590 & 0.275 & \textbf{0.0340} & 0.0630 & 0.0353 & 0.1050 \\
+\midrule
+\textbf{Mean} & \textbf{0.600} & 0.339 & 0.120 & 0.099 & \textbf{28.6} & 25.6 & 28.0 & 22.6 & \textbf{0.729} & 0.523 & 0.495 & 0.410 & \textbf{0.0378} & 0.0555 & 0.0402 & 0.0758 \\
 \bottomrule
 \end{tabular}
-\end{table}
+}
+\end{table*}
