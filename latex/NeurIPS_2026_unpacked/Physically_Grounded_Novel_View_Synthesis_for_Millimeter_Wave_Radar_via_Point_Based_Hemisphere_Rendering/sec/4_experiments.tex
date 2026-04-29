@@ -33,10 +33,9 @@ our 9-frame split. \textbf{DART}~\cite{huang2024dart} learns an implicit
 neural field over a range--Doppler--azimuth (RDA) cube, and was
 originally designed for single-chip radars (3 TX $\times$ 4 RX, 12
 virtual elements, 256 chirps per frame). To run it on ColoRadar
-cascade data, we add a custom 86-element azimuth gain pattern
-(\texttt{cascade\_az127}) and operate it at the cascade's native
-$N_d\!=\!16$ chirps per frame --- materially below the upstream design
-point. \textbf{Radar Fields}~\cite{10.1145/3641519.3657510} is a
+cascade data, we add a custom 86-element azimuth gain pattern and
+operate it at the cascade's native $N_d\!=\!16$ chirps per frame ---
+materially below the upstream design point. \textbf{Radar Fields}~\cite{10.1145/3641519.3657510} is a
 hash-grid + MLP neural field that synthesizes power-only 2D
 range--azimuth images directly, with no virtual-array FFT and no
 elevation modeling. \textbf{RadarSplat}~\cite{kung2025radarsplat}
@@ -49,10 +48,9 @@ $|\mathrm{RA}|$ even though mm3DGS produces complex range profiles.
 mmIR~\cite{mmIR2026}, we report Pearson correlation (Corr), peak
 signal-to-noise ratio (PSNR), structural similarity (SSIM), and root-
 mean-square error (RMSE), all computed on min-max-normalized
-$399\!\times\!399$ Cartesian $|\mathrm{RA}|$ images via the shared
-harness \texttt{mmir.evaluation.utils.metrics.compute\_cart\_ra\_metrics}.
-Each pixel is bilinearly sampled from the polar render via
-$F.grid\_sample$. Range bins 15--110 are retained and the central wedge
+$399\!\times\!399$ Cartesian $|\mathrm{RA}|$ images via a shared metric
+harness used by all four methods. Each pixel is bilinearly sampled from
+the polar render. Range bins 15--110 are retained and the central wedge
 is masked to the radar's actual azimuth FOV (matching the standard
 ColoRadar evaluation).
 

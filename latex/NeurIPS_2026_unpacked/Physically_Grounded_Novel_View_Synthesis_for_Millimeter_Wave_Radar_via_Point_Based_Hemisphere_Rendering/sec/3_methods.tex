@@ -141,20 +141,18 @@ $\arcsin(126/128){\approx}79.86^\circ$.
 
 \textbf{CUDA fusion.} The combined cost of \eqref{eq:psf_splat} +
 factorized BSDF + virtual-array DFT is implemented as three fused
-CUDA kernels: a forward BSDF kernel evaluating GGX/SPM/diffuse lobes
-and Jones-polarized Fresnel in fp32 with fast-math
-(\texttt{bsdf\_forward.cu}, 22~KB); a scatter-splat kernel performing
-\eqref{eq:psf_splat} via atomic adds into the range-profile bins
-(\texttt{scatter\_splat.cu}, 10~KB); and an analytical backward kernel
-(\texttt{bsdf\_backward.cu}, 38~KB) computing all 21 partial
-derivatives via atomic accumulation, including a closed-form Jacobian
-for the slab-Fresnel coefficients. Iteratively built and validated
-(forward correctness max~error 1.19$\!\times\!10^{-7}$ on
-90k~paths~\cite{mmIR2026}; backward gradients tight on 18 of 21
-parameters), the fused pipeline renders $N\!=\!20{,}000$ scene
-points across all 192~(TX,~RX) pairs in ${\sim}$10~ms on an RTX~4090,
-with a 500-iteration training pass over the 8 training viewpoints
-completing in ${\sim}$2.3~minutes per scene.
+CUDA kernels: a forward BSDF kernel that evaluates the GGX, SPM, and
+diffuse lobes plus Jones-polarized Fresnel coefficients in fp32 with
+fast-math; a scatter-splat kernel that performs \eqref{eq:psf_splat}
+via atomic adds into the range-profile bins; and an analytical
+backward kernel that computes all 21 per-point partial derivatives
+via atomic accumulation, including a closed-form Jacobian for the
+slab-Fresnel coefficients. Iteratively built and validated (forward
+correctness max~error 1.19$\!\times\!10^{-7}$ on 90k~paths~\cite{mmIR2026};
+backward gradients tight on 18 of 21 parameters), the fused pipeline
+renders $N\!=\!20{,}000$ scene points across all 192~(TX,~RX) pairs in
+${\sim}$10~ms on an RTX~4090, with a 500-iteration training pass over
+the 8 training viewpoints completing in ${\sim}$2.3~minutes per scene.
 
 % ---------------------------------------------------------------------
 \subsection{LiDAR-derived geometric prior and point initialization}
@@ -259,7 +257,7 @@ and prune low-importance points to redistribute the fixed $N$ budget.
 The per-point importance signal is the accumulated amplitude-path
 position gradient magnitude
 $g_i\!=\!\sum_F\|\nabla_{\mathbf{p}_i}\mathcal{L}_F\|$ between densify
-rounds, computed by enabling \texttt{requires\_grad} on positions but
+rounds, computed by tracking the gradient on positions while
 \emph{excluding} them from the optimizer's update step --- positions
 remain on the LiDAR scaffold while their gradient drives a separate
 splitting decision. At iters $\{100,200,300,400\}$ we (i) clone the
