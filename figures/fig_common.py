@@ -193,6 +193,52 @@ class GridLayout:
         return obj
 
 
+def _rounded_rect_path(x0, y0, w, h, fig_w, fig_h, radius_in):
+    """Build a matplotlib ``Path`` for a rounded rectangle with physically
+    circular corners (i.e., radius in inches is the same in x and y, even
+    though the figure width and height differ in fraction-of-figure units).
+
+    Coordinates are in figure-fraction (matches ``transform=fig.transFigure``).
+    """
+    rx = radius_in / fig_w   # x-radius in figure fraction (corner is circular
+    ry = radius_in / fig_h   # in inches, but rx/ry differ in fraction units)
+    rx = min(rx, w * 0.5)
+    ry = min(ry, h * 0.5)
+    k = 0.5523               # cubic-Bezier quarter-circle coefficient
+    x1, y1 = x0 + w, y0 + h
+    verts = [
+        (x0,           y0 + ry),
+        (x0,           y0 + ry * (1 - k)),
+        (x0 + rx * (1 - k), y0),
+        (x0 + rx,      y0),
+        (x1 - rx,      y0),
+        (x1 - rx * (1 - k), y0),
+        (x1,           y0 + ry * (1 - k)),
+        (x1,           y0 + ry),
+        (x1,           y1 - ry),
+        (x1,           y1 - ry * (1 - k)),
+        (x1 - rx * (1 - k), y1),
+        (x1 - rx,      y1),
+        (x0 + rx,      y1),
+        (x0 + rx * (1 - k), y1),
+        (x0,           y1 - ry * (1 - k)),
+        (x0,           y1 - ry),
+        (x0,           y0 + ry),
+    ]
+    codes = [
+        Path.MOVETO,
+        Path.CURVE4, Path.CURVE4, Path.CURVE4,
+        Path.LINETO,
+        Path.CURVE4, Path.CURVE4, Path.CURVE4,
+        Path.LINETO,
+        Path.CURVE4, Path.CURVE4, Path.CURVE4,
+        Path.LINETO,
+        Path.CURVE4, Path.CURVE4, Path.CURVE4,
+        Path.CLOSEPOLY,
+    ]
+    return Path(verts, codes)
+
+
 def add_column_highlight(fig, layout, col, color=TEST_COL_COLOR,
                           radius_inches=CORNER_RADIUS_INCHES * 0.65,
                           inset_in=0.025, include_header=True):
@@ -203,14 +249,11 @@ def add_column_highlight(fig, layout, col, color=TEST_COL_COLOR,
     tile but *behind* the image cells. The column header text is rendered
     later via ``fig.text`` (default zorder 3) and therefore sits *on top
     of* this tile, which is why ``include_header=True`` (default) extends
-    the tile vertically to cover the column-header strip too.
+    the tile vertically to cover the column-header strip too. Corners are
+    physically circular (``radius_inches`` in both x and y) by construction.
     """
-    # Full vertical extent: from the top row's top to the bottom row's bottom,
-    # in figure-fraction coords.
     left, top_bottom, w, _ = layout.cell_pos(0, col)
-    _, bot_bottom, _, h_last = layout.cell_pos(layout.n_rows - 1, col)
-    # The cell_pos returns (left, bottom, w, h); we want from the top of the
-    # first row to the bottom of the last row.
+    _, bot_bottom, _, _ = layout.cell_pos(layout.n_rows - 1, col)
     top_of_first = top_bottom + layout.cell_h_in / layout.fig_h
     full_h = top_of_first - bot_bottom
     inset_x = inset_in / layout.fig_w
@@ -219,21 +262,14 @@ def add_column_highlight(fig, layout, col, color=TEST_COL_COLOR,
     y0 = bot_bottom - inset_y
     rect_w = w + 2 * inset_x
     rect_h = full_h + 2 * inset_y
-
     if include_header:
-        # Extend the top of the tile up into the column-header strip so the
-        # F header text reads on the same red field as the column cells.
-        # We stop a touch before the figure's top margin so the rounded
-        # corners stay inside the grey background tile.
         header_top_y = 1.0 - layout.margin_in / layout.fig_h
         rect_h = header_top_y - y0
 
-    rx = radius_inches / layout.fig_w
-    ry = radius_inches / layout.fig_h
-    patch = mpatches.FancyBboxPatch(
-        (x0, y0), rect_w, rect_h,
-        boxstyle=f"round,pad=0,rounding_size={min(rx, ry)}",
-        transform=fig.transFigure, facecolor=color, edgecolor="none",
+    path = _rounded_rect_path(x0, y0, rect_w, rect_h,
+                                layout.fig_w, layout.fig_h, radius_inches)
+    patch = mpatches.PathPatch(
+        path, transform=fig.transFigure, facecolor=color, edgecolor="none",
         zorder=-0.5, linewidth=0,
     )
     fig.patches.append(patch)
