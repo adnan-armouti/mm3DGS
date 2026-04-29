@@ -93,9 +93,11 @@ mechanism to share learned features with the radar's antenna pattern.
 Its renderer therefore has to absorb the directional dependence of the
 bistatic return (cosine-of-incidence falloff, antenna gain interaction
 with surface normal, range-dependent path loss) implicitly into the
-opaque features. With only 8 training frames per scene, those features
-overfit per-pose appearance and fail to interpolate cleanly to the
-held-out test pose, leaving a large train$\to$test gap.
+opaque features. The result is a representation that does not fit the
+radar physics well even on the training views (mean train Corr 0.371,
+versus mm3DGS's 0.812), and held-out test correlation tracks roughly
+proportionally (mean 0.339), since the opaque features have no
+physics-grounded structure to extrapolate from.
 
 \textbf{Why mm3DGS beats Radar Fields.} Radar Fields renders 2D
 range--azimuth power images directly via a hash-grid + MLP, supervised
@@ -163,22 +165,16 @@ While the held-out novel-view metrics are the primary NVS measurement,
 training-view fit quantifies how well each model captures the radar
 physics in the regime where it has full supervision. Table~\ref{tab:train_ra}
 reports per-train-frame Pearson correlation, PSNR, SSIM, and RMSE for
-all four methods, computed via the same Cartesian $|\mathrm{RA}|$
-harness as Table~\ref{tab:test_ra} but averaged across the 8 training
-frames per scene. mm3DGS's training-mean Corr of $\sim$0.81 is
-substantially higher than its held-out test Corr of $\sim$0.60,
-reflecting the expected gap between in-sample and out-of-sample
-performance. The same trend holds across all three baselines: their
-train-view Corr means are 0.371 (RadarSplat), 0.129 (Radar Fields), and
-0.033 (DART) --- all substantially below mm3DGS's 0.812 --- indicating
-that none of the baselines fit the radar physics on the training views
-as well as mm3DGS does, even before considering their much larger
-held-out generalisation gap. The init-test CC column of the train
-table reports the test correlation \emph{before any optimization},
-using only the LiDAR-derived geometry with uniform default ITU
-concrete materials; the optimization recovers $\sim$0.20--0.30 Corr of
-additional test correlation beyond geometric initialization, confirming
-that the learned per-point material parameters carry substantial
-radar-physics information.
+all four methods, computed via the same metric harness as
+Table~\ref{tab:test_ra} but averaged across the 8 training frames per
+scene. mm3DGS's training-mean Corr of $\sim$0.81 is substantially
+higher than its held-out test Corr of $\sim$0.60, reflecting the
+expected gap between in-sample and out-of-sample performance. The same
+ranking holds across all three baselines: their train-view Corr means
+are 0.371 (RadarSplat), 0.129 (Radar Fields), and 0.033 (DART) --- all
+substantially below mm3DGS's 0.812 --- indicating that none of the
+baselines fit the radar physics on the training views as well as
+mm3DGS does, even before considering their much larger held-out
+generalisation gap.
 
 \input{tables/train_ra_results}

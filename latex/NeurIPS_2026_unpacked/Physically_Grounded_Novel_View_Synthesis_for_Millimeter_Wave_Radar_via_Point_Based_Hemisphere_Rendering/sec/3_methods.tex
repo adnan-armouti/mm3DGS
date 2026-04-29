@@ -11,11 +11,12 @@ intersection, allowing all $N$ scene points to contribute deterministically
 to every (TX,~RX) pair via fused CUDA kernels.
 Sec.~\ref{sec:methods:fwd} states the radar forward model from the
 bistatic equation through a single-bounce Monte Carlo (MC) ADC estimator
-(the mmIR baseline). Sec.~\ref{sec:methods:splat} introduces our core
-idea: \emph{splat to range profile}, replacing per-path ADC synthesis
-with a deterministic point-spread-function (PSF) splat into range bins,
-MIMO-factorized across the (TX,~RX) array and accelerated by fused CUDA
-kernels.
+(the mmIR baseline). Sec.~\ref{sec:methods:splat} presents
+\emph{complex range-profile splatting}, our renderer's central idea:
+in place of per-path ADC synthesis followed by a range FFT, each scene
+point contributes deterministically to range-profile bins via a
+precomputed point-spread function (PSF), MIMO-factorized across the
+(TX,~RX) array and accelerated by fused CUDA kernels.
 Sec.~\ref{sec:methods:init} describes the LiDAR-derived geometric prior
 that initializes the point set. Sec.~\ref{sec:methods:bsdf} specifies the
 per-point ITU BSDF. Sec.~\ref{sec:methods:opt} defines the differentiable
@@ -85,12 +86,12 @@ a single viewpoint~\cite{mmIR2026}.
 \subsection{Range-profile splatting}
 \label{sec:methods:splat}
 
-\textbf{Our idea: splat to range profile via PSF, not ADC.} The
-$D{=}1$ MC estimator (Eq.~\ref{eq:single_bounce_mc}) already provides,
-per scene point, a complex amplitude and a path length to each
-(TX,~RX) pair. Rather than synthesizing an ADC time series and then
-range-FFT-ing it, we observe that the range FFT of a single-path ADC
-contribution (Eq.~\ref{eq:adc_synth}) is a windowed $\mathrm{sinc}$
+\textbf{Complex range-profile splatting in place of ADC rendering.}
+The $D{=}1$ MC estimator (Eq.~\ref{eq:single_bounce_mc}) already
+provides, per scene point, a complex amplitude and a path length to
+each (TX,~RX) pair. Rather than synthesizing an ADC time series and
+then range-FFT-ing it, we observe that the range FFT of a single-path
+ADC contribution (Eq.~\ref{eq:adc_synth}) is a windowed $\mathrm{sinc}$
 pulse centered at the path's bistatic range bin, fully determined by
 the chirp's bandwidth and FFT window.
 We precompute this point-spread function $\mathrm{PSF}(r) \in
