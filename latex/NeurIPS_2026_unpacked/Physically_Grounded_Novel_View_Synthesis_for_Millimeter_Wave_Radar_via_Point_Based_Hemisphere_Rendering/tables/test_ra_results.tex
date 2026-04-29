@@ -1,0 +1,17 @@
+\begin{table}[t]
+\centering
+\caption{Held-out novel-view test |RA| Pearson correlation across six ColoRadar scenes. For each scene we train on the 8 cascaded radar frames adjacent to the held-out test frame ($F\!\pm\!1\!\ldots\!\pm\!4$, chirp 0 only) and evaluate on the held-out test frame ($F$, chirp 0). Higher is better. Bold marks the best per scene.}
+\label{tab:test_ra}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l|cccccc|c}
+\toprule
+\textbf{Method} & S0\,F135 & S1\,F185 & S1\,F438 & S2\,F105 & S2\,F160 & S2\,F300 & \textbf{Mean} \\
+\midrule
+\textbf{mm3DGS (Ours)} & \textbf{0.616} & \textbf{0.573} & \textbf{0.644} & \textbf{0.578} & \textbf{0.604} & \textbf{0.457} & \textbf{0.579} \\
+RadarSplat~\cite{kung2025radarsplat} & 0.421 & 0.268 & 0.253 & 0.367 & 0.563 & 0.163 & \textbf{0.339} \\
+Radar Fields~\cite{10.1145/3641519.3657510} & 0.107 & 0.085 & 0.040 & 0.210 & 0.103 & 0.172 & \textbf{0.120} \\
+DART~\cite{huang2024dart} & 0.020 & 0.074 & 0.107 & 0.226 & 0.115 & 0.053 & \textbf{0.099} \\
+\bottomrule
+\end{tabular}
+\end{table}

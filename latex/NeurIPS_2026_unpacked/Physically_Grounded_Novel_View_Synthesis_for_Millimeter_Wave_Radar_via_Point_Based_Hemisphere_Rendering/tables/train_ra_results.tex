@@ -1,0 +1,21 @@
+\begin{table}[t]
+\centering
+\caption{Training-view |RA| Pearson correlation. mm3DGS mean across the 8 train frames per scene (chirp 0 only); std is the across-frame deviation. Pre-training (init) CC is reported alongside to quantify the optimization lift. Baseline methods do not expose per-train-frame metrics in their public release; we mark them as ``--'' (re-rendering each baseline at all 8 train poses is left to future work).}
+\label{tab:train_ra}
+\small
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{l|cccc}
+\toprule
+\textbf{Scene} & \textbf{init test CC} & \textbf{train mean CC (std)} & \textbf{Baselines} \\
+\midrule
+S0\,F135 & 0.443 & 0.831\,(0.043) & -- \\
+S1\,F185 & 0.208 & 0.836\,(0.051) & -- \\
+S1\,F438 & 0.227 & 0.855\,(0.043) & -- \\
+S2\,F105 & 0.357 & 0.799\,(0.042) & -- \\
+S2\,F160 & 0.480 & 0.790\,(0.041) & -- \\
+S2\,F300 & 0.336 & 0.771\,(0.051) & -- \\
+\midrule
+\textbf{Mean} & \textbf{0.342} & \textbf{0.814} & -- \\
+\bottomrule
+\end{tabular}
+\end{table}

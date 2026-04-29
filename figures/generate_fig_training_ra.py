@@ -52,13 +52,14 @@ DEFAULT_SCENES = [
     "seq_2_frame_300",
 ]
 
-# Run-name template used by the v5_v4 sweep that produced our final numbers.
-# The trained run for ``<scene>`` lives in
-# ``<ours_dir>/<scene>_train8frames_1loops_test<F>_loop0_pass2_N20000_dnsfyjt0.05i100u400p0.02_dsigpos_grad_amp_lpos1e-05L2100/``.
-OURS_RUN_TEMPLATE = (
-    "{scene}_train8frames_1loops_test{frame}_loop0_pass2_N20000_"
-    "dnsfyjt0.05i100u400p0.02_dsigpos_grad_amp_lpos1e-05L2100"
-)
+# Candidate run-name templates used by the v5_v4 sweep. The post-cleanup
+# default writes the SHORT name (no flag-suffix); pre-cleanup runs wrote
+# the LONG name. Search both, prefer the most-recently-modified.
+OURS_RUN_TEMPLATES = [
+    "{scene}_train8frames_1loops_test{frame}_loop0_pass2_N20000",
+    ("{scene}_train8frames_1loops_test{frame}_loop0_pass2_N20000_"
+     "dnsfyjt0.05i100u400p0.02_dsigpos_grad_amp_lpos1e-05L2100"),
+]
 
 # Candidate filenames to look for under the Ours run dir for a pre-rendered
 # test-frame RA cartesian image. None of these currently exist on disk; if a
@@ -124,22 +125,22 @@ def load_baseline(baselines_dir: str, baseline: str, scene: str):
 
 
 def load_ours(ours_dir: str, scene: str):
-    """Return (rendered_ra_cart_or_None, final_test_cc_or_None).
+    """Return (rendered_ra_cart_or_None, final_test_cc_or_None, run_dir).
 
-    NOTE: as of writing, the v5_v4 sweep saves ``best_model.pt`` /
-    ``results.json`` / ``history.npz`` but does NOT export a rendered
-    cartesian RA at the test frame. This loader falls back to ``None`` for
-    the image and the figure will draw a placeholder tile.
-
-    TODO(ours-ra-export): add a quick re-render pass that writes
-    ``rendered_test_ra_cart.npy`` (399x399 |RA| in cart) into each Ours run
-    dir. This script will pick it up automatically via OURS_RA_CANDIDATES.
+    Iterates over OURS_RUN_TEMPLATES (short + long names), prefers the
+    most-recently-modified run dir that contains a results.json.
     """
     frame_id = _scene_frame_id(scene)
-    run_dir = os.path.join(
-        ours_dir,
-        OURS_RUN_TEMPLATE.format(scene=scene, frame=frame_id),
-    )
+    candidates = []
+    for tmpl in OURS_RUN_TEMPLATES:
+        d = os.path.join(ours_dir, tmpl.format(scene=scene, frame=frame_id))
+        results_p = os.path.join(d, "results.json")
+        if os.path.exists(results_p):
+            candidates.append((os.path.getmtime(results_p), d))
+    candidates.sort(reverse=True)
+    if not candidates:
+        return None, None, None
+    run_dir = candidates[0][1]
     ra = None
     for name in OURS_RA_CANDIDATES:
         cand = os.path.join(run_dir, name)
