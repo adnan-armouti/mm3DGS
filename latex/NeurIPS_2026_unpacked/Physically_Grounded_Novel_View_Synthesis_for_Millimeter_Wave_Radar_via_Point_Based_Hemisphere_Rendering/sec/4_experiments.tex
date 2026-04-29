@@ -172,10 +172,12 @@ LiDAR-derived geometry with default ITU concrete materials. The
 optimization recovers $\sim$0.20--0.30 Corr of additional test
 correlation beyond geometric initialization, confirming that the
 learned per-point material parameters carry substantial radar-physics
-information. Baseline columns are pending re-runs (their public
-release does not expose per-train-frame metrics; the runners are
-already wired to produce them via
-\texttt{baselines/common/train\_frames\_io.py}).
+information. The same trend holds across all three baselines: their
+\emph{train}-view Corr means are 0.371 (RadarSplat), 0.129 (Radar
+Fields), and 0.033 (DART) --- all substantially below mm3DGS's 0.812
+--- indicating that none of the three baselines fit the radar physics
+on the training views as well as mm3DGS does, even before considering
+their much larger held-out generalisation gap.
 
 \input{tables/train_ra_results}
 
