@@ -1,0 +1,164 @@
+\begin{thebibliography}{25}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Anonymous(2026)]{mmIR2026}
+Anonymous.
+\newblock mmir: Frequency-space inverse rendering for 3d millimeter-wave radar
+  adc synthesis.
+\newblock \emph{ECCV}, 2026.
+
+\bibitem[Borts et~al.(2024)Borts, Lian, Zhang, Huang, Fidler, Achlioptas, and
+  Law]{10.1145/3641519.3657510}
+David Borts, Erich Lian, Yiming Zhang, Zhiqin Huang, Sanja Fidler, Panos
+  Achlioptas, and Marc Law.
+\newblock Radar fields: Frequency-space neural scene representations for fmcw
+  radar.
+\newblock In \emph{SIGGRAPH}, 2024.
+
+\bibitem[Chen et~al.(2025)]{chen2025invertwin}
+Yifei Chen et~al.
+\newblock Invertwin: Differentiable ray tracing for rf digital twins.
+\newblock In \emph{NSDI}, 2025.
+
+\bibitem[Dudek(2010)]{dudek2010millimeter}
+Martin Dudek.
+\newblock Millimeter-wave ray tracing.
+\newblock \emph{IEEE Antennas and Propagation Magazine}, 2010.
+
+\bibitem[Gao et~al.(2019)Gao, Xiang, Desai, Bhat, Alizadeh, Kaboli, Gupta, and
+  Roy]{gao2019experiments}
+Xiangyu Gao, Guanbin Xiang, Sumit Desai, Rajesh Bhat, Reza Alizadeh, Maryam
+  Kaboli, Sayan Gupta, and Sumit Roy.
+\newblock Experiments with mmwave automotive radar test-bed.
+\newblock \emph{Asilomar Conference on Signals, Systems, and Computers}, 2019.
+
+\bibitem[Guan et~al.(2020)Guan, Madani, Jog, Gurel, Fang, and
+  Hassanieh]{guan2020through}
+Junfeng Guan, Sohrab Madani, Suraj Jog, Saurabh Gurel, Jochen Fang, and Haitham
+  Hassanieh.
+\newblock Through fog high-resolution imaging using millimeter wave radar.
+\newblock In \emph{CVPR}, 2020.
+
+\bibitem[Hofmann et~al.(2025)Hofmann, Weinmann, and Klein]{hofmann2025inverse}
+Julian Hofmann, Michael Weinmann, and Reinhard Klein.
+\newblock Inverse rendering for stepped-frequency continuous-wave radar.
+\newblock In \emph{EuRAD}, 2025.
+
+\bibitem[Hoydis et~al.(2023)Hoydis, Cammerer, Ait~Aoudia, Nimier-David, Binder,
+  Marcus, and Keller]{sionna}
+Jakob Hoydis, Sebastian Cammerer, Fayçal Ait~Aoudia, Merlin Nimier-David,
+  Nikolaus Binder, Guillermo Marcus, and Alexander Keller.
+\newblock Sionna rt: Differentiable ray tracing for radio propagation modeling.
+\newblock \emph{arXiv preprint arXiv:2303.11103}, 2023.
+
+\bibitem[Huang et~al.(2024{\natexlab{a}})Huang, Gadre, Xu, Whelan, and
+  Jatavallabhula]{huang2024dart}
+Tianshu Huang, Samir Gadre, Yifan Xu, Thomas Whelan, and Krishna~Murthy
+  Jatavallabhula.
+\newblock Dart: Implicit doppler tomography for radar novel view synthesis.
+\newblock In \emph{CVPR}, 2024{\natexlab{a}}.
+
+\bibitem[Huang et~al.(2024{\natexlab{b}})]{radarml2024}
+Tianshu Huang et~al.
+\newblock Radarml: A benchmark suite for {mmWave} {MIMO} radar machine
+  learning.
+\newblock \url{https://radarml.github.io/}, 2024{\natexlab{b}}.
+\newblock Pre-release; accessed 2026.
+
+\bibitem[Jiang et~al.(2025)Jiang, Sun, Li, Wang, Li, and
+  Ramamoorthi]{jiang2025surfels}
+Kaiwen Jiang, Jia-Mu Sun, Zilu Li, Dan Wang, Tzu-Mao Li, and Ravi Ramamoorthi.
+\newblock Differentiable light transport with gaussian surfels via adapted
+  radiosity for efficient relighting and geometry reconstruction.
+\newblock In \emph{SIGGRAPH}, 2025.
+
+\bibitem[Jin et~al.(2024)]{jin2024diffsound}
+Hao Jin et~al.
+\newblock Diffsound: Differentiable sound rendering.
+\newblock In \emph{NeurIPS}, 2024.
+
+\bibitem[Kerbl et~al.(2023)Kerbl, Kopanas, Leimk{\"u}hler, and Drettakis]{3dgs}
+Bernhard Kerbl, Georgios Kopanas, Thomas Leimk{\"u}hler, and George Drettakis.
+\newblock 3d gaussian splatting for real-time radiance field rendering.
+\newblock In \emph{SIGGRAPH}, 2023.
+
+\bibitem[Kramer et~al.(2022)Kramer, Harber, Rivkin, Elmes, Arledge, and
+  Heckman]{kramer2022coloradar}
+Andrew Kramer, Kyle Harber, Sam Rivkin, Michael Elmes, Stephanie Arledge, and
+  Christoffer Heckman.
+\newblock Coloradar: The direct 3d millimeter wave radar dataset.
+\newblock 2022.
+
+\bibitem[Kung et~al.(2025)Kung, Chou, Geiger, Fidler, and
+  Law]{kung2025radarsplat}
+Hao-En Kung, Sheng-Hsuan Chou, Andreas Geiger, Sanja Fidler, and Marc Law.
+\newblock Radarsplat: Radar novel view synthesis via 3d gaussian splatting.
+\newblock In \emph{CVPR}, 2025.
+
+\bibitem[Li et~al.(2018)Li, Aittala, Durand, and
+  Lehtinen]{li2018differentiable}
+Tzu-Mao Li, Miika Aittala, Fr{\'e}do Durand, and Jaakko Lehtinen.
+\newblock Differentiable monte carlo ray tracing through edge sampling.
+\newblock In \emph{SIGGRAPH Asia}, 2018.
+
+\bibitem[Lu et~al.(2024)]{lu2024newrf}
+Haifeng Lu et~al.
+\newblock Newrf: Neural weather radiance fields.
+\newblock In \emph{AAAI}, 2024.
+
+\bibitem[Mildenhall et~al.(2020)Mildenhall, Srinivasan, Tancik, Barron,
+  Ramamoorthi, and Ng]{mildenhall2021nerf}
+Ben Mildenhall, Pratul~P Srinivasan, Matthew Tancik, Jonathan~T Barron, Ravi
+  Ramamoorthi, and Ren Ng.
+\newblock Nerf: Representing scenes as neural radiance fields for view
+  synthesis.
+\newblock In \emph{ECCV}, 2020.
+
+\bibitem[Paek et~al.(2022)Paek, Kong, and Wijaya]{kradar2022}
+Dong-Hee Paek, Seung-Hyun Kong, and Kevin~Tirta Wijaya.
+\newblock K-{R}adar: 4d radar object detection for autonomous driving in
+  various weather conditions.
+\newblock In \emph{NeurIPS Datasets and Benchmarks Track}, 2022.
+\newblock URL \url{https://arxiv.org/abs/2206.08171}.
+
+\bibitem[Rafidashti et~al.(2025)]{rafidashti2025neuradar}
+Erfan Rafidashti et~al.
+\newblock Neuradar: Neural radiance fields for automotive radar.
+\newblock In \emph{ICRA}, 2025.
+
+\bibitem[Sun et~al.(2020)Sun, Petropulu, and Poor]{sun2020mimo}
+Shunqiao Sun, Athina~P Petropulu, and H~Vincent Poor.
+\newblock Mimo radar for advanced driver-assistance systems and autonomous
+  driving: Advantages and challenges.
+\newblock 2020.
+
+\bibitem[Takawale et~al.(2025)Takawale, Tancik, and
+  Ramamoorthi]{takawale2025spinr}
+Aniket Takawale, Matthew Tancik, and Ravi Ramamoorthi.
+\newblock Spinr: Spatial implicit neural representation for fmcw radar.
+\newblock In \emph{ICRA}, 2025.
+
+\bibitem[Watts et~al.(2016)Watts, Shrekenhamer, Montoya, Lipworth, Hunt,
+  Sleasman, Krishna, Smith, and Padilla]{watts20162d}
+Christopher~M Watts, David Shrekenhamer, John Montoya, Guy Lipworth, John Hunt,
+  Timothy Sleasman, Sanjay Krishna, David~R Smith, and Willie~J Padilla.
+\newblock 2-d and 3-d synthetic aperture radar images.
+\newblock \emph{Advanced Optical Materials}, 2016.
+
+\bibitem[Zhang et~al.(2022)Zhang, Fujita, Jia, Liu, and
+  Ramamoorthi]{zhang2022iron}
+Kai Zhang, Sai~Bi Fujita, Zhengfei Jia, Xuejin Liu, and Ravi Ramamoorthi.
+\newblock Iron: Inverse rendering by optimizing neural sdfs and materials from
+  photometric images.
+\newblock In \emph{CVPR}, 2022.
+
+\bibitem[Zhang et~al.(2025)]{zhang2025rf4d}
+Yuchen Zhang et~al.
+\newblock Rf-4d: Neural radiance fields for dynamic rf scenes.
+\newblock \emph{arXiv preprint}, 2025.
+
+\end{thebibliography}

@@ -772,12 +772,35 @@ def train_frame_nvs(scene,
         torch.save(best_state, os.path.join(output_dir, 'best_model.pt'))
 
     # Export rendered test |RA| (polar + cart) + GT cart for figures pipeline.
-    np.save(os.path.join(output_dir, 'rendered_test_ra_polar.npy'),
-            test_ra_polar.detach().cpu().numpy().astype(np.float32))
-    np.save(os.path.join(output_dir, 'rendered_test_ra_cart.npy'),
-            test_ra_cart.detach().cpu().numpy().astype(np.float32))
-    np.save(os.path.join(output_dir, 'gt_test_ra_cart.npy'),
-            gt_ra_cart.detach().cpu().numpy().astype(np.float32))
+    test_ra_polar_np = test_ra_polar.detach().cpu().numpy().astype(np.float32)
+    test_ra_cart_np = test_ra_cart.detach().cpu().numpy().astype(np.float32)
+    test_gt_cart_np = gt_ra_cart.detach().cpu().numpy().astype(np.float32)
+    np.save(os.path.join(output_dir, 'rendered_test_ra_polar.npy'), test_ra_polar_np)
+    np.save(os.path.join(output_dir, 'rendered_test_ra_cart.npy'), test_ra_cart_np)
+    np.save(os.path.join(output_dir, 'gt_test_ra_cart.npy'), test_gt_cart_np)
+    # dB / linear PNGs for the test frame (matches baseline finalize PNGs).
+    _save_ra_pngs_torch(test_ra_cart_np, output_dir, 'rendered_ra', range_res,
+                         f'mm3DGS test frame {test_frame} loop {held_out_loop}')
+    _save_ra_pngs_torch(test_gt_cart_np, output_dir, 'gt_ra', range_res,
+                         f'GT test frame {test_frame} loop {held_out_loop}')
+
+    # ----------------------------------------------------------------
+    # Per-train-frame export (supplement figure pipeline).
+    # For each train_sample, render at its pose, save polar |RA| + cart |RA|
+    # + GT cart + dB/linear PNGs under train_frames/frame_<F_train>/, and
+    # write metrics_train.json with per-frame ra_corr (cart_corr_torch).
+    # ----------------------------------------------------------------
+    _save_train_frames_export(
+        output_dir=output_dir,
+        scene=scene,
+        train_samples=train_samples,
+        rast=rast,
+        model=model,
+        vertex_areas=vertex_areas,
+        active_mask=active_mask,
+        sample_grid=sample_grid,
+        range_res=range_res,
+    )
 
     # Fisher-imbalance diagnostic dump (Phase A of the v5_v4 follow-on
     # plan). Captures the never-reset career ‖∇p L‖ accumulator, the
@@ -802,6 +825,108 @@ def train_frame_nvs(scene,
     if verbose:
         print(f'\n  results saved to: {output_dir}')
     return results
+
+
+# ---------------------------------------------------------------------------
+# Per-train-frame export (supplement figure pipeline)
+# ---------------------------------------------------------------------------
+
+def _save_ra_pngs_torch(ra_cart_np, out_dir, prefix, range_res, title_prefix):
+    """Save dB + linear PNGs of a Cartesian RA magnitude image.
+
+    Mirrors the pattern used by ``mmir.evaluation.utils.visualization.
+    save_ra_cartesian_png`` (matplotlib, plasma cmap by default — kept as
+    'hot' for visual consistency with the baseline finalize PNGs).
+    """
+    from mmir.evaluation.utils.visualization import save_ra_cartesian_png
+    for scale in ('linear', 'dB'):
+        save_ra_cartesian_png(
+            ra_cart_np,
+            os.path.join(out_dir, f'{prefix}_{scale}.png'),
+            range_res=range_res, scale=scale,
+            title=f'{title_prefix} ({scale})',
+        )
+
+
+def _save_train_frames_export(*, output_dir, scene, train_samples, rast, model,
+                              vertex_areas, active_mask, sample_grid,
+                              range_res):
+    """For each train_sample, render at its pose and save the supplement-figure
+    artefacts (rendered/GT cart + polar + dB/linear PNGs + per-frame
+    ra_corr metrics). Aggregates across train frames into ``metrics_train.json``.
+    """
+    train_dir_root = os.path.join(output_dir, 'train_frames')
+    os.makedirs(train_dir_root, exist_ok=True)
+
+    per_frame_records = []
+    ra_corr_per_frame = []
+
+    for s in train_samples:
+        f = int(s['frame_idx'])
+        loop_idx = int(s['loop_idx'])
+        # Folder: when multiple loops per frame are saved, the first loop wins
+        # (later loops overwrite). For the standard --train_loops 0 default
+        # this is exactly one entry per train frame.
+        frame_dir = os.path.join(train_dir_root, f'frame_{f}')
+        os.makedirs(frame_dir, exist_ok=True)
+
+        apply_pose(rast, s['pose'])
+        with torch.no_grad():
+            rp_real, rp_imag = render_gaussians(
+                model, rast, vertex_areas=vertex_areas,
+                active_mask=active_mask, shadow_mask=None,
+                bsdf_mode='full', disabled_components=None)
+            ra_polar = range_profile_to_ra_mag(rp_real, rp_imag)
+            ra_cart = polar_to_cart_torch(ra_polar, sample_grid)
+            gt_polar = s['gt_ra_polar']
+            gt_cart_full = polar_to_cart_torch(gt_polar, sample_grid)
+            cc = float(cart_corr_torch(ra_cart, s['gt_cart_norm']).item())
+
+        rendered_polar_np = ra_polar.detach().cpu().numpy().astype(np.float32)
+        rendered_cart_np = ra_cart.detach().cpu().numpy().astype(np.float32)
+        gt_polar_np = gt_polar.detach().cpu().numpy().astype(np.float32)
+        gt_cart_np = gt_cart_full.detach().cpu().numpy().astype(np.float32)
+
+        np.save(os.path.join(frame_dir, 'rendered_ra_polar.npy'),
+                rendered_polar_np)
+        np.save(os.path.join(frame_dir, 'rendered_ra_cart.npy'),
+                rendered_cart_np)
+        np.save(os.path.join(frame_dir, 'gt_ra_polar_full.npy'), gt_polar_np)
+        np.save(os.path.join(frame_dir, 'gt_ra_cart.npy'), gt_cart_np)
+
+        _save_ra_pngs_torch(rendered_cart_np, frame_dir, 'rendered_ra',
+                            range_res, f'mm3DGS train frame {f} loop {loop_idx}')
+        _save_ra_pngs_torch(gt_cart_np, frame_dir, 'gt_ra',
+                            range_res, f'GT train frame {f} loop {loop_idx}')
+
+        per_frame_metric = {
+            'baseline': 'mm3dgs',
+            'scene': scene,
+            'frame': f,
+            'loop_idx': loop_idx,
+            'ra_corr': cc,
+            # range_profile_corr / mse / etc are not computed by cart_corr_torch
+            # — left absent so the parallel structure to baselines is honest.
+            'range_profile_corr': None,
+        }
+        with open(os.path.join(frame_dir, 'metrics.json'), 'w') as f_:
+            json.dump(per_frame_metric, f_, indent=2)
+        per_frame_records.append(per_frame_metric)
+        ra_corr_per_frame.append(cc)
+
+    agg = {
+        'per_frame': per_frame_records,
+        'ra_corr_per_frame': ra_corr_per_frame,
+        'ra_corr_mean': float(np.mean(ra_corr_per_frame))
+                        if ra_corr_per_frame else None,
+        'ra_corr_std':  float(np.std(ra_corr_per_frame))
+                        if ra_corr_per_frame else None,
+        'range_profile_corr_mean': None,
+        'range_profile_corr_std':  None,
+        'n_train_frames': len(per_frame_records),
+    }
+    with open(os.path.join(output_dir, 'metrics_train.json'), 'w') as f_:
+        json.dump(agg, f_, indent=2)
 
 
 # ---------------------------------------------------------------------------
