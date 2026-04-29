@@ -8,7 +8,9 @@ from matplotlib.path import Path
 import numpy as np
 
 BACKGROUND_COLOR = "#ecebeb"
-TEST_COL_COLOR = "#fadbd8"   # light red, matches the lightred macro in main.tex
+TEST_COL_COLOR = "#f5c6c0"   # light red — a tad darker than the lightred macro
+                              # in main.tex (#fadbd8) so it reads cleanly against
+                              # the grey background tile.
 FIG_WIDTH_INCHES = 7.1  # Double-column
 CORNER_RADIUS_INCHES = 0.08  # physical corner radius
 
@@ -193,12 +195,15 @@ class GridLayout:
 
 def add_column_highlight(fig, layout, col, color=TEST_COL_COLOR,
                           radius_inches=CORNER_RADIUS_INCHES * 0.65,
-                          inset_in=0.025):
+                          inset_in=0.025, include_header=True):
     """Highlight one full column (across all rows) with a rounded tile.
 
     Drawn between the grey background tile (``add_rounded_bg``, zorder=-1)
     and the row cells (default zorder 0), so it sits *on top of* the grey
-    tile but *behind* the image cells and the column header.
+    tile but *behind* the image cells. The column header text is rendered
+    later via ``fig.text`` (default zorder 3) and therefore sits *on top
+    of* this tile, which is why ``include_header=True`` (default) extends
+    the tile vertically to cover the column-header strip too.
     """
     # Full vertical extent: from the top row's top to the bottom row's bottom,
     # in figure-fraction coords.
@@ -208,8 +213,6 @@ def add_column_highlight(fig, layout, col, color=TEST_COL_COLOR,
     # first row to the bottom of the last row.
     top_of_first = top_bottom + layout.cell_h_in / layout.fig_h
     full_h = top_of_first - bot_bottom
-    # Pad slightly past the cells horizontally so the tile is visually
-    # distinct as a column band.
     inset_x = inset_in / layout.fig_w
     inset_y = inset_in / layout.fig_h
     x0 = left - inset_x
@@ -217,10 +220,16 @@ def add_column_highlight(fig, layout, col, color=TEST_COL_COLOR,
     rect_w = w + 2 * inset_x
     rect_h = full_h + 2 * inset_y
 
+    if include_header:
+        # Extend the top of the tile up into the column-header strip so the
+        # F header text reads on the same red field as the column cells.
+        # We stop a touch before the figure's top margin so the rounded
+        # corners stay inside the grey background tile.
+        header_top_y = 1.0 - layout.margin_in / layout.fig_h
+        rect_h = header_top_y - y0
+
     rx = radius_inches / layout.fig_w
     ry = radius_inches / layout.fig_h
-    # Scale corner radii into the rectangle's local fraction of the figure.
-    # Using a FancyBboxPatch with a 'round' style is simpler.
     patch = mpatches.FancyBboxPatch(
         (x0, y0), rect_w, rect_h,
         boxstyle=f"round,pad=0,rounding_size={min(rx, ry)}",
