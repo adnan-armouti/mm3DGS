@@ -92,7 +92,6 @@
 \newlabel{sec:experiments}{{4}{7}{Experiments}{section.4}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Experimental setup}{7}{subsection.4.1}\protected@file@percent }
 \newlabel{sec:experiments:setup}{{4.1}{7}{Experimental setup}{subsection.4.1}{}}
-\citation{kradar2022}
 \@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Held-out novel-view test |RA| metrics across six ColoRadar scenes. For each scene, mm3DGS trains on the 8 cascaded radar frames adjacent to the held-out test frame ($F\!\pm \!1\!\ldots  \!\pm \!4$, chirp 0 only) and is evaluated on the held-out test frame ($F$, chirp 0). Metrics: Pearson correlation (Corr), peak signal-to-noise ratio (PSNR, dB), structural similarity (SSIM), and root-mean-square error (RMSE) on min-max-normalized 399$\times $399 Cartesian $|\mathrm  {RA}|$ images. Best per-scene \textbf  {bold}.}}{8}{table.2}\protected@file@percent }
 \newlabel{tab:test_ra}{{2}{8}{Held-out novel-view test |RA| metrics across six ColoRadar scenes. For each scene, mm3DGS trains on the 8 cascaded radar frames adjacent to the held-out test frame ($F\!\pm \!1\!\ldots \!\pm \!4$, chirp 0 only) and is evaluated on the held-out test frame ($F$, chirp 0). Metrics: Pearson correlation (Corr), peak signal-to-noise ratio (PSNR, dB), structural similarity (SSIM), and root-mean-square error (RMSE) on min-max-normalized 399$\times $399 Cartesian $|\mathrm {RA}|$ images. Best per-scene \textbf {bold}}{table.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Held-out novel-view |RA| reconstruction}{8}{subsection.4.2}\protected@file@percent }
@@ -101,8 +100,6 @@
 \newlabel{fig:training_ra}{{2}{9}{\textbf {Held-out novel-view $|\mathrm {RA}|$ comparison} on six ColoRadar scenes (columns, sorted by mm3DGS test CC descending). Rows: ground truth (GT), mm3DGS (Ours), RadarSplat, Radar Fields, DART (cascaded). Per-cell test CC overlaid in white. mm3DGS consistently preserves wall and vehicle structure across all scenes; baseline methods exhibit characteristic failure modes — RadarSplat over-smooths azimuth, Radar Fields and DART smear range bins}{figure.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Training-view fit}{9}{subsection.4.3}\protected@file@percent }
 \newlabel{sec:experiments:train}{{4.3}{9}{Training-view fit}{subsection.4.3}{}}
-\citation{kradar2022}
-\citation{radarml2024}
 \bibstyle{plainnat}
 \bibdata{main}
 \bibcite{mmIR2026}{{1}{2026}{{Anonymous}}{{}}}
@@ -112,26 +109,24 @@
 \bibcite{gao2019experiments}{{5}{2019}{{Gao et~al.}}{{Gao, Xiang, Desai, Bhat, Alizadeh, Kaboli, Gupta, and Roy}}}
 \bibcite{guan2020through}{{6}{2020}{{Guan et~al.}}{{Guan, Madani, Jog, Gurel, Fang, and Hassanieh}}}
 \bibcite{hofmann2025inverse}{{7}{2025}{{Hofmann et~al.}}{{Hofmann, Weinmann, and Klein}}}
-\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Training-view |RA| metrics for mm3DGS (mean$\pm $std across the 8 train frames per scene; chirp 0 only). Per-scene init-test correlation reported alongside to quantify the optimisation lift. Baseline methods do not expose per-train-frame metrics in their public release; all-baseline columns are pending re-runs.}}{10}{table.3}\protected@file@percent }
-\newlabel{tab:train_ra}{{3}{10}{Training-view |RA| metrics for mm3DGS (mean$\pm $std across the 8 train frames per scene; chirp 0 only). Per-scene init-test correlation reported alongside to quantify the optimisation lift. Baseline methods do not expose per-train-frame metrics in their public release; all-baseline columns are pending re-runs}{table.3}{}}
+\bibcite{sionna}{{8}{2023}{{Hoydis et~al.}}{{Hoydis, Cammerer, Ait~Aoudia, Nimier-David, Binder, Marcus, and Keller}}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Training-view |RA| metrics on the same six ColoRadar scenes. Each cell is the mean across the 8 training frames per scene (chirp 0 only). Same metric harness as Table\nobreakspace  {}\ref  {tab:test_ra} (\texttt  {compute\_cart\_ra\_metrics}). Best per scene \textbf  {bold}.}}{10}{table.3}\protected@file@percent }
+\newlabel{tab:train_ra}{{3}{10}{Training-view |RA| metrics on the same six ColoRadar scenes. Each cell is the mean across the 8 training frames per scene (chirp 0 only). Same metric harness as Table~\ref {tab:test_ra} (\texttt {compute\_cart\_ra\_metrics}). Best per scene \textbf {bold}}{table.3}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Negative results and ablation summary}{10}{subsection.4.4}\protected@file@percent }
 \newlabel{sec:experiments:ablations}{{4.4}{10}{Negative results and ablation summary}{subsection.4.4}{}}
-\bibcite{sionna}{{8}{2023}{{Hoydis et~al.}}{{Hoydis, Cammerer, Ait~Aoudia, Nimier-David, Binder, Marcus, and Keller}}}
-\bibcite{huang2024dart}{{9}{2024{a}}{{Huang et~al.}}{{Huang, Gadre, Xu, Whelan, and Jatavallabhula}}}
-\bibcite{radarml2024}{{10}{2024{b}}{{Huang et~al.}}{{}}}
-\bibcite{jiang2025surfels}{{11}{2025}{{Jiang et~al.}}{{Jiang, Sun, Li, Wang, Li, and Ramamoorthi}}}
-\bibcite{jin2024diffsound}{{12}{2024}{{Jin et~al.}}{{}}}
-\bibcite{3dgs}{{13}{2023}{{Kerbl et~al.}}{{Kerbl, Kopanas, Leimk{\"u}hler, and Drettakis}}}
-\bibcite{kramer2022coloradar}{{14}{2022}{{Kramer et~al.}}{{Kramer, Harber, Rivkin, Elmes, Arledge, and Heckman}}}
-\bibcite{kung2025radarsplat}{{15}{2025}{{Kung et~al.}}{{Kung, Chou, Geiger, Fidler, and Law}}}
-\bibcite{li2018differentiable}{{16}{2018}{{Li et~al.}}{{Li, Aittala, Durand, and Lehtinen}}}
-\bibcite{lu2024newrf}{{17}{2024}{{Lu et~al.}}{{}}}
-\bibcite{mildenhall2021nerf}{{18}{2020}{{Mildenhall et~al.}}{{Mildenhall, Srinivasan, Tancik, Barron, Ramamoorthi, and Ng}}}
-\bibcite{kradar2022}{{19}{2022}{{Paek et~al.}}{{Paek, Kong, and Wijaya}}}
-\bibcite{rafidashti2025neuradar}{{20}{2025}{{Rafidashti et~al.}}{{}}}
-\bibcite{sun2020mimo}{{21}{2020}{{Sun et~al.}}{{Sun, Petropulu, and Poor}}}
-\bibcite{takawale2025spinr}{{22}{2025}{{Takawale et~al.}}{{Takawale, Tancik, and Ramamoorthi}}}
-\bibcite{watts20162d}{{23}{2016}{{Watts et~al.}}{{Watts, Shrekenhamer, Montoya, Lipworth, Hunt, Sleasman, Krishna, Smith, and Padilla}}}
-\bibcite{zhang2022iron}{{24}{2022}{{Zhang et~al.}}{{Zhang, Fujita, Jia, Liu, and Ramamoorthi}}}
-\bibcite{zhang2025rf4d}{{25}{2025}{{Zhang et~al.}}{{}}}
+\bibcite{huang2024dart}{{9}{2024}{{Huang et~al.}}{{Huang, Gadre, Xu, Whelan, and Jatavallabhula}}}
+\bibcite{jiang2025surfels}{{10}{2025}{{Jiang et~al.}}{{Jiang, Sun, Li, Wang, Li, and Ramamoorthi}}}
+\bibcite{jin2024diffsound}{{11}{2024}{{Jin et~al.}}{{}}}
+\bibcite{3dgs}{{12}{2023}{{Kerbl et~al.}}{{Kerbl, Kopanas, Leimk{\"u}hler, and Drettakis}}}
+\bibcite{kramer2022coloradar}{{13}{2022}{{Kramer et~al.}}{{Kramer, Harber, Rivkin, Elmes, Arledge, and Heckman}}}
+\bibcite{kung2025radarsplat}{{14}{2025}{{Kung et~al.}}{{Kung, Chou, Geiger, Fidler, and Law}}}
+\bibcite{li2018differentiable}{{15}{2018}{{Li et~al.}}{{Li, Aittala, Durand, and Lehtinen}}}
+\bibcite{lu2024newrf}{{16}{2024}{{Lu et~al.}}{{}}}
+\bibcite{mildenhall2021nerf}{{17}{2020}{{Mildenhall et~al.}}{{Mildenhall, Srinivasan, Tancik, Barron, Ramamoorthi, and Ng}}}
+\bibcite{rafidashti2025neuradar}{{18}{2025}{{Rafidashti et~al.}}{{}}}
+\bibcite{sun2020mimo}{{19}{2020}{{Sun et~al.}}{{Sun, Petropulu, and Poor}}}
+\bibcite{takawale2025spinr}{{20}{2025}{{Takawale et~al.}}{{Takawale, Tancik, and Ramamoorthi}}}
+\bibcite{watts20162d}{{21}{2016}{{Watts et~al.}}{{Watts, Shrekenhamer, Montoya, Lipworth, Hunt, Sleasman, Krishna, Smith, and Padilla}}}
+\bibcite{zhang2022iron}{{22}{2022}{{Zhang et~al.}}{{Zhang, Fujita, Jia, Liu, and Ramamoorthi}}}
+\bibcite{zhang2025rf4d}{{23}{2025}{{Zhang et~al.}}{{}}}
 \gdef \@abspage@last{11}

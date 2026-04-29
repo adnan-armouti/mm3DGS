@@ -1,4 +1,4 @@
-\begin{thebibliography}{25}
+\begin{thebibliography}{23}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -55,19 +55,12 @@ Jakob Hoydis, Sebastian Cammerer, Fayçal Ait~Aoudia, Merlin Nimier-David,
 \newblock Sionna rt: Differentiable ray tracing for radio propagation modeling.
 \newblock \emph{arXiv preprint arXiv:2303.11103}, 2023.
 
-\bibitem[Huang et~al.(2024{\natexlab{a}})Huang, Gadre, Xu, Whelan, and
+\bibitem[Huang et~al.(2024)Huang, Gadre, Xu, Whelan, and
   Jatavallabhula]{huang2024dart}
 Tianshu Huang, Samir Gadre, Yifan Xu, Thomas Whelan, and Krishna~Murthy
   Jatavallabhula.
 \newblock Dart: Implicit doppler tomography for radar novel view synthesis.
-\newblock In \emph{CVPR}, 2024{\natexlab{a}}.
-
-\bibitem[Huang et~al.(2024{\natexlab{b}})]{radarml2024}
-Tianshu Huang et~al.
-\newblock Radarml: A benchmark suite for {mmWave} {MIMO} radar machine
-  learning.
-\newblock \url{https://radarml.github.io/}, 2024{\natexlab{b}}.
-\newblock Pre-release; accessed 2026.
+\newblock In \emph{CVPR}, 2024.
 
 \bibitem[Jiang et~al.(2025)Jiang, Sun, Li, Wang, Li, and
   Ramamoorthi]{jiang2025surfels}
@@ -117,13 +110,6 @@ Ben Mildenhall, Pratul~P Srinivasan, Matthew Tancik, Jonathan~T Barron, Ravi
 \newblock Nerf: Representing scenes as neural radiance fields for view
   synthesis.
 \newblock In \emph{ECCV}, 2020.
-
-\bibitem[Paek et~al.(2022)Paek, Kong, and Wijaya]{kradar2022}
-Dong-Hee Paek, Seung-Hyun Kong, and Kevin~Tirta Wijaya.
-\newblock K-{R}adar: 4d radar object detection for autonomous driving in
-  various weather conditions.
-\newblock In \emph{NeurIPS Datasets and Benchmarks Track}, 2022.
-\newblock URL \url{https://arxiv.org/abs/2206.08171}.
 
 \bibitem[Rafidashti et~al.(2025)]{rafidashti2025neuradar}
 Erfan Rafidashti et~al.

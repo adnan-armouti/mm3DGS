@@ -125,7 +125,7 @@ clarify this margin:
       copy of the nearest training frame. mm3DGS's 0.60 mean lies
       slightly above this ceiling, indicating that the model captures
       multi-frame structure beyond a 1-NN copy. Capture rates of 10\,Hz
-      or higher (e.g., K-Radar~\cite{kradar2022}) would relax this
+      or higher (faster cascade radars) would relax this
       ceiling considerably.
 \end{enumerate}
 
@@ -210,8 +210,7 @@ field cannot extract additional NVS structure beyond what the static
 Gaussian point set already captures.
 
 \textbf{What this implies.} Reaching higher novel-view CC will require
-either (a) higher-rate radar capture (10\,Hz+, e.g.\
-K-Radar~\cite{kradar2022}, RadarML~\cite{radarml2024}) where the
+either (a) higher-rate radar capture ($\geq$10\,Hz cascade) where the
 inter-frame coherence ceiling is naturally higher, or (b) on-support
 test splits with denser bracketing of the test pose. We discuss these
 directions in Sec.~\ref{sec:conclusion}.
