@@ -54,12 +54,29 @@ def encode_pose_6d(rx_center: torch.Tensor,
     return torch.cat([rel_pos, rel_bs], dim=0)                      # (6,)
 
 
+def positional_encoding(x: torch.Tensor, n_freqs: int) -> torch.Tensor:
+    """NeRF-style sinusoidal positional encoding.
+
+    γ(x) = [x, sin(2πx), cos(2πx), sin(4πx), cos(4πx), …, sin(2^(L-1)πx), cos(2^(L-1)πx)]
+    Output dim = D × (1 + 2L) where D = input dim.
+    """
+    if n_freqs == 0:
+        return x
+    out = [x]
+    for k in range(n_freqs):
+        freq = (2.0 ** k) * float(np.pi)
+        out.append(torch.sin(freq * x))
+        out.append(torch.cos(freq * x))
+    return torch.cat(out, dim=-1)
+
+
 class PoseConditionedDeformationMLP(nn.Module):
     """Per-Gaussian (Δposition, Δopacity) field, conditioned on pose_6d.
 
     Architecture:
-      input:    pose_6d (6) + gaussian_pos_local (3) = 9
-      hidden:   3 layers × hidden_dim (default 64) + ReLU + LayerNorm
+      input:    pose_6d (6) + gaussian_pos_local (3) = 9, optionally
+                lifted by NeRF-style positional encoding (n_freqs > 0).
+      hidden:   n_layers × hidden_dim, ReLU + LayerNorm
       output:   4 = (Δp_xyz, Δα)
 
     Δp is bounded via tanh + scale (default 5 cm). Δα is bounded similarly
@@ -75,11 +92,14 @@ class PoseConditionedDeformationMLP(nn.Module):
                  max_dpos_m: float = 0.05,
                  max_dalpha: float = 1.0,
                  init_scale: float = 1e-4,
+                 pose_pe_freqs: int = 0,    # NeRF-style positional encoding L
                  ):
         super().__init__()
         self.max_dpos_m = float(max_dpos_m)
         self.max_dalpha = float(max_dalpha)
-        in_dim = 6 + 3
+        self.pose_pe_freqs = int(pose_pe_freqs)
+        # Pose encoding lifts 6 dims → 6*(1 + 2L). Gaussian pos stays raw (3).
+        in_dim = 6 * (1 + 2 * self.pose_pe_freqs) + 3
         out_dim = 4
         layers = []
         d = in_dim
@@ -103,17 +123,17 @@ class PoseConditionedDeformationMLP(nn.Module):
           pos_local: (N, 3) tensor — Gaussian positions in seed-pose's
                      radar local frame (so they're scene-scale, ~ metres).
         Returns:
-          dp:    (N, 3) position deltas in WORLD frame, bounded by max_dpos_m.
+          dp:    (N, 3) position deltas in seed-radar local frame, bounded by max_dpos_m.
           dalpha: (N,) opacity deltas, bounded by max_dalpha.
         """
         N = pos_local.shape[0]
-        pose_b = pose_6d.unsqueeze(0).expand(N, -1)                # (N, 6)
-        x = torch.cat([pose_b, pos_local], dim=-1)                  # (N, 9)
-        h = self.trunk(x)                                            # (N, hidden)
-        out = self.head(h)                                           # (N, 4)
-        # Tanh-bounded outputs.
-        dp_local = torch.tanh(out[:, :3]) * self.max_dpos_m         # (N, 3) in seed-radar frame
-        dalpha   = torch.tanh(out[:, 3]) * self.max_dalpha          # (N,)
+        pose_enc = positional_encoding(pose_6d, self.pose_pe_freqs)
+        pose_b = pose_enc.unsqueeze(0).expand(N, -1)
+        x = torch.cat([pose_b, pos_local], dim=-1)
+        h = self.trunk(x)
+        out = self.head(h)
+        dp_local = torch.tanh(out[:, :3]) * self.max_dpos_m
+        dalpha   = torch.tanh(out[:, 3]) * self.max_dalpha
         return dp_local, dalpha
 
 

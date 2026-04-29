@@ -559,7 +559,8 @@ def train_frame_nvs(scene,
                     mlp_a_max_dalpha=1.0,
                     mlp_a_l2_dpos=100.0,
                     mlp_a_l1_dalpha=0.01,
-                    mlp_a_warmup_iters=50):
+                    mlp_a_warmup_iters=50,
+                    mlp_a_pose_pe_freqs=0):
     assert v5cuda.is_available(), (
         'v5 CUDA extension not built. '
         'cd mm25DGS_v5_v4/cuda && python setup.py build_ext --inplace')
@@ -875,6 +876,7 @@ def train_frame_nvs(scene,
             n_layers=int(mlp_a_n_layers),
             max_dpos_m=float(mlp_a_max_dpos_m),
             max_dalpha=float(mlp_a_max_dalpha),
+            pose_pe_freqs=int(mlp_a_pose_pe_freqs),
         ).to(DEVICE)
         # Pre-compute pose_6d for every train sample's pose + the test pose.
         # Caches keyed by frame_idx (chirp 0 only, matches train_loops=[0]).
@@ -1596,6 +1598,10 @@ if __name__ == '__main__':
     ap.add_argument('--mlp_a_warmup_iters', type=int, default=50,
                     help='Iters to keep MLP-A frozen at zero before training '
                          '(let materials/rotations settle first).')
+    ap.add_argument('--mlp_a_pose_pe_freqs', type=int, default=0,
+                    help='NeRF-style positional encoding frequencies on '
+                         'pose_6d input (0 = no encoding). Helps MLP '
+                         'interpolate smoothly across train poses.')
     args = ap.parse_args()
 
     train_frames = [int(x) for x in args.train_frames.split(',') if x.strip()]
@@ -1644,4 +1650,5 @@ if __name__ == '__main__':
         mlp_a_max_dalpha=args.mlp_a_max_dalpha,
         mlp_a_l2_dpos=args.mlp_a_l2_dpos,
         mlp_a_l1_dalpha=args.mlp_a_l1_dalpha,
-        mlp_a_warmup_iters=args.mlp_a_warmup_iters)
+        mlp_a_warmup_iters=args.mlp_a_warmup_iters,
+        mlp_a_pose_pe_freqs=args.mlp_a_pose_pe_freqs)
