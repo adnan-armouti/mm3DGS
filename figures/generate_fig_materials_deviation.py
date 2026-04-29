@@ -21,6 +21,11 @@ import numpy as np
 from PIL import Image
 
 from .fig_common import (
+
+# Apply NeurIPS paper typography (Times serif) to all figures.
+apply_paper_font()
+
+    apply_paper_font,
     BACKGROUND_COLOR, FIG_WIDTH_INCHES, SCENE_SHORT_NAMES,
     add_rounded_bg, GridLayout,
 )

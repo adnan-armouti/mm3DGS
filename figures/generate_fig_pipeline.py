@@ -26,6 +26,10 @@ from scipy.signal import butter, filtfilt
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 from .fig_common import BACKGROUND_COLOR, FIG_WIDTH_INCHES, add_rounded_bg
 
+# Apply NeurIPS paper typography (Times serif) to all figures.
+apply_paper_font()
+
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Layout constants (all in inches)

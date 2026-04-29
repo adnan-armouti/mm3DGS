@@ -23,6 +23,11 @@ from matplotlib.path import Path
 import numpy as np
 
 from .fig_common import (
+
+# Apply NeurIPS paper typography (Times serif) to all figures.
+apply_paper_font()
+
+    apply_paper_font,
     BACKGROUND_COLOR, FIG_WIDTH_INCHES, CORNER_RADIUS_INCHES,
     add_rounded_bg,
 )

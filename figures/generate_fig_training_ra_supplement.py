@@ -1,26 +1,16 @@
-"""Supplement figure: per-scene comparison across all 8 training frames.
+"""Supplement figure: per-scene comparison across all 9 frames.
 
 Produces ONE figure per scene (six total). Each figure has:
-  - rows: GT / Ours (mm3DGS v5_v4) / RadarSplat / Radar Fields / DART
-  - columns: the 8 training frames F-4..F-1, F+1..F+4 plus the held-out
-    test frame (column ordering: F-4, F-3, F-2, F-1, F+1, F+2, F+3, F+4,
-    F_test). Column header for the held-out frame is rendered in red so it
-    stands out from the train frames.
+  - rows:   GT / Ours / RadarSplat / Radar Fields / DART
+  - columns: F-4, F-3, F-2, F-1, F (TEST), F+1, F+2, F+3, F+4
+  - the test frame is in the middle column with a light-red column tile
+    sitting on top of the rounded grey background tile shared with Fig 2.
   - per-cell ra_corr overlaid in white in the bottom-right.
 
-Reads:
-  - Ours: ``mm25DGS_v5_v4/output_frame_nvs/<scene>.../train_frames/frame_<F>/
-          rendered_ra_cart.npy + metrics.json`` for train frames; the
-          top-level ``rendered_test_ra_cart.npy`` + ``results.json`` for
-          the test frame.
-  - Baselines: ``baselines/<method>/results/<scene>/train_frames/frame_<F>/
-          rendered_ra_cart.npy + metrics.json`` for train frames; the
-          top-level ``rendered_ra_cart.npy`` + ``metrics.json`` for the
-          test frame. DART scene-dirs are ``<scene>__cascaded``.
-
-Reuses the same display style as ``generate_fig_training_ra.py`` (per-row
-log/linear normalisation, fig_common helpers, hot/plasma colormap matching
-the baseline finalize PNGs).
+Layout, fonts, colors, and tile geometry all match
+``figures/generate_fig_training_ra.py`` (Figure 2). Reads the same
+on-disk artifacts as the main figure script + per-frame ``train_frames/
+frame_<F>/`` subdirectories produced by the trainer / baseline runners.
 
 Usage:
     python -m figures.generate_fig_training_ra_supplement \
@@ -43,17 +33,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-# Add the repo root to sys.path so ``figures.fig_common`` resolves both as
-# ``python -m figures.generate_fig_training_ra_supplement`` and direct script.
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _REPO = os.path.abspath(os.path.join(_HERE, ".."))
 if _REPO not in sys.path:
     sys.path.insert(0, _REPO)
 
-from figures.fig_common import SCENE_SHORT_NAMES  # noqa: E402
+from figures.fig_common import (   # noqa: E402
+    BACKGROUND_COLOR, FIG_WIDTH_INCHES, SCENE_SHORT_NAMES, TEST_COL_COLOR,
+    FIGURE_BASE_PT, FIGURE_HEADER_PT, FIGURE_SMALL_PT,
+    add_rounded_bg, add_column_highlight, apply_paper_font, GridLayout,
+)
 
 
-# Six benchmark scenes + their held-out test frames.
 SCENES = [
     ("seq_0_frame_135", 135),
     ("seq_1_frame_185", 185),
@@ -63,8 +54,6 @@ SCENES = [
     ("seq_2_frame_300", 300),
 ]
 
-
-# Run-name templates the trainer might have used (post- or pre-cleanup).
 OURS_RUN_TEMPLATES = [
     "{scene}_train8frames_1loops_test{frame}_loop0_pass2_N20000",
     ("{scene}_train8frames_1loops_test{frame}_loop0_pass2_N20000_"
@@ -72,7 +61,6 @@ OURS_RUN_TEMPLATES = [
 ]
 
 
-# Baselines: how to find the per-scene results dir.
 def _baseline_scene_dir(baselines_dir: str, baseline: str, scene: str) -> str:
     if baseline == "dart":
         return os.path.join(baselines_dir, "dart", "results", f"{scene}__cascaded")
@@ -107,8 +95,7 @@ def find_ours_run_dir(ours_dir: str, scene: str, frame: int) -> Optional[str]:
     return candidates[0][1] if candidates else None
 
 
-def load_ours_test(ours_run_dir: str):
-    """Return (cart_RA or None, ra_corr or None)."""
+def load_ours_test(ours_run_dir: Optional[str]):
     if ours_run_dir is None:
         return None, None
     ra = _load_npy(os.path.join(ours_run_dir, "rendered_test_ra_cart.npy"))
@@ -117,8 +104,7 @@ def load_ours_test(ours_run_dir: str):
     return ra, cc
 
 
-def load_ours_train_frame(ours_run_dir: str, frame: int):
-    """Return (cart_RA or None, ra_corr or None) for one training frame."""
+def load_ours_train_frame(ours_run_dir: Optional[str], frame: int):
     if ours_run_dir is None:
         return None, None
     fdir = os.path.join(ours_run_dir, "train_frames", f"frame_{frame}")
@@ -147,8 +133,6 @@ def load_baseline_train_frame(baselines_dir: str, baseline: str, scene: str,
 
 
 def load_gt_test(baselines_dir: str, scene: str):
-    """GT is identical across all baselines for a given (scene, test_frame).
-    Pull from RadarSplat (the most-canonical GT renderer)."""
     for sub in ("radarsplat", "radarfields"):
         ra = _load_npy(os.path.join(_baseline_scene_dir(baselines_dir, sub, scene),
                                       "gt_ra_cart.npy"))
@@ -160,11 +144,6 @@ def load_gt_test(baselines_dir: str, scene: str):
 
 def load_gt_train_frame(baselines_dir: str, scene: str, frame: int,
                           ours_run_dir: Optional[str] = None):
-    """GT for a train frame, identical across methods. Try sources in order:
-    1) Our trainer's export (always written alongside rendered_ra_cart.npy)
-    2) Each baseline's train_frames/frame_<F>/gt_ra_cart.npy
-    Returns None if none of those are populated yet.
-    """
     if ours_run_dir is not None:
         ra = _load_npy(os.path.join(ours_run_dir, "train_frames",
                                       f"frame_{frame}", "gt_ra_cart.npy"))
@@ -181,7 +160,7 @@ def load_gt_train_frame(baselines_dir: str, scene: str, frame: int,
 
 
 # ---------------------------------------------------------------------------
-# Display helpers (mirror generate_fig_training_ra.py)
+# Display helpers (mirror generate_fig_training_ra.py exactly)
 # ---------------------------------------------------------------------------
 
 def ra_cart_to_linear(ra_cart: np.ndarray) -> np.ndarray:
@@ -196,38 +175,45 @@ def ra_cart_to_linear(ra_cart: np.ndarray) -> np.ndarray:
 def _draw_tile(ax, ra: Optional[np.ndarray], corr: Optional[float], cmap="hot"):
     ax.set_xticks([])
     ax.set_yticks([])
+    for spine in ax.spines.values():
+        spine.set_visible(False)
     if ra is None:
         ax.text(0.5, 0.5, "missing",
                 ha="center", va="center", transform=ax.transAxes,
-                fontsize=6, color="gray")
-        for spine in ax.spines.values():
-            spine.set_visible(False)
+                fontsize=FIGURE_SMALL_PT, color="#999999")
         return
     ax.imshow(ra_cart_to_linear(ra), cmap=cmap, origin="lower",
               vmin=0.0, vmax=1.0, aspect="equal")
     if corr is not None:
         ax.text(0.97, 0.04, f"{corr:.2f}",
                 ha="right", va="bottom",
-                transform=ax.transAxes, fontsize=4.5,
+                transform=ax.transAxes, fontsize=FIGURE_SMALL_PT,
                 fontweight="bold", color="white")
 
 
 # ---------------------------------------------------------------------------
-# Per-scene figure
+# Per-scene figure builder
 # ---------------------------------------------------------------------------
+
+ROW_LABELS = ["GT", "Ours", "RadarSplat", "Radar Fields", "DART"]
+
 
 def generate_one_scene(scene: str, test_frame: int,
                         ours_dir: str, baselines_dir: str,
                         output_path: str):
     """Build the 5-row × 9-col supplement figure for a single scene."""
-    train_frames: List[int] = [test_frame + d for d in (-4, -3, -2, -1, 1, 2, 3, 4)]
-    columns = train_frames + [test_frame]
-    column_is_test = [False] * 8 + [True]
+    # Columns chronologically with F in the middle:
+    # F-4, F-3, F-2, F-1, F (TEST), F+1, F+2, F+3, F+4
+    col_offsets = [-4, -3, -2, -1, 0, 1, 2, 3, 4]
+    columns = [test_frame + d for d in col_offsets]
+    column_is_test = [d == 0 for d in col_offsets]
+    test_col_idx = col_offsets.index(0)
 
     ours_run_dir = find_ours_run_dir(ours_dir, scene, test_frame)
 
-    # Pre-load everything before plotting.
-    rows = []  # list of (label, [(ra, corr), ...])
+    # Load all cells.
+    rows: List[List[tuple]] = []   # rows[i] = list of (ra, corr) cells
+
     # GT row
     gt_cells = []
     for f, is_test in zip(columns, column_is_test):
@@ -236,7 +222,7 @@ def generate_one_scene(scene: str, test_frame: int,
         else:
             gt_cells.append((load_gt_train_frame(baselines_dir, scene, f,
                                                     ours_run_dir), None))
-    rows.append(("GT", gt_cells))
+    rows.append(gt_cells)
 
     # Ours row
     ours_cells = []
@@ -246,11 +232,9 @@ def generate_one_scene(scene: str, test_frame: int,
         else:
             ra, cc = load_ours_train_frame(ours_run_dir, f)
         ours_cells.append((ra, cc))
-    rows.append(("Ours\n(v5\\_v4)", ours_cells))
+    rows.append(ours_cells)
 
-    for label, b in (("RadarSplat", "radarsplat"),
-                      ("RadarFields", "radarfields"),
-                      ("DART", "dart")):
+    for b in ("radarsplat", "radarfields", "dart"):
         cells = []
         for f, is_test in zip(columns, column_is_test):
             if is_test:
@@ -258,43 +242,62 @@ def generate_one_scene(scene: str, test_frame: int,
             else:
                 ra, cc = load_baseline_train_frame(baselines_dir, b, scene, f)
             cells.append((ra, cc))
-        rows.append((label, cells))
+        rows.append(cells)
 
-    n_cols = len(columns)
     n_rows = len(rows)
-    fig_w = 1.4 * n_cols + 0.7
-    fig_h = 1.4 * n_rows + 0.4
-    fig, axes = plt.subplots(n_rows, n_cols,
-                              figsize=(fig_w, fig_h),
-                              gridspec_kw={"wspace": 0.04, "hspace": 0.04})
-    if n_rows == 1:
-        axes = np.array([axes])
+    n_cols = len(columns)
+
+    # Use a wider layout for the supplement (9 cols vs 6 in main paper).
+    # Match the cell-aspect (square) of Fig 2; widen the figure to keep
+    # cells legible.
+    layout = GridLayout.from_fig_width(
+        n_rows=n_rows, n_cols=n_cols,
+        fig_width_in=FIG_WIDTH_INCHES * 1.5,
+        img_aspect=1.0,
+        margin_in=0.10, col_gap_in=0.05, row_gap_in=0.05,
+        header_in=0.30, label_w_in=0.55,
+    )
+
+    fig = plt.figure(figsize=(layout.fig_w, layout.fig_h),
+                     facecolor=BACKGROUND_COLOR)
+    add_rounded_bg(fig)
+    add_column_highlight(fig, layout, test_col_idx,
+                          color=TEST_COL_COLOR)
 
     # Column headers
-    for j, (f, is_test) in enumerate(zip(columns, column_is_test)):
-        label = f"$F$" if is_test else f"$F{f - test_frame:+d}$"
-        color = "#cf2e2e" if is_test else "black"
-        weight = "bold" if is_test else "normal"
-        axes[0, j].set_title(label, fontsize=7, color=color,
-                              fontweight=weight, pad=3)
+    for j, off in enumerate(col_offsets):
+        x_left, _, w, _ = layout.cell_pos(0, j)
+        cx = x_left + w / 2
+        if off == 0:
+            label = "$F$"
+            color = "#9b1c1c"     # darker red for test pose label
+        else:
+            label = f"$F{off:+d}$"
+            color = "black"
+        fig.text(cx, layout.header_y(), label,
+                  ha="center", va="top", fontsize=FIGURE_HEADER_PT,
+                  color=color, fontweight="bold" if off == 0 else "normal")
 
-    # Row labels (left) + tile contents
-    for i, (row_label, cells) in enumerate(rows):
-        axes[i, 0].set_ylabel(row_label, fontsize=7, rotation=0,
-                                ha="right", va="center", labelpad=18)
+    # Row labels (left column)
+    for i, label in enumerate(ROW_LABELS):
+        fig.text(layout.row_label_x(), layout.row_label_y(i), label,
+                  ha="center", va="center", fontsize=FIGURE_HEADER_PT,
+                  rotation=90, fontweight="bold")
+
+    # Tiles
+    for i, cells in enumerate(rows):
         for j, (ra, corr) in enumerate(cells):
-            _draw_tile(axes[i, j], ra, corr)
-
-    # Title
-    short = SCENE_SHORT_NAMES.get(scene, scene)
-    fig.suptitle(short, fontsize=9, y=0.99, fontweight="bold")
-    fig.tight_layout()
-    fig.subplots_adjust(top=0.93, left=0.07)
+            ax = fig.add_axes(layout.cell_pos(i, j))
+            _draw_tile(ax, ra, corr)
+    # NB: the scene name is supplied by the LaTeX caption (Figs. 3--8); we
+    # intentionally do not draw an in-figure title here so the F column
+    # header has no overlap.
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    fig.savefig(output_path, dpi=200, bbox_inches="tight")
-    fig.savefig(output_path.replace(".pdf", ".png"), dpi=200,
-                bbox_inches="tight")
+    fig.savefig(output_path, dpi=300, facecolor=BACKGROUND_COLOR,
+                 bbox_inches=None)
+    fig.savefig(output_path.replace(".pdf", ".png"), dpi=300,
+                 facecolor=BACKGROUND_COLOR, bbox_inches=None)
     plt.close(fig)
 
 
@@ -309,6 +312,8 @@ def main():
     ap.add_argument("--output_dir",
                     default="output/postprocess_final_v5/figures/supplement")
     args = ap.parse_args()
+
+    apply_paper_font()
 
     for scene, test_frame in SCENES:
         out = os.path.join(args.output_dir, f"supplement_{scene}.pdf")

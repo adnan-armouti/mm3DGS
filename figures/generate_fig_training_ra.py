@@ -36,8 +36,14 @@ from figures.fig_common import (
     BACKGROUND_COLOR,
     SCENE_SHORT_NAMES,
     add_rounded_bg,
+    apply_paper_font,
     GridLayout,
 )
+
+
+# Apply paper font/typography (NeurIPS Times-compatible serif) once at
+# import time so the rest of the module's matplotlib calls inherit it.
+apply_paper_font()
 
 
 CMAP = "hot"
