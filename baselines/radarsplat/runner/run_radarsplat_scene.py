@@ -139,58 +139,84 @@ def _find_latest_ckpt(ckpt_dir: str) -> str:
 
 
 @torch.no_grad()
-def _render_test_frame(runner: Runner) -> np.ndarray:
-    """Forward-render the held-out test frame (split='val') and return the
+def _render_one(runner: Runner, data) -> np.ndarray:
+    """Forward-render one batch (a single frame) and return the
     wedge-cropped polar RA as float32 ``(H_fov, W)``.
 
     Mirrors ``Runner.eval`` (polar path) up through the sonar-style crop,
     without any of the visualization side-effects.
     """
     device = runner.device
+    radarposes = data["radarpose"].to(device)
+    Ks = data["K"].to(device)
+    pixels = data["image"].to(device) / 255.0
+    height, width = pixels.shape[1:3]
+    renders, *_ = runner.rasterize_splats(
+        radarposes=radarposes,
+        Ks=Ks,
+        width=width,
+        height=height,
+        sh_degree=runner.cfg.sh_degree,
+        near_plane=runner.cfg.near_plane,
+        far_plane=runner.cfg.far_plane,
+        use_polar=runner.parser.use_polar,
+    )
+    out_img = renders[0]                                         # (3600, W, 1)
+    if runner.cfg.spectral_leakage:
+        out_img = spectral_leakage(
+            out_img,
+            runner.parser.range_resolution,
+            sinc_width=runner.cfg.sinc_width,
+        )
+    out_img = azimuth_antenna_gain_projection(
+        out_img,
+        new_resolution=runner.parser.azimuth_resolution,
+        beamwidth=runner.parser.azimuth_beamwidth,
+    )                                                             # (400, W)
+    out_img = out_img.squeeze()                                   # (400, W)
+    H_fov = pixels.shape[1]
+    out_img = out_img[:H_fov, :]                                  # wedge crop
+    # Mirror upstream: clamp to [0, 1] (eval:1175) and zero out the
+    # near-range region the model never optimized (train:709).
+    out_img = torch.clamp(out_img, 0.0, 1.0)
+    min_bin_num = int(2.5 / runner.parser.range_resolution)
+    out_img[:, :min_bin_num] = 0
+    return out_img.detach().cpu().numpy().astype(np.float32)
+
+
+def _render_test_frame(runner: Runner) -> np.ndarray:
+    """Forward-render the held-out test frame (split='val')."""
     loader = torch.utils.data.DataLoader(
         runner.valset, batch_size=1, shuffle=False, num_workers=0
     )
-    rendered: Optional[np.ndarray] = None
     for data in loader:
-        radarposes = data["radarpose"].to(device)
-        Ks = data["K"].to(device)
-        pixels = data["image"].to(device) / 255.0
-        height, width = pixels.shape[1:3]
-        renders, *_ = runner.rasterize_splats(
-            radarposes=radarposes,
-            Ks=Ks,
-            width=width,
-            height=height,
-            sh_degree=runner.cfg.sh_degree,
-            near_plane=runner.cfg.near_plane,
-            far_plane=runner.cfg.far_plane,
-            use_polar=runner.parser.use_polar,
+        return _render_one(runner, data)
+    raise RuntimeError("valset produced no batches")
+
+
+def _render_train_frames(runner: Runner, train_frame_numbers) -> dict:
+    """Forward-render each of the 8 training frames (split='train').
+
+    Returns a ``{frame_number: rendered_polar}`` dict. The trainset's
+    iteration order is fixed by the patched ``self.indices = [0,1,2,3,5,6,7,8]``
+    so we pair each yielded sample with the corresponding entry in
+    ``train_frame_numbers`` (monotonically sorted scene-internal frame numbers
+    matching that index order via ``baselines.common.nvs_split.cascaded_split``).
+    """
+    loader = torch.utils.data.DataLoader(
+        runner.trainset, batch_size=1, shuffle=False, num_workers=0
+    )
+    out = {}
+    for i, data in enumerate(loader):
+        rendered = _render_one(runner, data)
+        f = int(train_frame_numbers[i])
+        out[f] = rendered
+    if len(out) != len(train_frame_numbers):
+        raise RuntimeError(
+            f"trainset yielded {len(out)} samples; expected "
+            f"{len(train_frame_numbers)}"
         )
-        out_img = renders[0]                                         # (3600, W, 1)
-        if runner.cfg.spectral_leakage:
-            out_img = spectral_leakage(
-                out_img,
-                runner.parser.range_resolution,
-                sinc_width=runner.cfg.sinc_width,
-            )
-        out_img = azimuth_antenna_gain_projection(
-            out_img,
-            new_resolution=runner.parser.azimuth_resolution,
-            beamwidth=runner.parser.azimuth_beamwidth,
-        )                                                             # (400, W)
-        out_img = out_img.squeeze()                                   # (400, W)
-        H_fov = pixels.shape[1]
-        out_img = out_img[:H_fov, :]                                  # wedge crop
-        # Mirror upstream: clamp to [0, 1] (eval:1175) and zero out the
-        # near-range region the model never optimized (train:709).
-        out_img = torch.clamp(out_img, 0.0, 1.0)
-        min_bin_num = int(2.5 / runner.parser.range_resolution)
-        out_img[:, :min_bin_num] = 0
-        rendered = out_img.detach().cpu().numpy().astype(np.float32)
-        break
-    if rendered is None:
-        raise RuntimeError("valset produced no batches")
-    return rendered
+    return out
 
 
 # (GT-side + metric computation live in finalize_metrics.py which runs in
@@ -238,6 +264,18 @@ def run(
     peak_mem_mib = torch.cuda.max_memory_allocated() / (1024 ** 2)
 
     np.save(os.path.join(out_dir, "rendered_ra_polar.npy"), rendered_polar)
+
+    # Per-train-frame renders (supplement figure pipeline).
+    # The trainset uses indices [0,1,2,3,5,6,7,8] (patched at top of file),
+    # which correspond — in sorted scene order — to the 8 training frames
+    # listed in ``split["train_frames"]``.
+    train_frames_polar = _render_train_frames(runner, split["train_frames"])
+    train_frames_dump_dir = os.path.join(out_dir, "train_frames_polar_raw")
+    os.makedirs(train_frames_dump_dir, exist_ok=True)
+    for f, polar in train_frames_polar.items():
+        np.save(os.path.join(train_frames_dump_dir,
+                             f"rendered_ra_polar_frame_{int(f)}.npy"),
+                polar.astype(np.float32))
 
     manifest_path = os.path.join(data_root, scene, "adapter_manifest.json")
     deviations = []

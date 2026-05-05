@@ -794,9 +794,14 @@ def train_frame_nvs(scene,
     test_ra_polar_np = test_ra_polar.detach().cpu().numpy().astype(np.float32)
     test_ra_cart_np = test_ra_cart.detach().cpu().numpy().astype(np.float32)
     test_gt_cart_np = gt_ra_cart.detach().cpu().numpy().astype(np.float32)
+    # Complex per-(TX,RX) range profile -- the renderer's native output.
+    # Range FFT magnitude gives |RA|; inverse range FFT recovers raw ADC.
+    # Shape: (n_tx, n_rx, K_range_bins), dtype complex64.
+    test_rp_complex_np = (rp_real + 1j * rp_imag).detach().cpu().numpy().astype(np.complex64)
     np.save(os.path.join(output_dir, 'rendered_test_ra_polar.npy'), test_ra_polar_np)
     np.save(os.path.join(output_dir, 'rendered_test_ra_cart.npy'), test_ra_cart_np)
     np.save(os.path.join(output_dir, 'gt_test_ra_cart.npy'), test_gt_cart_np)
+    np.save(os.path.join(output_dir, 'rendered_test_rp_complex.npy'), test_rp_complex_np)
     # dB / linear PNGs for the test frame (matches baseline finalize PNGs).
     _save_ra_pngs_torch(test_ra_cart_np, output_dir, 'rendered_ra', range_res,
                          f'mm3DGS test frame {test_frame} loop {held_out_loop}')
@@ -911,6 +916,9 @@ def _save_train_frames_export(*, output_dir, scene, train_samples, rast, model,
                 rendered_cart_np)
         np.save(os.path.join(frame_dir, 'gt_ra_polar_full.npy'), gt_polar_np)
         np.save(os.path.join(frame_dir, 'gt_ra_cart.npy'), gt_cart_np)
+        # Per-train-frame complex range profile (renderer's native output).
+        rp_complex_np = (rp_real + 1j * rp_imag).detach().cpu().numpy().astype(np.complex64)
+        np.save(os.path.join(frame_dir, 'rendered_rp_complex.npy'), rp_complex_np)
 
         _save_ra_pngs_torch(rendered_cart_np, frame_dir, 'rendered_ra',
                             range_res, f'mm3DGS train frame {f} loop {loop_idx}')

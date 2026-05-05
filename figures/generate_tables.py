@@ -232,16 +232,10 @@ def write_test_table(rows: dict, path: str):
     lines = []
     lines.append('\\begin{table*}[t]')
     lines.append('\\centering')
-    lines.append('\\caption{Held-out novel-view test |RA| metrics across six '
-                  'ColoRadar scenes. For each scene, mm3DGS trains on the 8 '
-                  'cascaded radar frames adjacent to the held-out test frame '
-                  '($F\\!\\pm\\!1\\!\\ldots\\!\\pm\\!4$, chirp 0 only) and is '
-                  'evaluated on the held-out test frame ($F$, chirp 0). '
-                  'Metrics: Pearson correlation (Corr), peak signal-to-noise '
-                  'ratio (PSNR, dB), structural similarity (SSIM), and root-'
-                  'mean-square error (RMSE) on min-max-normalized 399$\\times$'
-                  '399 Cartesian $|\\mathrm{RA}|$ images. Best per-scene '
-                  '\\textbf{bold}.}')
+    lines.append('\\caption{\\textbf{Per-scene held-out test $|\\mathrm{RA}|$ '
+                  'metrics on six ColoRadar scenes.} Best per scene in '
+                  '\\textbf{bold}. Mean row anchors the corresponding test row '
+                  'of main paper Table~\\ref{tab:results}.}')
     lines.append('\\label{tab:test_ra}')
     lines.append('\\small')
     lines.append('\\setlength{\\tabcolsep}{2.4pt}')
@@ -324,12 +318,12 @@ def write_train_table(train_rows: dict, path: str):
     lines = []
     lines.append('\\begin{table*}[t]')
     lines.append('\\centering')
-    lines.append('\\caption{Training-view |RA| metrics on the same six '
-                  'ColoRadar scenes. Each cell is the mean across the 8 '
-                  'training frames per scene (chirp 0 only). Same metric '
-                  'harness as Table~\\ref{tab:test_ra} '
-                  '(\\texttt{compute\\_cart\\_ra\\_metrics}). Best per scene '
-                  '\\textbf{bold}.}')
+    lines.append('\\caption{\\textbf{Per-scene training-view $|\\mathrm{RA}|$ '
+                  'metrics on six ColoRadar scenes.} Each cell is the mean over '
+                  'the 8 training frames per scene. Same metric harness as '
+                  'Table~\\ref{tab:test_ra}. Best per scene in \\textbf{bold}. '
+                  'Mean row anchors the corresponding train row of main paper '
+                  'Table~\\ref{tab:results}.}')
     lines.append('\\label{tab:train_ra}')
     lines.append('\\small')
     lines.append('\\setlength{\\tabcolsep}{2.4pt}')

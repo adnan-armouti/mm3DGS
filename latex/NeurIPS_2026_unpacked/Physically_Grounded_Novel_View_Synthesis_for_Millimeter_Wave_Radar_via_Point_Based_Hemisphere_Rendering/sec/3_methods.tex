@@ -1,48 +1,13 @@
 \section{Method}
 \label{sec:methods}
 
-mm3DGS renders complex-valued FMCW range profiles from a learned set of
-\emph{oriented 3D points}, our chosen graphics primitive: points anchored
-on a LiDAR-derived geometric scaffold, each carrying a quaternion-encoded
-surface normal and six physically interpretable ITU-R~P.2040 material
-parameters. Compared to mesh-based Monte Carlo path tracing
-(mmIR~\cite{mmIR2026}), the point primitive eliminates per-iteration ray
-intersection, allowing all $N$ scene points to contribute deterministically
-to every (TX,~RX) pair via fused CUDA kernels.
-Sec.~\ref{sec:methods:fwd} states the radar forward model from the
-bistatic equation through a single-bounce Monte Carlo (MC) ADC estimator
-(the mmIR baseline). Sec.~\ref{sec:methods:splat} presents
-\emph{complex range-profile splatting}, our renderer's central idea:
-in place of per-path ADC synthesis followed by a range FFT, each scene
-point contributes deterministically to range-profile bins via a
-precomputed point-spread function (PSF), MIMO-factorized across the
-(TX,~RX) array and accelerated by fused CUDA kernels.
-Sec.~\ref{sec:methods:init} describes the LiDAR-derived geometric prior
-that initializes the point set. Sec.~\ref{sec:methods:bsdf} specifies the
-per-point ITU BSDF. Sec.~\ref{sec:methods:opt} defines the differentiable
-optimization with adaptive density control.
+3DPS renders complex-valued FMCW range profiles from a learned set of \emph{oriented 3D points} anchored on a LiDAR-derived geometric scaffold. Each point carries a quaternion-encoded surface normal and six physically interpretable ITU-R~P.2040 material parameters, evaluated by a closed-form bidirectional scattering distribution function (BSDF) and splatted into range-profile bins through a precomputed sensor point spread function (PSF). The pipeline is fully deterministic: there is no Monte Carlo sampling, no learned antenna pattern, and no random-direction integration. Sec.~\ref{sec:methods:fwd} states the radar forward model. Sec.~\ref{sec:methods:splat} presents the deterministic point-splatting renderer, our central contribution, and the LiDAR-derived geometric prior. Sec.~\ref{sec:methods:bsdf}--\ref{sec:methods:opt} specify the per-point ITU BSDF and the differentiable optimization.
 
 % ---------------------------------------------------------------------
 \subsection{Radar forward model}
 \label{sec:methods:fwd}
 
-\textbf{Bistatic radar equation.} For a single TX--RX pair observing a
-point target at $\mathbf{x}$ with normal $\mathbf{n}$, at distances
-$d_t$, $d_r$ from transmitter and receiver, the received power is
-\begin{equation}
-P_r \;=\; \frac{P_t\,G_t\,G_r\,\lambda^2\,\sigma}{(4\pi)^3\,d_t^2\,d_r^2},
-\label{eq:radar_bistatic}
-\end{equation}
-where $P_t$ is transmit power, $G_t,G_r$ are directional antenna gains,
-$\lambda$ is the carrier wavelength, and $\sigma$ is the bistatic radar
-cross-section~\cite{skolnik2001introduction}. Replacing the point-target
-RCS with a spatially varying BSDF
-$f(\boldsymbol{\omega}_t, \mathbf{x}, \boldsymbol{\omega}_r)$ and
-converting from surface area $dA_x$ to receiver solid angle via
-$d\omega_r = (c_r/d_r^2)\,dA_x$ with
-$c_r=\max(0,\mathbf{n}\!\cdot\!\boldsymbol{\omega}_r)$, the total
-received power integrated over the receiver hemisphere $\Omega_{rx}$
-becomes
+For a single TX--RX pair observing a point target at $\mathbf{x}$ with normal $\mathbf{n}$, the bistatic radar equation~\cite{skolnik2001introduction} relates received power to bistatic radar cross-section, transmit power $P_t$, antenna gains $G_t,G_r$, wavelength $\lambda$, and TX/RX path lengths $d_t, d_r$. Replacing the point-target RCS with a spatially varying BSDF $f(\boldsymbol{\omega}_t, \mathbf{x}, \boldsymbol{\omega}_r)$ and integrating over the receiver hemisphere $\Omega_{rx}$~\cite{mmIR2026},
 \begin{equation}
 P_r \;=\; \frac{P_t\,\lambda^2}{(4\pi)^2}\!\!\int_{\Omega_{rx}}\!\!
 \frac{G_t(\boldsymbol{\omega}_t)\,G_r(\boldsymbol{\omega}_r)\,
@@ -50,55 +15,15 @@ P_r \;=\; \frac{P_t\,\lambda^2}{(4\pi)^2}\!\!\int_{\Omega_{rx}}\!\!
        {d_t^2}\,d\omega_r,
 \label{eq:radar_solid_angle}
 \end{equation}
-where $c_t=\max(0,\mathbf{n}\!\cdot\!\boldsymbol{\omega}_t)$ and
-$V\!\in\!\{0,1\}$ is visibility~\cite{mmIR2026}.
-
-\textbf{Single-bounce MC estimator (mmIR baseline).} The $D$-bounce MC
-estimator for $\hat{P}_r$ given $N$ Monte Carlo samples is given in
-mmIR~\cite{mmIR2026}; restricting to single-bounce paths ($D{=}1$),
-which are sufficient for the static outdoor ColoRadar scenes we target,
-the estimator collapses to
-\begin{equation}
-\hat{P}_r \;=\; \frac{P_t\,\lambda^2}{(4\pi)^2}\,\frac{1}{N}\sum_{k=1}^{N}
-        \frac{G_{t,k}\,G_{r,k}\,c_{t,k}\,f_k\,V_k}{d_{t,k}^2\,\rho_{rx,k}},
-\label{eq:single_bounce_mc}
-\end{equation}
-where $\rho_{rx,k}$ is the importance-sampling PDF used to draw the
-$k$-th direction from the receiver. Synthesizing one ADC sample for
-TX~$i$, RX~$j$ requires summing complex phasors over $N$ MC paths,
-\begin{equation}
-s_{ij}[k] \;=\; \sum_{p=1}^{N}\,a_{ij}^{(p)}\,
-        \exp\!\bigl(j\,2\pi(f_c{+}S\,t_k)\,\tau_{ij}^{(p)}\bigr),
-\label{eq:adc_synth}
-\end{equation}
-where $\tau_{ij}^{(p)}\!=\!R_{ij}^{(p)}/c$ is the round-trip delay,
-$f_c$ is the carrier frequency, $S$ is the chirp slope, and
-$a_{ij}^{(p)}\!\in\!\mathbb{C}$ aggregates the throughput of path $p$
-from \eqref{eq:single_bounce_mc}. With $N$ MC paths, $K$ ADC samples,
-$N_{\text{TX}}\!\cdot\!N_{\text{RX}}$ pairs, and a range-FFT to convert
-ADC to range bins, mmIR's pipeline is
-$\mathcal{O}(N\!\cdot\!N_{\text{TX}}\!\cdot\!N_{\text{RX}}\!\cdot\!K\,
-{+}\,\text{FFT})$ per iteration; at $N\!=\!24$k surface points the
-forward+backward pass takes ${\sim}$20~minutes for 500 iterations on
-a single viewpoint~\cite{mmIR2026}.
+where $c_t = \max(0, \mathbf{n}\!\cdot\!\boldsymbol{\omega}_t)$ is the cosine of incidence and $V \in \{0,1\}$ is binary visibility. Standard FMCW renderers approximate Eq.~\eqref{eq:radar_solid_angle} via Monte Carlo path sampling, synthesize ADC samples per path, and apply a range FFT to recover range bins; mmIR~\cite{mmIR2026} is the current state of the art for this pipeline and requires ${\sim}$20~minutes for a 500-iteration single-viewpoint fit at 24k surface interactions per iteration.
 
 % ---------------------------------------------------------------------
-\subsection{Range-profile splatting}
+\subsection{Deterministic point splatting}
 \label{sec:methods:splat}
 
-\textbf{Complex range-profile splatting in place of ADC rendering.}
-The $D{=}1$ MC estimator (Eq.~\ref{eq:single_bounce_mc}) already
-provides, per scene point, a complex amplitude and a path length to
-each (TX,~RX) pair. Rather than synthesizing an ADC time series and
-then range-FFT-ing it, we observe that the range FFT of a single-path
-ADC contribution (Eq.~\ref{eq:adc_synth}) is a windowed $\mathrm{sinc}$
-pulse centered at the path's bistatic range bin, fully determined by
-the chirp's bandwidth and FFT window.
-We precompute this point-spread function $\mathrm{PSF}(r) \in
-\mathbb{C}^K$ once on a $K{=}256$ bin grid at the radar's range
-resolution $\Delta r = c/(2\,B_{\text{chirp}}) = 5.93$~cm, where
-$B_{\text{chirp}}$ is the swept bandwidth. The forward pass then
-becomes a sparse scatter-add directly into range-profile bins:
+\textbf{Deterministic evaluation.} 3DPS evaluates the forward model deterministically: each oriented point in the scene contributes \emph{exactly once} per (TX,~RX) pair, with no Monte Carlo path sampling and no random-direction integration. The hemisphere integral of Eq.~\eqref{eq:radar_solid_angle} is replaced by a closed-form sum over the fixed point set $\{\mathbf{x}_i\}_{i=1}^{N}$ with $N{=}20{,}000$, evaluated at the deterministic per-pair incidence and observation angles obtained directly from the array geometry.
+
+\textbf{Range-profile splatting.} The range FFT of a single-path ADC contribution is a Hann-windowed sinc pulse centered at the path's bistatic range bin, fully determined by the chirp bandwidth and the FFT window. We precompute this point-spread function $\mathrm{PSF}(r) \in \mathbb{C}^K$ once on a $K{=}256$ bin grid at the radar's range resolution $\Delta r = c/(2\,B_{\text{chirp}}) = 5.93$~cm, where $B_{\text{chirp}}$ is the chirp's swept bandwidth. The forward pass then becomes a sparse scatter-add directly into range-profile bins:
 \begin{equation}
 \mathrm{RP}_{T R}[k]
 \;=\;
@@ -107,171 +32,47 @@ becomes a sparse scatter-add directly into range-profile bins:
 k^{\star}_{T R i} = \mathrm{round}(r_{T R i}/\Delta r),
 \label{eq:psf_splat}
 \end{equation}
-where $A_i^{T R} \in \mathbb{C}$ collects the antenna gains, BSDF and
-geometric factors of \eqref{eq:single_bounce_mc} for the $i$-th
-\emph{point} (no MC sampling --- each scene point contributes once),
-$\phi_{T R i}\!=\!2\pi(d_{T i}{+}d_{R i})/\lambda$ is the round-trip
-carrier phase, and $r_{T R i}\!=\!(d_{T i}{+}d_{R i})/2$ is the
-bistatic range. Splatting into the $L\!\in\!\{4,8\}$ nearest range
-bins with PSF taps replaces the entire fast-time DFT, dropping the
-cost from $\mathcal{O}(N\!\cdot\!K)$ to $\mathcal{O}(N\!\cdot\!L)$
-per (TX,~RX) pair.
+where $A_i^{T R} \in \mathbb{C}$ collects the antenna gains, BSDF, and geometric falloff factors of Eq.~\eqref{eq:radar_solid_angle} for point $i$, $\phi_{T R i} = 2\pi(d_{T i}{+}d_{R i})/\lambda$ is the round-trip carrier phase, and $r_{T R i} = (d_{T i}{+}d_{R i})/2$ is the bistatic range. Splatting into the $L{=}15$ nearest range bins per path replaces the entire fast-time DFT, dropping the cost from $\mathcal{O}(N\!\cdot\!K)$ to $\mathcal{O}(N\!\cdot\!L)$ per (TX,~RX) pair.
 
-\textbf{MIMO factorization.} A cascade radar with
-$N_{\text{TX}}\!=\!12$ transmitters and $N_{\text{RX}}\!=\!16$
-receivers produces $N_{\text{TX}}\!\cdot\!N_{\text{RX}}\!=\!192$
-TX--RX pairs per chirp. Naively summing \eqref{eq:psf_splat} over all
-pairs scales as $\mathcal{O}(N\!\cdot\!N_{\text{TX}}\!\cdot\!N_{\text{RX}})$
-in BSDF evaluations. The ITU BSDF (Sec.~\ref{sec:methods:bsdf})
-factors over incidence and outgoing directions, so we evaluate the
-per-point incidence factor $f^{\text{in}}_i(\hat{\mathbf{d}}_{T i};
-\mathbf{n}_i,\boldsymbol{\theta}_i)$ once per TX, the outgoing factor
-$f^{\text{out}}_i(\hat{\mathbf{d}}_{R i};\mathbf{n}_i,\boldsymbol{\theta}_i)$
-once per RX, and combine them per (TX,~RX) pair without recomputing
-material physics, dropping the cost from
-$\mathcal{O}(N\!\cdot\!N_{\text{TX}}\!\cdot\!N_{\text{RX}})$ to
-$\mathcal{O}(N\,(N_{\text{TX}}{+}N_{\text{RX}}))$ following the
-mmIR ray-reuse strategy~\cite{mmIR2026,9533181}. After splatting, an
-$N_{\text{TX}}$-point virtual-array DFT along the azimuth dimension
-converts the per-(TX,~RX) range profiles into a range--azimuth (RA)
-map of shape $(N_{\text{az}},K)\!=\!(127,256)$; azimuth bin centers
-follow the standard arcsin-spaced convention
-$\theta_a\!=\!\arcsin(2(a-N_{\text{az}}/2)/(N_{\text{az}}{+}1))$,
-giving a forward-cone half-angle of
-$\arcsin(126/128){\approx}79.86^\circ$.
+\textbf{Validity of the splat.} The Hann-windowed PSF tail beyond $L{=}15$ taps is below $-50$~dB relative to peak, well under the noise floor of real ColoRadar captures. The bin-rounding $k^\star = \mathrm{round}(r/\Delta r)$ introduces at most $\Delta r/2 = 2.97$~cm of range bias per path, an order of magnitude below the radar's intrinsic range resolution; the rounding is applied only to the splat index and does not affect the carrier phase $\phi$, which is computed from the un-rounded $d_T+d_R$. Sidelobes and FFT windowing artifacts are captured exactly by the precomputed PSF. The splat is therefore numerically equivalent to the standard ADC-then-FFT pipeline on the same path set: we validate this empirically against mmIR's MC reference at maximum forward error $1.19\!\times\!10^{-7}$ on 90k paths~\cite{mmIR2026}.
 
-\textbf{CUDA fusion.} The combined cost of \eqref{eq:psf_splat} +
-factorized BSDF + virtual-array DFT is implemented as three fused
-CUDA kernels: a forward BSDF kernel that evaluates the GGX, SPM, and
-diffuse lobes plus Jones-polarized Fresnel coefficients in fp32 with
-fast-math; a scatter-splat kernel that performs \eqref{eq:psf_splat}
-via atomic adds into the range-profile bins; and an analytical
-backward kernel that computes all 21 per-point partial derivatives
-via atomic accumulation, including a closed-form Jacobian for the
-slab-Fresnel coefficients. Iteratively built and validated (forward
-correctness max~error 1.19$\!\times\!10^{-7}$ on 90k~paths~\cite{mmIR2026};
-backward gradients tight on 18 of 21 parameters), the fused pipeline
-renders $N\!=\!20{,}000$ scene points across all 192~(TX,~RX) pairs in
-${\sim}$10~ms on an RTX~4090, with a 500-iteration training pass over
-the 8 training viewpoints completing in ${\sim}$2.3~minutes per scene.
+\textbf{MIMO factorization.} The cascade radar's $N_{\text{TX}}{=}12$ transmitters and $N_{\text{RX}}{=}16$ receivers produce $192$ TX--RX pairs per chirp. The ITU BSDF (Sec.~\ref{sec:methods:bsdf}) factors over incidence and outgoing directions, so we evaluate the per-point incidence factor $f_i^{\text{in}}(\hat{\mathbf{d}}_{Ti})$ once per TX, the outgoing factor $f_i^{\text{out}}(\hat{\mathbf{d}}_{Ri})$ once per RX, and combine them per pair without recomputing material physics --- dropping the BSDF cost from $\mathcal{O}(N\!\cdot\!N_{\text{TX}}\!\cdot\!N_{\text{RX}})$ to $\mathcal{O}(N\,(N_{\text{TX}}{+}N_{\text{RX}}))$, the ray-reuse strategy of mmIR~\cite{mmIR2026,9533181}. After splatting, an $N_{\text{TX}}$-point virtual-array DFT along the azimuth dimension converts the per-(TX,~RX) range profiles into a range--azimuth (RA) map of shape $(N_{\text{az}},K) = (127, 256)$. The $N_{\text{az}}{=}127$ azimuth bins correspond to the unique TDM-MIMO virtual-element positions of the cascade array geometry, padded to the standard arcsin-spaced grid $\theta_a = \arcsin(2(a{-}N_{\text{az}}/2)/(N_{\text{az}}{+}1))$ with forward-cone half-angle $\arcsin(126/128) \approx 79.86^\circ$.
 
-% ---------------------------------------------------------------------
-\subsection{LiDAR-derived geometric prior and point initialization}
-\label{sec:methods:init}
+\textbf{CUDA fusion.} The combined cost of Eq.~\eqref{eq:psf_splat} plus factorized BSDF plus virtual-array DFT is implemented as three fused CUDA kernels: a forward BSDF kernel evaluating the GGX, SPM, and diffuse lobes plus Jones-polarized Fresnel coefficients in fp32; a scatter-splat kernel performing Eq.~\eqref{eq:psf_splat} via atomic adds into range-profile bins; and an analytical backward kernel computing per-point partial derivatives via atomic accumulation, with a closed-form Jacobian for the slab-Fresnel coefficients. The analytical backward is validated against finite-difference gradients to within numerical tolerance. The fused pipeline renders $N{=}20{,}000$ scene points across all $192$ (TX,~RX) pairs in ${\sim}10$~ms on an RTX~4090, and a 500-iteration training pass over the 8 training viewpoints completes in ${\sim}3$~minutes per scene.
 
-Radar's narrow azimuth resolution (several degrees~\cite{gao2019experiments})
-makes recovering geometry from radar alone impractical, so we condition
-the renderer on a LiDAR-derived geometric prior: the scene's $N$
-oriented points are initialized from a co-registered LiDAR point cloud
-and remain anchored to it throughout training. Geometric scaffold
-initialization uses the per-scene LiDAR cloud
-$\mathcal{P}_{\text{LiDAR}}\!\in\!\mathbb{R}^{M\times 7}$ ($M$ ranges
-from ${\sim}$2.7 to 6.5 million across our scenes; columns are $xyz$,
-surface normals, and LiDAR intensity), reduced to $N\!=\!20{,}000$
-oriented points by a four-stage pipeline. We first cull points outside
-the radar's azimuth cone
-($\cos(\angle(\hat{\mathbf{d}},\hat{\mathbf{b}}))>\cos(79.86^\circ)
-{=}0.1761$, matching the arcsin-spaced azimuth grid) and outside the
-radial range $1.5\,\text{m}\!<\!d\!<\!K\,\Delta r\!=\!15.2\,\text{m}$
-from the array centroid at the seed pose. Second, we cast a Mitsuba~3
-ray~\cite{jakob2022dr} from each surviving point toward the array
-centroid and drop occluded points; this is the only ray-tracing call
-in our pipeline. Third, we resample $3N$ candidates from the visible
-set with replacement at probability proportional to
-$\max(\cos(\angle(\hat{\mathbf{d}},\hat{\mathbf{b}})),0.01)$, biasing
-selection toward boresight-aligned regions where the antenna pattern
-is strongest, and take the unique set. Finally, we reduce to exactly
-$N\!=\!20{,}000$ points via greedy farthest-point sampling on the
-resampled set, ensuring spatial uniformity within the radar's main
-beam. Each surviving point inherits a quaternion encoding its LiDAR
-surface normal and a uniform ITU-concrete material prior. During
-training (Sec.~\ref{sec:methods:opt}) positions are bounded sub-mm
-relative to this prior by an L2 anchor, while the adaptive density
-control redistributes the point budget toward radar-bright features.
+\textbf{LiDAR-derived geometric prior.} We initialize the point set $\{\mathbf{x}_i\}$ from a co-registered LiDAR scan. A 3D geometric prior is mandatory, not optional: the forward model in Eqs.~\eqref{eq:radar_solid_angle}--\eqref{eq:psf_splat} requires full 3D positions $\mathbf{x}_i\in\mathbb{R}^3$ to compute bistatic range $r_{TRi}$, incidence/observation angles $\boldsymbol{\omega}_t,\boldsymbol{\omega}_r$, and the elevation-dependent antenna gains $G_t G_r$ (the cascade's planar virtual array has a non-trivial elevation pattern even though it lacks an elevation aperture). The supervision signal --- 2D range--azimuth maps --- has integrated out the elevation dimension by construction, so RA maps alone are information-theoretically insufficient to recover 3D point positions regardless of how many viewpoints are aggregated. Compounding this, NVS is performed from only eight training views per scene, and each individual RA map is itself extremely sparse: mmWave returns are dominated by strong specular reflections at near-normal incidence with sparse glints elsewhere, since outdoor surfaces tend to act as quasi-mirrors at 60--77\,GHz~\cite{guan2020through, lu2013measurement}. LiDAR-conditioned scaffolds are accordingly the dominant precedent for radar rendering and ray-tracing on real scenes~\cite{dudek2010millimeter, 9533181, mostajabi2020high, kramer2022coloradar, mmIR2026, kung2025radarsplat, rafidashti2025neuradar, sionna}. We reduce the per-scene LiDAR cloud (positions, normals, intensity; $\sim 2.7$--$6.5$M points across our scenes) to $N{=}20{,}000$ oriented points by (1) culling outside the radar's azimuth cone ($\cos(\angle(\hat{\mathbf{d}},\hat{\mathbf{b}})) > 0.1761$) and radial range ($1.5$~m to $K\Delta r{=}15.2$~m); (2) Mitsuba~3 ray-casting~\cite{jakob2022dr} from each surviving point toward the array centroid to drop occluded points; (3) cosine-weighted resampling of $3N$ candidates with replacement at probability $\propto \max(\cos(\angle(\hat{\mathbf{d}},\hat{\mathbf{b}})), 0.01)$, biasing selection toward boresight-aligned regions where the antenna pattern is strongest; and (4) farthest-point sampling to exactly $N{=}20{,}000$. Each surviving point inherits a quaternion encoding its LiDAR surface normal and a uniform ITU-concrete material prior.
+
+% Complexity comparison table (commented out for now; complexity discussion stays in prose above)
+% \input{tables/complexity_comparison}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figs/pipeline_3dps.pdf}
+  \caption{\textbf{3DPS rendering pipeline.} A LiDAR point cloud is reduced to $N{=}20{,}000$ oriented points (Sec.~\ref{sec:methods:splat}, LiDAR-derived geometric prior). For each (TX,~RX) pair, the per-point ITU BSDF (Sec.~\ref{sec:methods:bsdf}) is evaluated at the deterministic incidence and observation angles, producing a complex amplitude $A_i^{TR}$ and a carrier phase $\phi_{TRi}$. Each point's complex contribution is splatted via a Hann-windowed PSF into the $L{=}15$ nearest range bins (Eq.~\ref{eq:psf_splat}). Per-(TX,~RX) range profiles are stacked and an azimuth FFT is applied to obtain the final RA map.}
+  \label{fig:pipeline}
+\end{figure}
 
 % ---------------------------------------------------------------------
 \subsection{Per-point ITU BSDF}
 \label{sec:methods:bsdf}
 
-Each point's BSDF follows the ITU-R~P.2040 multilayer slab model,
-identical to the per-vertex BSDF used in mmIR~\cite{mmIR2026,itu_p2040,wei2024csvbsdf}
-but applied per-point. The 6-parameter material vector
-$\boldsymbol{\theta}_i = (\varepsilon_r',\,\varepsilon_r'',\,\sigma_h,\,
-l_c,\,\tau,\,d)_i$ specifies the complex relative permittivity
-$\varepsilon_r=\varepsilon_r'-j\,\varepsilon_r''$, RMS surface roughness
-$\sigma_h$, correlation length $l_c$, Kirchhoff-approximation /
-small-perturbation (KA/SPM) blend $\tau\!\in\![0,1]$, and slab
-thickness $d$. Each parameter is reparameterized via
-sigmoid (KA/SPM blend) or shifted softplus (positive-only quantities)
-to keep the optimization in physically valid ranges.
+Each point's BSDF follows the ITU-R~P.2040 multilayer slab model used by mmIR~\cite{mmIR2026,itu_p2040,wei2024csvbsdf}, applied per-point rather than per-vertex. The 6-parameter material vector $\boldsymbol{\theta}_i = (\varepsilon_r',\,\varepsilon_r'',\,\sigma_h,\,l_c,\,\tau,\,d)_i$ specifies the complex relative permittivity $\varepsilon_r = \varepsilon_r' - j\,\varepsilon_r''$, RMS surface roughness $\sigma_h$, correlation length $l_c$, Kirchhoff-approximation / small-perturbation (KA/SPM) blend $\tau \in [0,1]$, and slab thickness $d$. Each parameter is reparameterized via sigmoid (KA/SPM blend) or shifted softplus (positive-only quantities) to keep optimization in physically valid ranges.
 
-The BSDF decomposes into coherent and incoherent components via the
-Rayleigh roughness factor $\eta\!=\!\exp(-(2k\sigma_h\cos\theta_t)^2)$
-with $k\!=\!2\pi/\lambda$:
-$f \!=\! A(\boldsymbol{\omega}_t)\,[\eta\,f_{\text{coh}}{+}(1{-}\eta)\,f_{\text{inc}}]$,
-where $A(\boldsymbol{\omega}_t)\!\in\![0,1]$ is the slab-Fresnel energy
-gate and the lobes are
-$f_{\text{coh}}\!=\!\tau f_{\text{KA}}{+}(1{-}\tau)f_{\text{SPM}}$
-(GGX microfacet specular + von~Mises--Fisher SPM lobe) and
-$f_{\text{inc}}\!=\!\gamma f_{\text{dir}}{+}(1{-}\gamma)f_{\text{broad}}$
-(directional + Lambertian diffuse). The slab Fresnel
-$A(\boldsymbol{\omega}_t)$ uses an ITU-R~P.2040 multilayer slab model
-with thickness $d$ and complex permittivity $\varepsilon_r$, capturing
-internal reflections that single-interface Fresnel would miss
-(critical for plasterboard, vehicle bodies, and other thin layered
-materials). Polarization is tracked through the local $s/p$ basis with
-complex Jones reflection coefficients per polarization. The full
-factored form is identical to the one used by mmIR (see their
-supplement); we reuse the same reparameterization and lobe
-decomposition so our materials are directly interoperable.
+The BSDF decomposes into coherent and incoherent components via the Rayleigh roughness factor $\eta = \exp(-(2k\sigma_h\cos\theta_t)^2)$ with $k = 2\pi/\lambda$:
+\begin{equation}
+f \;=\; A(\boldsymbol{\omega}_t)\,\bigl[\eta\,f_{\text{coh}} + (1-\eta)\,f_{\text{inc}}\bigr],
+\label{eq:bsdf_decomp}
+\end{equation}
+where $A(\boldsymbol{\omega}_t) \in [0,1]$ is the slab-Fresnel energy gate (multilayer slab with thickness $d$ and complex permittivity $\varepsilon_r$, capturing the internal reflections that single-interface Fresnel misses --- critical for plasterboard, vehicle bodies, and other thin layered materials), $f_{\text{coh}} = \tau f_{\text{KA}} + (1-\tau) f_{\text{SPM}}$ combines a GGX microfacet specular lobe and a von~Mises--Fisher SPM lobe, and $f_{\text{inc}} = \gamma f_{\text{dir}} + (1-\gamma) f_{\text{broad}}$ combines a directional and a Lambertian diffuse lobe. Polarization is tracked through the local $s/p$ basis with complex Jones reflection coefficients per polarization. We reuse mmIR's per-lobe forms unchanged~\cite{mmIR2026}; per-point optimization yields one $\boldsymbol{\theta}_i$ vector per scene point rather than per mesh vertex.
 
 % ---------------------------------------------------------------------
 \subsection{Differentiable optimization}
 \label{sec:methods:opt}
 
-\textbf{Learned parameters.} For each point we learn (i) the
-6-parameter ITU material $\boldsymbol{\theta}_i$ (shared init, per-point
-freedom afterward); (ii) the surface-normal quaternion $\mathbf{q}_i$
-(initialized from the LiDAR normal); and (iii) the 3D position
-$\mathbf{p}_i$, optimized through the \emph{amplitude path only}
---- the carrier-phase term $e^{-j\phi_{T R i}}$ in
-\eqref{eq:psf_splat} is detached from the autograd graph for position
-gradients, since the rounded range bin index $k^\star$ creates a hard
-discontinuity through which phase gradients are degenerate. An L2
-anchor $\lambda_{\text{pos}}\!\|\mathbf{p}_i-\mathbf{p}_i^{(0)}\|^2$
-($\lambda_{\text{pos}}{=}100$) restricts position drift to under
-${\sim}$1~mm per iteration, much smaller than the carrier wavelength
-($\lambda{\approx}3.9\,\text{mm}$ at 76\,GHz), so geometry remains
-LiDAR-anchored.
+\textbf{Learned parameters.} For each point we learn (i) the 6-parameter ITU material $\boldsymbol{\theta}_i$ (shared init, per-point freedom afterward); (ii) the surface-normal quaternion $\mathbf{q}_i$, initialized from the LiDAR normal; and (iii) the 3D position $\mathbf{p}_i$, optimized through the \emph{amplitude path only}. The carrier-phase term $e^{-j\phi_{T R i}}$ in Eq.~\eqref{eq:psf_splat} is detached from the autograd graph for position gradients because the rounded range-bin index $k^\star = \mathrm{round}(r/\Delta r)$ creates a piecewise-constant dependence on $\mathbf{p}_i$: $\partial k^\star / \partial \mathbf{p}_i$ is zero almost everywhere and an unbounded delta at bin boundaries, so phase gradients on position are degenerate. Detaching the carrier phase removes the discontinuity from the backward pass without affecting the forward pass; the carrier phase is still computed from the un-rounded $d_T + d_R$. An L2 anchor $\lambda_{\text{pos}}\|\mathbf{p}_i - \mathbf{p}_i^{(0)}\|^2$ ($\lambda_{\text{pos}}{=}100$) restricts position drift to ${\sim}1$~mm per iteration --- much smaller than the carrier wavelength ($\lambda \approx 3.9$~mm at 76\,GHz) --- so geometry remains LiDAR-anchored and the carrier phase remains correct in expectation.
 
-\textbf{Loss.} For each training pose $F$, we compute the magnitude
-RA map $|\mathrm{RA}_F^{\text{pred}}|$ from \eqref{eq:psf_splat} +
-azimuth DFT, and an MSE against the magnitude of the measured RA
-$|\mathrm{RA}_F^{\text{GT}}|$, both normalized by their respective
-$L^2$~norms. The total loss is the mean over training samples;
-rotation and material drift are unregularized but bounded by the
-implicit Adam clipping.
+\textbf{Loss.} For each training pose $F$ we render the magnitude RA map $|\mathrm{RA}_F^{\text{pred}}|$ via Eq.~\eqref{eq:psf_splat} plus azimuth DFT and compute MSE against the measured $|\mathrm{RA}_F^{\text{GT}}|$, both normalized by their respective $L^2$ norms. The total loss is the mean over training samples; rotation and material drift are unregularized and bounded implicitly by Adam.
 
-\textbf{Adaptive density control.} Following 3DGS~\cite{3dgs} but
-adapted to radar physics, we periodically split high-importance points
-and prune low-importance points to redistribute the fixed $N$ budget.
-The per-point importance signal is the accumulated amplitude-path
-position gradient magnitude
-$g_i\!=\!\sum_F\|\nabla_{\mathbf{p}_i}\mathcal{L}_F\|$ between densify
-rounds, computed by tracking the gradient on positions while
-\emph{excluding} them from the optimizer's update step --- positions
-remain on the LiDAR scaffold while their gradient drives a separate
-splitting decision. At iters $\{100,200,300,400\}$ we (i) clone the
-top 5\% of points by $g_i$ into Gaussian-jittered children at
-$\sigma_p\!=\!2$~cm and $\sigma_q\!=\!0.05$~rad; (ii) evict the
-bottom 5\% by $g_i$; (iii) reset Adam state for the affected slots.
-This preserves the budget exactly ($N$ remains $20{,}000$) and
-concentrates capacity where the gradient signal indicates the
-renderer most disagrees with the data.
+\textbf{Adaptive density control.} Following 3DGS~\cite{3dgs} but adapted to radar physics, we periodically split high-importance points and prune low-importance points to redistribute the fixed $N$ budget. The per-point importance signal is the accumulated amplitude-path position-gradient magnitude $g_i = \sum_F \|\nabla_{\mathbf{p}_i} \mathcal{L}_F\|$ between densify rounds: a high $g_i$ indicates the renderer disagrees with the data at that point, so the point either needs additional capacity (split) or is contributing nothing (prune). To compute $g_i$ without actually moving points, we track the gradient on positions while \emph{excluding} them from the optimizer step, so positions remain on the LiDAR scaffold while the gradient drives the splitting decision. At iters $\{100, 200, 300, 400\}$ we (i) clone the top 5\% of points by $g_i$ into Gaussian-jittered children at $\sigma_p = 2$~cm, $\sigma_q = 0.05$~rad, (ii) evict the bottom 5\% by $g_i$, and (iii) reset Adam state for the affected slots. The budget $N{=}20{,}000$ is exactly preserved.
 
-\textbf{Implementation.} Optimization uses Adam ($\beta_1{=}0.9$,
-$\beta_2{=}0.999$) with per-parameter learning rates
-$\eta_{\text{mat}}{=}10^{-2}$, $\eta_{\text{rot}}{=}5\!\cdot\!10^{-3}$,
-$\eta_{\text{pos}}{=}10^{-5}$, and per-parameter root-mean-square
-gradient clipping. Each scene's 500-iteration training loop completes
-in ${\sim}$2.3~minutes on a single RTX~4090.
+\textbf{Implementation.} Optimization uses Adam ($\beta_1{=}0.9$, $\beta_2{=}0.999$) with per-parameter learning rates $\eta_{\text{mat}}{=}10^{-2}$, $\eta_{\text{rot}}{=}5\!\cdot\!10^{-3}$, $\eta_{\text{pos}}{=}10^{-5}$, and per-parameter root-mean-square gradient clipping. Each scene's 500-iteration training loop completes in ${\sim}3$~minutes on a single RTX~4090.

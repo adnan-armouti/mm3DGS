@@ -63,6 +63,24 @@ def _gt_side(scene: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
             range_res)
 
 
+def _gt_side_for_file(adc_path: str, cfg_path: str
+                      ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+    """Same shape as ``_gt_side`` but for an arbitrary cascade ADC path."""
+    adc = common_adapt.load_cascaded_adc(adc_path)
+    ra_polar_full = common_adapt.adc_to_polar_ra(adc, sensor="cascaded")
+    ra_polar_cropped = common_adapt.range_crop(ra_polar_full)
+
+    from mmir.data.io_utils import compute_range_res_from_cfg
+    from mmir.data.ra_utils import ra_polar_to_cartesian
+
+    range_res = compute_range_res_from_cfg(cfg_path)
+    ra_cart = ra_polar_to_cartesian(ra_polar_full, range_res).astype(np.float32)
+    return (ra_polar_full.astype(np.float32),
+            ra_polar_cropped.astype(np.float32),
+            ra_cart,
+            range_res)
+
+
 def _match_shapes(a: np.ndarray, b: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     H = min(a.shape[0], b.shape[0])
     W = min(a.shape[1], b.shape[1])
@@ -163,8 +181,82 @@ def main_cli() -> int:
             title=f"{args.baseline_name} rasterized (test frame {meta['test_frame']}, {scale})",
         )
 
+    # ------------------------------------------------------------------
+    # Per-train-frame artefacts (supplement figure pipeline).
+    # ------------------------------------------------------------------
+    _process_train_frames(args.out_dir, args.baseline_name,
+                          meta, gt_cart.shape)
+
     print(json.dumps(result, indent=2))
     return 0
+
+
+def _process_train_frames(out_dir: str, baseline_name: str,
+                          meta: dict, gt_cart_shape) -> None:
+    """For each training frame: build GT (cart + polar), load the runner's
+    rendered polar dump, run the same sin-resample + cart conversion as the
+    test path, and write per-frame artefacts under ``train_frames/frame_<F>``.
+
+    Skips silently if the runner did not produce per-train-frame dumps
+    (back-compat with older runs).
+    """
+    from baselines.common import train_frames_io
+    from baselines.radarsplat.adapter.mm3dgs_to_radarsplat import (
+        resample_polar_angle_to_sin,
+    )
+    from mmir.data.ra_utils import ra_polar_to_cartesian
+
+    scene = meta["scene"]
+    split = nvs_split.cascaded_split(scene)
+    train_frames = list(map(int, split["train_frames"]))
+    train_files = list(split["train_files"])
+    train_configs = list(split["train_configs"])
+
+    raw_dir = os.path.join(out_dir, "train_frames_polar_raw")
+    if not os.path.isdir(raw_dir):
+        print(f"[finalize] no train_frames_polar_raw/ in {out_dir}; skipping")
+        return
+
+    per_frame_results = []
+    for f, adc_path, cfg_path in zip(train_frames, train_files, train_configs):
+        rend_path = os.path.join(raw_dir, f"rendered_ra_polar_frame_{f}.npy")
+        if not os.path.isfile(rend_path):
+            print(f"[finalize] missing {rend_path}; skipping frame {f}")
+            continue
+
+        rendered_polar = np.load(rend_path).astype(np.float32)
+        rendered_polar = np.clip(rendered_polar, 0.0, 1.0)
+
+        gt_polar_full, gt_polar_cropped, gt_cart, range_res = _gt_side_for_file(
+            adc_path, cfg_path,
+        )
+
+        rendered_polar_sin = resample_polar_angle_to_sin(rendered_polar, H_sin=127)
+        rend_cart = ra_polar_to_cartesian(rendered_polar_sin, range_res).astype(np.float32)
+        rend_polar_cropped = common_adapt.range_crop(rendered_polar)
+
+        gt_cart_m, rend_cart_m = _match_shapes(gt_cart, rend_cart)
+        W = min(gt_polar_cropped.shape[1], rend_polar_cropped.shape[1])
+        gt_polar_m = gt_polar_cropped[:, :W]
+        rend_polar_m = rend_polar_cropped[:, :W]
+
+        result = train_frames_io.save_per_train_frame(
+            out_root=out_dir,
+            frame=f,
+            rendered_ra_cart=rend_cart_m,
+            gt_ra_cart=gt_cart_m,
+            range_res=range_res,
+            baseline_name=baseline_name,
+            scene=scene,
+            rendered_ra_polar=rendered_polar_sin,
+            gt_ra_polar_full=gt_polar_full,
+            rendered_ra_polar_cropped=rend_polar_m,
+            gt_ra_polar_cropped=gt_polar_m,
+            extra={"test_frame": int(meta["test_frame"])},
+        )
+        per_frame_results.append(result)
+
+    train_frames_io.write_train_aggregate(out_dir, per_frame_results)
 
 
 if __name__ == "__main__":

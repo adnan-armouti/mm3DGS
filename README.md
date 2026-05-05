@@ -19,6 +19,231 @@ rendering:
 
 ---
 
+## 3DPS — NeurIPS 2026 paper
+
+The NeurIPS 2026 submission *"3DPS: Differentiable 3D Point Splatting
+for Physically Based mmWave Radar Rendering and Novel View Synthesis"* is implemented
+as a separate point-based renderer in [mm25DGS_v5_v4/](mm25DGS_v5_v4/),
+trained on cascade radar with frame-NVS scene splits (8 train + 1
+held-out test frame, first chirp loop). Baselines (DART, Radar Fields,
+RadarSplat) live under [baselines/](baselines/). The mesh-based mmIR
+pipeline documented below is the predecessor renderer and is unchanged.
+
+### Train 3DPS on a single scene
+
+The trainer's defaults are the locked-in M0 recipe used in the paper
+(20k oriented points, 500 Adam iters, ITU material vectors, adaptive
+density control at iters {100, 200, 300, 400}, cos-weighted FPS
+init from LiDAR). No flag overrides are needed to reproduce the paper.
+
+```bash
+PY=/home/adnan/.conda/envs/mmir/bin/python
+
+$PY -m mm25DGS_v5_v4.train_frame_nvs \
+    --scene seq_1_frame_438 \
+    --test_frame 438 \
+    --train_frames 434,435,436,437,439,440,441,442
+```
+
+This writes to
+[mm25DGS_v5_v4/output_frame_nvs/seq_1_frame_438_train8frames_1loops_test438_loop0_pass2_N20000/](mm25DGS_v5_v4/output_frame_nvs/),
+producing `results.json` (test-frame metrics), `metrics_train.json`
+(per-train-frame metrics), `rendered_test_ra_{polar,cart}.npy`,
+`gt_test_ra_cart.npy`, and `train_frames/frame_<F>/` (per-train-frame
+RA dumps). One scene takes ~2.3 minutes on a single RTX 4090.
+
+### Reproduce all 6 paper scenes (parallel across both 4090s)
+
+```bash
+bash run_v5_v4_locked.sh
+```
+
+This runs the 6 benchmark scenes in parallel across GPU 0/1 and
+populates the directories listed in *Output map* below.
+
+### Run baselines
+
+DART, Radar Fields, and RadarSplat each have their own conda env
+(`dart`, `radarfields`, `radarsplat`) and a `runner/run_phase4.py` driver
+that loops over the 6 scenes, schedules 2 GPUs, and writes per-scene
+metrics + an `aggregate.json`. The `mmir` env is used for adapters
+(scene → upstream format) and metric finalization.
+
+```bash
+# DART (cascaded mode — required to run on TI MMWCAS data)
+/home/adnan/.conda/envs/dart/bin/python \
+    -m baselines.dart.runner.run_phase4 --mode cascaded
+
+# Radar Fields
+/home/adnan/.conda/envs/radarfields/bin/python \
+    -m baselines.radarfields.runner.run_phase4
+
+# RadarSplat
+/home/adnan/.conda/envs/radarsplat/bin/python \
+    -m baselines.radarsplat.runner.run_phase4
+```
+
+Each driver supports `--scenes <list>`, `--gpus 0 1`, and
+`--skip-existing`. Per-scene outputs include `metrics.json`
+(test-frame test CC/PSNR/SSIM/RMSE), `metrics_train.json`
+(per-train-frame metrics — same harness as 3DPS),
+`rendered_ra_polar.npy`, `gt_ra_cart.npy`, and `train_frames/`.
+
+### Output map (paper figures and tables)
+
+| Paper artefact | Source | Generator |
+|---|---|---|
+| **Table 2 — main results** (cross-method, cross-product mean over 6 scenes; train + test row sections; RA / CRP / ADC magnitude + complex; baselines marked `--` for non-RA columns) | [latex/.../tables/crp_adc_results.tex](latex/NeurIPS_2026_unpacked/Physically_Grounded_Novel_View_Synthesis_for_Millimeter_Wave_Radar_via_Point_Based_Hemisphere_Rendering/tables/crp_adc_results.tex) | [figures/generate_crp_adc_paper_table.py](figures/generate_crp_adc_paper_table.py) |
+| Supplement Table — per-scene held-out test RA | [latex/.../tables/test_ra_results.tex](latex/NeurIPS_2026_unpacked/Physically_Grounded_Novel_View_Synthesis_for_Millimeter_Wave_Radar_via_Point_Based_Hemisphere_Rendering/tables/test_ra_results.tex) | [figures/generate_tables.py](figures/generate_tables.py) |
+| Supplement Table — per-scene training-view RA | [latex/.../tables/train_ra_results.tex](latex/NeurIPS_2026_unpacked/Physically_Grounded_Novel_View_Synthesis_for_Millimeter_Wave_Radar_via_Point_Based_Hemisphere_Rendering/tables/train_ra_results.tex) | [figures/generate_tables.py](figures/generate_tables.py) |
+| Per-scene CRP/ADC supplement tables | [latex/.../tables/crp_adc_supplement/](latex/NeurIPS_2026_unpacked/Physically_Grounded_Novel_View_Synthesis_for_Millimeter_Wave_Radar_via_Point_Based_Hemisphere_Rendering/tables/crp_adc_supplement/) | [figures/generate_crp_adc_table.py](figures/generate_crp_adc_table.py) |
+| Fig — held-out test RA qualitative grid | [output/postprocess_final_v5/figures/training_ra_comparison.pdf](output/postprocess_final_v5/figures/) | [figures/generate_fig_training_ra.py](figures/generate_fig_training_ra.py) |
+| Per-scene supplement RA figures | [output/postprocess_final_v5/figures/supplement/supplement_seq_*.pdf](output/postprocess_final_v5/figures/supplement/) | [figures/generate_fig_training_ra_supplement.py](figures/generate_fig_training_ra_supplement.py) |
+| CRP/ADC qualitative figures | [latex/.../figs/crp_adc/](latex/NeurIPS_2026_unpacked/Physically_Grounded_Novel_View_Synthesis_for_Millimeter_Wave_Radar_via_Point_Based_Hemisphere_Rendering/figs/crp_adc/) | [figures/generate_fig_crp_adc.py](figures/generate_fig_crp_adc.py) |
+| 3DPS test/train RA metrics | [mm25DGS_v5_v4/output_frame_nvs/seq_*_train8frames_1loops_test*_loop0_pass2_N20000/{results,metrics_train}.json](mm25DGS_v5_v4/output_frame_nvs/) | [mm25DGS_v5_v4/train_frame_nvs.py](mm25DGS_v5_v4/train_frame_nvs.py) |
+| 3DPS CRP/ADC metrics | [output/crp_adc_eval/results.json](output/crp_adc_eval/) | [mmir/evaluation/eval_crp_adc.py](mmir/evaluation/eval_crp_adc.py) |
+| DART metrics (cascaded) | [baselines/dart/results/seq_*__cascaded/{metrics,metrics_train}.json](baselines/dart/results/) | [baselines/dart/runner/run_phase4.py](baselines/dart/runner/run_phase4.py) |
+| Radar Fields metrics | [baselines/radarfields/results/seq_*/{metrics,metrics_train}.json](baselines/radarfields/results/) | [baselines/radarfields/runner/run_phase4.py](baselines/radarfields/runner/run_phase4.py) |
+| RadarSplat metrics | [baselines/radarsplat/results/seq_*/{metrics,metrics_train}.json](baselines/radarsplat/results/) | [baselines/radarsplat/runner/run_phase4.py](baselines/radarsplat/runner/run_phase4.py) |
+| Compiled paper PDF | [latex/.../main.pdf](latex/NeurIPS_2026_unpacked/Physically_Grounded_Novel_View_Synthesis_for_Millimeter_Wave_Radar_via_Point_Based_Hemisphere_Rendering/main.pdf) | `pdflatex` × 2 + `bibtex` |
+
+**Note on the main results table** (replaces the previous Tables 2 + 3):
+[figures/generate_crp_adc_paper_table.py](figures/generate_crp_adc_paper_table.py)
+is now the single source-of-truth generator for the paper's main results
+table. It pulls (a) baseline RA metrics via `generate_tables.py`
+loaders, (b) 3DPS RA metrics from the training run output, and (c)
+3DPS CRP/ADC/complex metrics from `output/crp_adc_eval/results.json`.
+The output is a single 11-column table with two row sections (Train,
+Test), four method rows per section, and `--` filled in for the three
+baselines on every CRP / ADC / complex column (they emit magnitude RA
+only, by construction). The previous per-scene RA tables are still
+generated by `figures/generate_tables.py` and now `\input{}`'d from the
+supplement appendix `\section{Per-scene |RA| breakdowns}` rather than
+from the main paper.
+
+The 6 paper scenes are: `seq_0_frame_135`, `seq_1_frame_185`,
+`seq_1_frame_438`, `seq_2_frame_105`, `seq_2_frame_160`,
+`seq_2_frame_300`. For each scene, `F` is the held-out test frame and
+`{F-4..F-1, F+1..F+4}` are the eight training frames (interpolation,
+never extrapolation — see [feedback memory](#) on NVS protocol).
+
+### Product-agnostic CRP and ADC evaluation
+
+The renderer's native output is a complex range profile (CRP); applying
+`IFFT_range` yields a per-channel ADC time series; applying the
+azimuth-FFT pipeline yields the `|RA|` images of Table 2. To validate
+the product-agnostic claim, the CRP and ADC are evaluated against
+ground truth in the trainer's loss domain. The full pipeline is
+implemented in `mmir/evaluation/eval_crp_adc.py`.
+
+#### What's reported
+
+- **Magnitude metrics** (CRP only — ADC drops PSNR/SSIM since they're
+  image-domain, inappropriate for raw I/Q time-series): Pearson Corr,
+  PSNR, SSIM, MSE on independently min-max-normalized $|\cdot|$
+  (matches `compute_cartesian_ra_metrics`, the same pipeline used for
+  $|RA|$ in Table 2).
+- **Complex metrics** under two phase-correction modes:
+  - **R**: per-range $\beta[r]$ phase correction read from the GT
+    azimuth-DC bin (256 phase DOFs)
+  - **VR**: joint per-VA $\alpha[v]$ + per-range $\beta[r]$
+    alternating-LS calibration removal (342 DOFs $\approx$ 1.5% of
+    per-(v,r) phase content; models per-channel RF calibration drift)
+
+  For each mode: complex correlation $|\rho|$, complex PSNR (CRP only),
+  magnitude-weighted phase RMSE $\sigma_\phi$ (degrees; ADC only).
+- **Note**: $|\rho|$ is identical between CRP and ADC by Parseval's
+  theorem (the complex inner product is invariant under unitary FFT).
+  This is not a bug — the IFFT is unitary up to a normalization that
+  cancels in the ratio.
+
+#### Pipeline conventions (must match trainer)
+
+- `Hann_range × ADC_gt → range FFT` to form GT CRP (matches
+  `mmir/data/ra_utils.py:adc_to_ra_complex`)
+- Pred CRP is the renderer's `rendered_test_rp_complex.npy` /
+  `train_frames/frame_*/rendered_rp_complex.npy` as-is (the renderer's
+  PSF is derived from the Hann-range assumption — see
+  `mm25DGS_v5_v4/psf.py`)
+- Both CRPs receive `Hann_az` on the VA axis (matches
+  `mm25DGS_v5_v4/train_gaussian.py:range_profile_to_ra`)
+- Near-field range bins `[0:15]` zeroed in both (TX-RX coupling, not
+  scene content)
+- ADC = `IFFT_range` of the masked Hann-windowed CRP
+
+#### How to run
+
+```bash
+PY=/home/adnan/.conda/envs/mmir/bin/python
+
+# 1. Re-render rendered_*_rp_complex.npy from each scene's best_model.pt
+#    (only needed if the train run didn't save them; the v5_v4 trainer
+#     does save them by default since the recent change).
+$PY -m mm25DGS_v5_v4.rerender_test_rp --scenes-missing --also-train-frames
+
+# 2. Run the eval (writes output/crp_adc_eval/{results.json, per-scene
+#    .npy arrays, internal tables})
+$PY -m mmir.evaluation.eval_crp_adc
+
+# 3. Generate the LaTeX main results table (cross-method, cross-product;
+#    pulls baseline RA metrics from baselines/, 3DPS RA from
+#    mm25DGS_v5_v4/output_frame_nvs/, and 3DPS CRP/ADC from
+#    output/crp_adc_eval/results.json)
+$PY figures/generate_crp_adc_paper_table.py
+
+# 3b. (Optional) Re-generate the per-scene RA tables that now live in the
+#     supplement (only needed if RA metrics changed):
+$PY -m figures.generate_tables \
+    --ours_dir   mm25DGS_v5_v4/output_frame_nvs \
+    --baselines_dir baselines \
+    --output_dir latex/NeurIPS_2026_unpacked/Physically_Grounded_Novel_View_Synthesis_for_Millimeter_Wave_Radar_via_Point_Based_Hemisphere_Rendering/tables
+
+# 4. Generate the per-scene supplement tables
+$PY figures/generate_crp_adc_table.py
+
+# 5. Generate the qualitative figures
+$PY figures/generate_fig_crp_adc.py
+
+# 6. Copy supplement tables + figures into the LaTeX tree
+LATEX=latex/NeurIPS_2026_unpacked/Physically_Grounded_Novel_View_Synthesis_for_Millimeter_Wave_Radar_via_Point_Based_Hemisphere_Rendering
+cp output/crp_adc_eval/tables/crp_adc_supplement_*.tex \
+   $LATEX/tables/crp_adc_supplement/
+cp output/crp_adc_eval/figures/fig_crp_adc_*.pdf \
+   $LATEX/figs/crp_adc/
+
+# 7. Re-build the paper
+cd $LATEX
+pdflatex -interaction=nonstopmode main.tex
+bibtex main
+pdflatex -interaction=nonstopmode main.tex
+pdflatex -interaction=nonstopmode main.tex
+```
+
+Sanity check (no rendered data needed): `$PY -m
+mmir.evaluation.eval_crp_adc --sanity_only` runs the FFT round-trip
+test on GT only — should be exact to ~1e-16 relative error per scene.
+
+#### Where things live
+
+| Artefact | Path |
+|---|---|
+| Eval module | [mmir/evaluation/eval_crp_adc.py](mmir/evaluation/eval_crp_adc.py) |
+| Re-render script (CRP from `best_model.pt`) | [mm25DGS_v5_v4/rerender_test_rp.py](mm25DGS_v5_v4/rerender_test_rp.py) |
+| Eval results (JSON + per-scene `.npy` arrays + internal tables) | [output/crp_adc_eval/](output/crp_adc_eval/) |
+| Main-paper table generator | [figures/generate_crp_adc_paper_table.py](figures/generate_crp_adc_paper_table.py) |
+| Per-scene supplement table generator | [figures/generate_crp_adc_table.py](figures/generate_crp_adc_table.py) |
+| Qualitative figure generator | [figures/generate_fig_crp_adc.py](figures/generate_fig_crp_adc.py) |
+| Diagnostic / oracle ceiling experiment | [figures/diag_phase_substitution_experiment.py](figures/diag_phase_substitution_experiment.py) |
+| Stage-2 phase refinement plan (`mm25DGS_v5_v5`) | [md/v5_v5_phase_refinement_plan.md](md/v5_v5_phase_refinement_plan.md) |
+| Per-scene rendered CRPs (test) | `mm25DGS_v5_v4/output_frame_nvs/seq_*_train8frames_1loops_test*_loop0_pass2_N20000/rendered_test_rp_complex.npy` |
+| Per-scene rendered CRPs (8 train frames each) | `mm25DGS_v5_v4/output_frame_nvs/.../train_frames/frame_<F>/rendered_rp_complex.npy` |
+| Per-scene GT ADC | `data/seq_*/radar/cascaded_frame_<F>.npy` |
+| Main paper section | `latex/.../sec/4_experiments.tex` (subsection `\subsection{Product-agnostic CRP and ADC fidelity}`, label `sec:experiments:crp_adc`) |
+| Supplement section | `latex/.../sec/A_supplement.tex` (`\section{Range--Doppler and ADC output validation}`, label `app:rdadc`) |
+| Future-work plan | [md/v5_v5_phase_refinement_plan.md](md/v5_v5_phase_refinement_plan.md) |
+
+---
+
 ## Project Structure
 
 ```

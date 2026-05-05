@@ -45,6 +45,12 @@ def _patched_test_epoch(self, loader):
     Equivalent to upstream's logic for visualization but additionally
     dumps the raw rendered FFT polar (uniform-angle) so finalize_metrics
     can run the canonical mmir polar→cart pipeline against it.
+
+    When ``RF_TRAIN_DUMP_DIR`` is set (instead of ``RF_DUMP_DIR``), this
+    loop ASSUMES the loader iterates over training frames at bs=1, and
+    dumps each one as ``rendered_ra_polar_frame_<F>.npy`` keyed by the
+    train-frame number list in ``RF_TRAIN_FRAMES`` (comma-separated, in
+    the iteration order of the loader).
     """
     self.log(f"++> Test at epoch {self.epoch} (with pred_fft dump) ...")
 
@@ -53,7 +59,13 @@ def _patched_test_epoch(self, loader):
         self.pose_model.eval()
 
     dump_dir = os.environ.get("RF_DUMP_DIR")
+    train_dump_dir = os.environ.get("RF_TRAIN_DUMP_DIR")
+    train_frame_list = os.environ.get("RF_TRAIN_FRAMES", "")
+    train_frame_numbers = [int(x) for x in train_frame_list.split(",")
+                           if x.strip()]
+
     saved = False
+    train_idx = 0
     with torch.no_grad():
         self.local_step = 0
         for data in loader:
@@ -65,9 +77,25 @@ def _patched_test_epoch(self, loader):
             pred_fft, alpha_integrated, rd_integrated, alpha = self.predict_waveform(data, points)
 
             # pred_fft shape: [B, N_az, R] in upstream's convention.
-            # Save the held-out test frame's rendering as polar (azimuth × range).
-            if not saved and dump_dir is not None and pred_fft.shape[0] >= 1:
-                # Take first sample of the batch (test split is the held-out frame).
+            B = pred_fft.shape[0]
+
+            if train_dump_dir is not None and train_frame_numbers:
+                # Per-train-frame dump path.
+                for b in range(B):
+                    if train_idx >= len(train_frame_numbers):
+                        break
+                    f = train_frame_numbers[train_idx]
+                    p = pred_fft[b].detach().cpu().numpy().astype(np.float32)
+                    np.save(
+                        os.path.join(train_dump_dir,
+                                     f"rendered_ra_polar_frame_{int(f)}.npy"),
+                        p,
+                    )
+                    train_idx += 1
+                continue
+
+            # Test (held-out) frame dump path.
+            if not saved and dump_dir is not None and B >= 1:
                 p = pred_fft[0].detach().cpu().numpy().astype(np.float32)  # (N_az, R)
                 np.save(os.path.join(dump_dir, "rendered_ra_polar.npy"), p)
                 saved = True
@@ -200,11 +228,44 @@ def _train_and_test(args) -> None:
                            optimizer=None, lr_scheduler=None, device=args.device)
     test_trainer.test(test_loader)
 
+    # ------------------------------------------------------------------
+    # Per-train-frame render dump (supplement figure pipeline).
+    # We re-instantiate a TRAIN dataloader (no shuffle, bs=1) and run the
+    # patched test_epoch over it with RF_TRAIN_DUMP_DIR set, so each yielded
+    # sample writes a per-frame polar npy file.
+    # ------------------------------------------------------------------
+    train_dump_dir = os.environ.get("RF_TRAIN_DUMP_DIR")
+    if train_dump_dir is not None:
+        train_render_loader = RadarDataset(
+            split="train",
+            **filter_dict_for_dataclass(RadarDataset, vars(args)),
+            **ds_intrinsics,
+        ).dataloader(1)
+        # Important: poses for the new loader must point to the TRAIN poses,
+        # not the test ones still on args from the test pass.
+        args.all_poses = train_render_loader._data.poses_radar.to(args.device)
+        # Build a fresh trainer wrapping the same trained model. Use split=
+        # "test" so internal flags select the eval path inside test_epoch.
+        train_render_trainer = Trainer(
+            args, model, split="test", criterion=criterion,
+            optimizer=None, lr_scheduler=None, device=args.device,
+        )
+        train_render_trainer.test(train_render_loader)
+
 
 def run(scene: str, out_dir: str, workspace: str, max_iters: int) -> dict:
     os.makedirs(out_dir, exist_ok=True)
     os.makedirs(workspace, exist_ok=True)
     os.environ["RF_DUMP_DIR"] = out_dir
+
+    # Per-train-frame dump (supplement figure pipeline).
+    train_dump_dir = os.path.join(out_dir, "train_frames_polar_raw")
+    os.makedirs(train_dump_dir, exist_ok=True)
+    os.environ["RF_TRAIN_DUMP_DIR"] = train_dump_dir
+    split = nvs_split.cascaded_split(scene)
+    os.environ["RF_TRAIN_FRAMES"] = ",".join(
+        str(int(f)) for f in split["train_frames"]
+    )
 
     args = _build_args(scene, workspace, max_iters)
 

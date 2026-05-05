@@ -72,12 +72,67 @@ def _build_cfg(scene_dir_name: str, data_root: str, out_dir: str, epochs: int,
     return cfg
 
 
-def _render_test(out_dir: str, test_meta_path: str) -> None:
-    """Load trained DART, build the test RadarPose, render, dump RA polar."""
-    import jax
+def _render_with_pose(dart, params, pose_dict):
+    """Build a single-element RadarPose batch from a numpy/list pose dict
+    and render. Returns (rda, ra_polar) where ra_polar is (Na, Nr) float32.
+    """
     from jax import numpy as jnp
-    from dart import DART
     from dart import types as dart_types
+
+    pose = dart_types.RadarPose(
+        v=jnp.array([pose_dict["v"]], dtype=jnp.float32),
+        s=jnp.array([pose_dict["s"]], dtype=jnp.float32),
+        p=jnp.array([pose_dict["p"]], dtype=jnp.float32),
+        q=jnp.array([pose_dict["q"]], dtype=jnp.float32),
+        x=jnp.array([pose_dict["x"]], dtype=jnp.float32),
+        A=jnp.array([pose_dict["A"]], dtype=jnp.float32),
+        i=jnp.array([pose_dict["i"]], dtype=jnp.int32),
+    )
+    rendered = dart.render(params, pose, key=42)             # (1, Nr, Nd, Na)
+    rda = np.asarray(rendered[0], dtype=np.float32)          # (Nr, Nd, Na)
+    ra = rda.sum(axis=1)                                     # (Nr, Na)
+    ra_polar = ra.T.astype(np.float32)                       # (Na, Nr)
+    return rda, ra_polar
+
+
+def _build_train_pose_dict(scene: str, mode: str, train_frame: int,
+                           cascade_pair_frame: int) -> dict:
+    """Mirror of the DART adapter's per-frame pose construction.
+
+    Uses the same ``baselines.dart.adapter.mm3dgs_to_dart.build_radar_pose``
+    that produced the test pose at adapter time, so train and test poses are
+    bit-identical to what was fed to ``script_train`` (modulo `i`, which we
+    set to 0 to match the test convention).
+    """
+    from baselines.common import adapters as common
+    from baselines.dart.adapter.mm3dgs_to_dart import (
+        build_radar_pose, _config_for_frame, _v_ego_for_cascade_frame,
+    )
+
+    cfg_path = _config_for_frame(scene, train_frame, mode)
+    cfg = common.load_config(cfg_path)
+    T, R, t = common.pose_from_config(cfg)
+    v_world = _v_ego_for_cascade_frame(scene, cascade_pair_frame)
+    pose_fields = build_radar_pose(t, R, v_world, frame_idx=0)
+    return {
+        "v": pose_fields["v"].tolist(),
+        "s": float(pose_fields["s"]),
+        "p": pose_fields["p"].tolist(),
+        "q": pose_fields["q"].tolist(),
+        "x": pose_fields["x"].tolist(),
+        "A": pose_fields["A"].tolist(),
+        "i": int(pose_fields["i"]),
+    }
+
+
+def _render_test(out_dir: str, test_meta_path: str, scene: str, mode: str) -> None:
+    """Load trained DART, build the test RadarPose, render, dump RA polar.
+
+    Also dumps per-train-frame renders for the supplement figure pipeline,
+    one ``rendered_ra_polar_frame_<F>.npy`` per training frame, under
+    ``<out_dir>/train_frames_polar_raw/``.
+    """
+    from dart import DART
 
     with open(test_meta_path) as f:
         meta = json.load(f)
@@ -85,28 +140,43 @@ def _render_test(out_dir: str, test_meta_path: str) -> None:
     dart = DART.from_config(**json.load(open(os.path.join(out_dir, "metadata.json"))))
     params = dart.load(os.path.join(out_dir, "model"))
 
-    p = meta["test_pose"]
-    pose = dart_types.RadarPose(
-        v=jnp.array([p["v"]], dtype=jnp.float32),
-        s=jnp.array([p["s"]], dtype=jnp.float32),
-        p=jnp.array([p["p"]], dtype=jnp.float32),
-        q=jnp.array([p["q"]], dtype=jnp.float32),
-        x=jnp.array([p["x"]], dtype=jnp.float32),
-        A=jnp.array([p["A"]], dtype=jnp.float32),
-        i=jnp.array([p["i"]], dtype=jnp.int32),
-    )
-    rendered = dart.render(params, pose, key=42)             # (1, Nr, Nd, Na)
-    rda = np.asarray(rendered[0], dtype=np.float32)          # (Nr, Nd, Na)
-
-    # Reduce Doppler axis: sum |RDA| over Nd → (Nr, Na). Matches upstream
-    # radar conventions (incoherent Doppler integration). Then transpose to
-    # (Na, Nr) so axis 0 = azimuth, axis 1 = range, matching
-    # baselines/common/eval.py expectations.
-    ra = rda.sum(axis=1)                                     # (Nr, Na)
-    ra_polar = ra.T.astype(np.float32)                       # (Na, Nr)
-
+    # Test frame.
+    rda, ra_polar = _render_with_pose(dart, params, meta["test_pose"])
     np.save(os.path.join(out_dir, "rendered_ra_polar.npy"), ra_polar)
     np.save(os.path.join(out_dir, "rendered_rda.npy"), rda)
+
+    # Train frames.
+    train_frames = list(map(int, meta.get("train_frames", [])))
+    if not train_frames:
+        return
+
+    # SC-mode runs need the cascade pair frames to look up v_ego — derive
+    # them from the sorted SC↔cascade pairing the adapter used.
+    if mode == "single_chip":
+        from baselines.common import nvs_split as _ns
+        sc_split = _ns.single_chip_split(scene)
+        casc_split = _ns.cascaded_split(scene)
+        sorted_sc = sorted(sc_split["train_frames"] + [sc_split["test_frame"]])
+        sorted_casc = sorted(casc_split["train_frames"] + [casc_split["test_frame"]])
+        sc_to_casc = dict(zip(sorted_sc, sorted_casc))
+        cascade_pairs = [sc_to_casc[f] for f in train_frames]
+    else:
+        cascade_pairs = list(train_frames)
+
+    train_dump_dir = os.path.join(out_dir, "train_frames_polar_raw")
+    os.makedirs(train_dump_dir, exist_ok=True)
+    for f, casc_f in zip(train_frames, cascade_pairs):
+        try:
+            pose_dict = _build_train_pose_dict(scene, mode, f, casc_f)
+        except Exception as e:
+            print(f"[run_dart_scene] failed to build train pose for frame {f}: {e}")
+            continue
+        _, ra_polar_f = _render_with_pose(dart, params, pose_dict)
+        np.save(
+            os.path.join(train_dump_dir,
+                         f"rendered_ra_polar_frame_{int(f)}.npy"),
+            ra_polar_f.astype(np.float32),
+        )
 
 
 def run(scene: str, mode: str, data_root: str, out_dir: str,
@@ -122,7 +192,7 @@ def run(scene: str, mode: str, data_root: str, out_dir: str,
     train_wall = time.time() - t0
 
     test_meta_path = os.path.join(data_root, scene_dir_name, "test_meta.json")
-    _render_test(out_dir, test_meta_path)
+    _render_test(out_dir, test_meta_path, scene=scene, mode=mode)
 
     test_meta = json.load(open(test_meta_path))
     manifest_path = os.path.join(data_root, scene_dir_name, "adapter_manifest.json")

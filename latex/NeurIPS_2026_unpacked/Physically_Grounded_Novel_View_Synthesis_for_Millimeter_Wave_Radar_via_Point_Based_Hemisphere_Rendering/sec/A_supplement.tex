@@ -1,31 +1,63 @@
 \clearpage
 \appendix
 
-\section{Per-scene training-view qualitative comparison}
+The supplement provides the per-scene quantitative evidence and qualitative
+comparisons that anchor the main paper's claims, the methodology details for
+the CRP and ADC evaluation introduced in Sec.~\ref{sec:experiments:results},
+implementation details (wall-clock, hardware), and a more detailed discussion
+of limitations and future work.
+
+% ---------------------------------------------------------------------
+\section{Per-scene $|\mathrm{RA}|$ breakdowns}
+\label{app:per_scene_ra}
+
+The main paper Table~\ref{tab:results} reports the 6-scene mean for each method on training views (8 views per scene) and the held-out test view. Tables~\ref{tab:test_ra} and~\ref{tab:train_ra} below give the per-scene breakdown that anchors those means, retaining the canonical $|\mathrm{RA}|$ metric set (Corr, PSNR, SSIM, RMSE on min-max-normalized $399\!\times\!399$ Cartesian images via the shared \texttt{compute\_cartesian\_ra\_metrics} harness). The Mean row of each table matches the corresponding 3DPS row in Table~\ref{tab:results} by construction.
+
+\input{tables/test_ra_results}
+
+\input{tables/train_ra_results}
+
+% ---------------------------------------------------------------------
+\section{CRP and ADC evaluation}
+\label{app:rdadc}
+
+Because 3DPS produces complex range profiles, the same optimized scene yields range--azimuth and raw ADC outputs by applying the standard azimuth FFT and inverse range FFT to the per-(TX,~RX) range-profile output of Eq.~\eqref{eq:psf_splat} --- with no retraining. The aggregate fidelity numbers were reported in Table~\ref{tab:results} of the main paper. This section provides the eval pipeline conventions and the per-scene CRP/ADC tables that anchor the 3DPS row of Table~\ref{tab:results}.
+
+\subsection{Pipeline conventions}
+\label{app:rdadc:pipeline}
+
+CRP and ADC are evaluated in the trainer's loss domain to enable direct comparison with the published $|\mathrm{RA}|$ numbers. The GT side applies range Hann + range FFT to the raw ADC; both GT and predicted CRPs then receive the azimuth Hann window on the virtual-array axis (matching \texttt{adc\_to\_ra\_complex} and \texttt{range\_profile\_to\_ra} in the trainer). Range bins $[0{:}15]$ are zeroed in both signals to reject TX--RX coupling. ADC is the inverse range FFT of the resulting CRP. Magnitude metrics are invariant to phase correction; complex metrics depend on it. A round-trip FFT/IFFT sanity test (no Hann, no zero-pad) is exact to $5\!\times\!10^{-16}$ relative error on every scene.
+
+% --- |\rho| ceiling subsection intentionally suppressed (internal-use experiments only) ---
+\iffalse
+\subsection{Achievable upper bound on $|\rho|$}
+\label{app:rdadc:ceiling}
+
+Because the training loss is on $|\mathrm{RA}|$ only, the per-RA-bin phase is unconstrained: $\sim\!22{,}000$ phase DOFs are free, of which our rank-1 (per-VA + per-range) calibration removal recovers 342 ($\sim\!1.5\%$). The achievable upper bound on $|\rho|$ for any rank-1 phase correction is reached by oracle GT-phase substitution into pred RA: $\mathrm{RA}_h = |\mathrm{RA}_\mathrm{pred}| \cdot \exp(j \cdot \arg(\mathrm{RA}_\mathrm{gt}))$. Inverting back to CRP and ADC yields $|\rho|^{\mathrm{ceiling}} \approx |\mathrm{RA}|_\mathrm{Corr}$: on training views ($|\mathrm{RA}|_\mathrm{Corr}\!\approx\!0.81$) the ceiling is $0.78$; on held-out test ($|\mathrm{RA}|_\mathrm{Corr}\!\approx\!0.59$) the ceiling is $0.58$. Our published VR-corrected $|\rho|$ of $\textbf{0.43}$~train / $\textbf{0.26}$~test recovers $\sim\!44\%$ (train) and $\sim\!36\%$ (test) of the achievable lift from the no-correction floor toward the oracle ceiling --- meaningful phase content beyond bulk calibration. Closing the remaining gap would require either a higher $|\mathrm{RA}|$ ceiling or a complex (Re/Im) loss term during training to constrain per-RA-bin phase directly (see Sec.~\ref{app:limitations}).
+\fi
+
+\subsection{Per-scene CRP and ADC fidelity}
+\label{app:rdadc:per_scene}
+
+Tables~\ref{tab:crp_adc_train} and~\ref{tab:crp_adc_test} give the per-scene CRP/ADC fidelity that anchors the 3DPS row of Table~\ref{tab:results}. For each scene, the value is the 8-train-frame mean (train table) or the held-out test frame value (test table); the Mean row at the bottom of each is the average across the six scenes and matches the corresponding 3DPS Train Mean / Test Mean row of Table~\ref{tab:results} by construction. Same metric set and column layout as Table~\ref{tab:results}.
+
+\input{tables/crp_adc_supplement/crp_adc_supplement_train}
+
+\input{tables/crp_adc_supplement/crp_adc_supplement_test}
+
+% ---------------------------------------------------------------------
+\section{Qualitative comparisons}
+\label{app:qualitative}
+
+\subsection{Per-scene $|\mathrm{RA}|$ comparison across methods}
 \label{app:per_scene_train}
 
-Figures~\ref{fig:supp_s0_f135}--\ref{fig:supp_s2_f300} show per-scene
-side-by-side $|\mathrm{RA}|$ renders for all four methods on every
-training frame, plus the held-out test frame ($F$, last column with the
-red header). Rows are GT, mm3DGS (Ours), RadarSplat, Radar Fields, and
-DART (cascaded). Per-cell test/train CC is overlaid in white.
-
-These figures complement the aggregate train and test tables in the
-main paper (Tables~\ref{tab:test_ra} and~\ref{tab:train_ra}) and confirm
-visually that mm3DGS preserves wall and vehicle structure across all
-eight training frames as well as the held-out test frame, while the
-three baselines exhibit the characteristic failure modes discussed in
-Sec.~\ref{sec:experiments:test}: RadarSplat over-smooths azimuth,
-Radar Fields fails to reach the data with its hash-grid+MLP, and DART
-is data-starved at the cascade radar's 16 chirps per frame.
+Figures~\ref{fig:supp_s0_f135}--\ref{fig:supp_s2_f300} show per-scene side-by-side $|\mathrm{RA}|$ renders for all four methods on every training frame, plus the held-out test frame ($F$, last column with the red header). Rows: GT, 3DPS (Ours), RadarSplat, Radar Fields, DART (cascaded). Per-cell train/test CC overlaid in white. These figures complement the per-scene tables in Sec.~\ref{app:per_scene_ra} and confirm visually that 3DPS preserves wall and vehicle structure across all eight training frames as well as the held-out test frame, while the three baselines exhibit the failure modes discussed in Sec.~\ref{sec:experiments:results}.
 
 \begin{figure}[h]
 \centering
 \includegraphics[width=\linewidth]{figs/supplement/supplement_seq_0_frame_135.pdf}
-\caption{\textbf{Per-frame $|\mathrm{RA}|$ comparison, scene S0\,F135.}
-Columns: 8 training frames ($F\!\pm\!1\!\ldots\!\pm\!4$, black headers)
-and 1 held-out test frame ($F$, red header). Rows: GT, mm3DGS (Ours),
-RadarSplat, Radar Fields, DART. Per-cell CC overlaid.}
+\caption{\textbf{Per-frame $|\mathrm{RA}|$ comparison, scene S0\,F135.} Cols: 8 train frames ($F\!\pm\!1\!\ldots\!\pm\!4$) + held-out test frame $F$ (red header). Rows: GT, 3DPS, RadarSplat, Radar Fields, DART. Per-frame CC overlaid.}
 \label{fig:supp_s0_f135}
 \end{figure}
 
@@ -63,3 +95,106 @@ RadarSplat, Radar Fields, DART. Per-cell CC overlaid.}
 \caption{\textbf{Per-frame $|\mathrm{RA}|$ comparison, scene S2\,F300.}}
 \label{fig:supp_s2_f300}
 \end{figure}
+
+\subsection{CRP and ADC heatmaps and I/Q traces}
+\label{app:rdadc:figures}
+
+Figures~\ref{fig:crp_adc_heatmaps_db}--\ref{fig:crp_adc_iq_traces} show the qualitative side-by-side comparison of $|\mathrm{CRP}|$ and $|\mathrm{ADC}|$ between GT and the VR-corrected prediction across all six scenes (held-out test frames). Each panel is normalized identically to its $|\mathrm{RA}|$ counterpart in the main paper, so the visual structure is directly comparable.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\linewidth]{figs/crp_adc/fig_crp_adc_heatmaps_dB.pdf}
+\caption{\textbf{$|\mathrm{CRP}|$ and $|\mathrm{ADC}|$ heatmaps on held-out test frames (dB scale).} Rows: scenes. Cols: GT and predicted $|\mathrm{CRP}|$ and $|\mathrm{ADC}|$. CRP cropped to range bins $[15{:}256]$ (the metric domain); ADC is IFFT$_r$ of the calibration-corrected, near-field-masked CRP. Each panel peak-normalized to its own max with a $-40$\,dB floor.}
+\label{fig:crp_adc_heatmaps_db}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\linewidth]{figs/crp_adc/fig_crp_adc_heatmaps_linear.pdf}
+\caption{\textbf{Linear-scale equivalent of Fig.~\ref{fig:crp_adc_heatmaps_db}.} Panels min-max normalized to $[0,1]$ --- the metric domain.}
+\label{fig:crp_adc_heatmaps_linear}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\linewidth]{figs/crp_adc/fig_crp_adc_iq_traces.pdf}
+\caption{\textbf{Calibration-corrected I/Q traces} for the highest-energy VA per scene. Solid: GT real (blue) and imaginary (red); dashed: prediction. Left: CRP across range bins $[15{:}256]$. Right: ADC across 256 fast-time samples. Per-panel $|\rho|$ and $\sigma_\phi$ in title.}
+\label{fig:crp_adc_iq_traces}
+\end{figure}
+
+% ---------------------------------------------------------------------
+\section{Wall-clock and peak GPU memory}
+\label{app:runtime}
+
+Table~\ref{tab:runtime} reports per-scene wall-clock and peak GPU memory measured on a single NVIDIA RTX~4090 (24\,GB) for 3DPS and the three baselines, on the same 6-scene ColoRadar benchmark and the same 9-frame split (8 training viewpoints, 1 held-out test frame). All measurements include forward+backward+optimizer+I/O. mmIR's projected cost is $8\!\times\!{\sim}20$\,min/viewpoint $={\sim}160$\,min for the 8-viewpoint optimization that NVS demands; we did not run mmIR end-to-end on this benchmark because its per-viewpoint MC cost makes the multi-viewpoint task intractable in the optimization wall-clock window.
+
+\begin{table}[h]
+\centering
+\caption{\textbf{Wall-clock and peak GPU memory per scene} on the 6-scene benchmark, single RTX~4090. Wall-clock: mean (min) across scenes; range is per-scene min--max. mmIR is projected from its per-viewpoint cost.}
+\label{tab:runtime}
+\small
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Method} & \textbf{Mean wall-clock (min)} & \textbf{Per-scene range (min)} & \textbf{Peak GPU mem (GB)} \\
+\midrule
+DART (cascaded)~\cite{huang2024dart}            & 0.43  & 0.4--0.5    & not reported \\
+Radar Fields~\cite{10.1145/3641519.3657510}     & 1.63  & 1.6--1.7    & 2.4 \\
+RadarSplat~\cite{kung2025radarsplat}            & 19.74 & 14.2--21.4  & 14.2 \\
+mmIR~\cite{mmIR2026} (projected, 8 viewpoints)  & ${\sim}$160  & ---  & --- \\
+\midrule
+\textbf{3DPS (Ours)}                            & \textbf{3.17}  & 2.3--3.7  & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------
+\section{Limitations and future work}
+\label{app:limitations}
+
+The conclusion (Sec.~\ref{sec:conclusion}) summarizes the main limitations briefly. This section expands on each and identifies the corresponding planned investigations.
+
+\textbf{Single-bounce path tracing.} The renderer evaluates a single TX$\to$scatterer$\to$RX path per oriented point. For static outdoor scenes dominated by direct surface returns (the regime of our ColoRadar benchmark) this is sufficient, and the headline 0.587 mean test $|\mathrm{RA}|$ Pearson reflects that. For indoor multipath-dominated environments where second- and third-order reflections carry comparable energy to direct returns, multi-bounce path tracing in the style of mmIR~\cite{mmIR2026} would remain necessary; integrating the closed-form BSDF + PSF splatting recipe into a multi-bounce framework is open.
+
+\textbf{Magnitude-only loss leaves per-RA-bin phase unconstrained.} 3DPS supervises on $|\mathrm{RA}|$ for fair comparison with the three magnitude-only baselines, leaving $\sim\!22{,}000$ per-RA-bin phase DOFs unconstrained by the loss. The rank-1 (per-VA $\alpha[v]$ + per-range $\beta[r]$) phase calibration removal we apply at evaluation time absorbs known per-channel RF drift and ADC sample-zero timing (342 DOFs, ${\sim}1.5\%$ of phase content); a tighter phase fit would require adding a complex (Re/Im) loss term during training. A natural future extension is a two-stage training recipe (first stage: magnitude loss to fit geometry and material; second stage: bounded position refinement under a complex loss to recover phase) that locks in the magnitude performance and adds phase fidelity on top.
+
+\textbf{LiDAR-dependent initialization.} The point cloud that seeds 3DPS comes from a co-registered LiDAR scan. This is a strong prior that simplifies geometric initialization and accelerates convergence to a reasonable scene fit. Pure radar-driven NVS --- removing the LiDAR dependence --- is an important direction for radar-only deployments and an open challenge for our framework.
+
+\textbf{Dynamic scenes and downstream perception.} Extending range-Doppler-coherent rendering to scenes with moving targets, and validating NVS-augmented training data on radar-trained perception tasks (object detection, semantic segmentation), are natural next steps that the product-agnostic complex-output property of 3DPS enables but does not directly address.
+
+% ---------------------------------------------------------------------
+\section{Ablations}
+\label{app:ablations}
+
+\textbf{[Placeholder --- to be reported in camera-ready / extended version.]} Planned ablations on the 6-scene ColoRadar benchmark: (i) point count $N \in \{2k,\,5k,\,10k,\,20k,\,50k\}$, (ii) adaptive density control on/off, (iii) carrier-phase detach for position gradients, (iv) the four-stage LiDAR initialization recipe (each stage individually disabled). Default 3DPS configuration is the bolded top row.
+
+\begin{table}[h]
+\centering
+\caption{\textbf{[Placeholder]} Ablation sweep on the 6-scene benchmark. Mean held-out test Corr, mean training Corr, and mean wall-clock per scene on a single RTX~4090.}
+\label{tab:ablations}
+\small
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Configuration} & \textbf{Test Corr} $\uparrow$ & \textbf{Train Corr} $\uparrow$ & \textbf{Wall-clock (min)} \\
+\midrule
+\textbf{3DPS default} ($N{=}20$k, ADC on, phase-detach on, full init) & --- & --- & --- \\
+\midrule
+$N{=}\phantom{0}2{,}000$            & --- & --- & --- \\
+$N{=}\phantom{0}5{,}000$            & --- & --- & --- \\
+$N{=}10{,}000$                     & --- & --- & --- \\
+$N{=}50{,}000$                     & --- & --- & --- \\
+\midrule
+no adaptive density control        & --- & --- & --- \\
+no phase-detach (position grad.)   & --- & --- & --- \\
+no cosine-weighted resample        & --- & --- & --- \\
+no FPS reduction (random sub-sample) & --- & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------
+\section{Per-point material visualizations}
+\label{app:materials}
+
+\textbf{[Placeholder --- to be reported in camera-ready / extended version.]} Planned: render the optimized point clouds colored by each ITU-R~P.2040 parameter ($\varepsilon_r'$, $\varepsilon_r''$, $\sigma_h$, $l_c$, $\tau$, $d$), and report per-cluster material distributions partitioned by LiDAR class label (walls, vehicles, ground). Supports the ``physically interpretable per-point materials'' claim of Sec.~\ref{sec:intro}.

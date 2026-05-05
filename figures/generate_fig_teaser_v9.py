@@ -238,15 +238,16 @@ def _draw_top_tile(fig, x0_in, y0_in, w_in, tile_h_in, fig_w, fig_h,
         _draw_rounded_border(fig, x0_in, y0_in, w_in, tile_h_in, fig_w, fig_h,
                               accent_color, radius_in=radius, lw=1.4, zorder=5)
 
-    # Floating check pill — gray bg, black text
+    # Floating check pill — gray bg, black text. Larger radius so the
+    # circular corner (r_x = r_y in inches) reads clearly as a circle.
     pill_x = x0_in + (w_in - pill_w_in) / 2
     pill_y = y0_in + pill_offset_y_in
-    pill_radius = CORNER_RADIUS_INCHES * 0.45
+    pill_radius = CORNER_RADIUS_INCHES * 0.85    # ≈0.068 in
     _draw_rounded_bg(fig, pill_x, pill_y, pill_w_in, pill_h_in,
                       fig_w, fig_h, ROW_BG, radius_in=pill_radius, zorder=6)
     n = len(checks)
-    sym_x = pill_x + 0.08
-    txt_x = pill_x + 0.22
+    sym_x = pill_x + 0.05
+    txt_x = pill_x + 0.18
     rows_top = pill_y + pill_h_in - 0.05
     row_step = (pill_h_in - 0.10) / max(n, 1)
     for i, (sym, txt) in enumerate(checks):
@@ -254,10 +255,10 @@ def _draw_top_tile(fig, x0_in, y0_in, w_in, tile_h_in, fig_w, fig_h,
         col = GREEN_OK if sym == CHECK else RED_BAD
         _figtext(fig, sym_x, y, fig_w, fig_h, sym,
                   ha="left", va="center",
-                  fontsize=7.4, fontweight="bold", color=col, zorder=7)
+                  fontsize=9.0, fontweight="bold", color=col, zorder=7)
         _figtext(fig, txt_x, y, fig_w, fig_h, txt,
                   ha="left", va="center",
-                  fontsize=6.4, color="black", zorder=7)
+                  fontsize=7.6, color="black", zorder=7)
 
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -315,7 +316,7 @@ def _draw_rendering_column(fig, x0_in, y0_in, w_in, h_in, fig_w, fig_h,
         _figtext(fig, block_x + label_w - 0.02, cell_y + cell_h / 2,
                   fig_w, fig_h, rname,
                   ha="right", va="center",
-                  fontsize=5.8, fontweight="bold", color=rcolor, zorder=3)
+                  fontsize=7.2, fontweight="bold", color=rcolor, zorder=3)
         for ci, fname in enumerate(paths):
             cx = col_xs[ci]
             if fname is None:
@@ -328,23 +329,23 @@ def _draw_rendering_column(fig, x0_in, y0_in, w_in, h_in, fig_w, fig_h,
         ay = cell_y + cell_h / 2
         _draw_arrow(fig, (col_xs[1] - 0.015, ay),
                           (col_xs[0] + cell_w + 0.015, ay),
-                          fig_w, fig_h, lw=1.0,
-                          head_length=4, head_width=3.5)
+                          fig_w, fig_h, lw=0.5,
+                          head_length=3, head_width=2.5)
         _draw_arrow(fig, (col_xs[1] + cell_w + 0.015, ay),
                           (col_xs[2] - 0.015, ay),
-                          fig_w, fig_h, lw=1.0,
-                          head_length=4, head_width=3.5)
-        # Tiny FFT-direction labels above each arrow.
+                          fig_w, fig_h, lw=0.5,
+                          head_length=3, head_width=2.5)
+        # FFT-direction labels above each arrow.
         ifft_x = (col_xs[0] + cell_w + col_xs[1]) / 2
         fft_x  = (col_xs[1] + cell_w + col_xs[2]) / 2
         _figtext(fig, ifft_x, ay + 0.04, fig_w, fig_h,
                   r"$\mathcal{F}^{-1}_{r}$",
                   ha="center", va="bottom",
-                  fontsize=5.0, color=cap_color, zorder=3)
+                  fontsize=6.8, color=cap_color, zorder=3)
         _figtext(fig, fft_x, ay + 0.04, fig_w, fig_h,
                   r"$\mathcal{F}_{\theta}$",
                   ha="center", va="bottom",
-                  fontsize=5.0, color=cap_color, zorder=3)
+                  fontsize=6.8, color=cap_color, zorder=3)
 
 
 def _draw_compression_column(fig, x0_in, y0_in, w_in, h_in, fig_w, fig_h,
@@ -385,11 +386,11 @@ def _draw_compression_column(fig, x0_in, y0_in, w_in, h_in, fig_w, fig_h,
     cap_y = panel_y - 0.02
     _figtext(fig, cards_x + side / 2, cap_y, fig_w, fig_h,
               r"8 train $|\mathrm{RA}|$",
-              ha="center", va="top", fontsize=5.6, color=SUBTLE_TEXT, zorder=3)
+              ha="center", va="top", fontsize=7.2, color=SUBTLE_TEXT, zorder=3)
     _figtext(fig, pts_x + side / 2, cap_y, fig_w, fig_h,
               r"$N{=}20{,}000$ pts",
-              ha="center", va="top", fontsize=5.6, color=OURS_ACCENT,
-              fontweight="bold", zorder=3)
+              ha="center", va="top", fontsize=7.2, color=SUBTLE_TEXT,
+              zorder=3)
 
 
 def _draw_nvs_column(fig, x0_in, y0_in, w_in, h_in, fig_w, fig_h, panel_dir,
@@ -404,7 +405,7 @@ def _draw_nvs_column(fig, x0_in, y0_in, w_in, h_in, fig_w, fig_h, panel_dir,
     body_h = body_top - body_bot
 
     # ── Geometry: 3 rows (GT/Ours/RS) × 5 cols (F-4, F-1, TEST, F+1, F+4) ──
-    label_w   = 0.13
+    label_w   = 0.28           # widened so larger row labels fit + grid shifts right
     sub_pad   = 0.02
     row_gap   = 0.012
     ell_gap   = 0.07           # tighter — keeps ellipsis clear of RA images
@@ -480,8 +481,6 @@ def _draw_nvs_column(fig, x0_in, y0_in, w_in, h_in, fig_w, fig_h, panel_dir,
                color=TRAJ_BLUE, s=12, edgecolors="none", zorder=3)
     ax.scatter([f_t], [0.22], color=TRAJ_RED, s=26,
                edgecolors="none", zorder=4)
-    ax.text(f_t, 0.99, "held-out test", ha="center", va="top",
-            fontsize=4.8, color="#a02030", fontweight="bold", clip_on=False)
     ax.set_xlim(0, 1); ax.set_ylim(0, 1)
     ax.set_xticks([]); ax.set_yticks([])
     for sp in ax.spines.values():
@@ -489,13 +488,13 @@ def _draw_nvs_column(fig, x0_in, y0_in, w_in, h_in, fig_w, fig_h, panel_dir,
     ax.set_zorder(3)
 
     # ── Row labels (GT / Ours / RS) on left, kept inside column tile ──────
-    row_meta = [("GT", "#444"), ("Ours", OURS_ACCENT), ("RS", RED_BAD)]
+    row_meta = [("GT", "#444"), ("3DPS", OURS_ACCENT), ("RS", RED_BAD)]
     for ri, (rname, rcolor) in enumerate(row_meta):
         cell_y = sub_y + grid_h - sub_pad - (ri + 1) * cell - ri * row_gap
-        _figtext(fig, sub_x_left - 0.015, cell_y + cell / 2,
+        _figtext(fig, sub_x_left - 0.04, cell_y + cell / 2,
                   fig_w, fig_h, rname,
                   ha="right", va="center",
-                  fontsize=5.6, fontweight="bold", color=rcolor, zorder=4)
+                  fontsize=7.2, fontweight="bold", color=rcolor, zorder=4)
 
     # ── Place 3×5 RA cells ─────────────────────────────────────────────────
     frames   = [181, 184, 185, 186, 189]
@@ -566,7 +565,7 @@ def generate(args):
 
     tile_y = top_row_y + row_pad_in
 
-    pill_w = min(tile_w * 0.62, 1.30)
+    pill_w = min(tile_w * 0.65, 1.35)
     pill_h = 0.46
     pill_offset_y = 0.05
 
@@ -579,7 +578,7 @@ def generate(args):
              image=os.path.join(panel_dir, mesh_img),
              checks=[
                  (CHECK, "physics-based"),
-                 (CHECK, "complex out., all RPs"),
+                 (CHECK, "product-agnostic, complex"),
                  (CROSS, r"slow ($\sim$160 min)"),
              ],
              title_color=B_RED_BORDER, accent_color=(TOP_RED if args.variant == "a" else B_RED_BORDER)),
@@ -595,7 +594,7 @@ def generate(args):
              image=os.path.join(panel_dir, points_img),
              checks=[
                  (CHECK, "physics-based"),
-                 (CHECK, "complex out., all RPs"),
+                 (CHECK, "product-agnostic, complex"),
                  (CHECK, r"fast ($\sim$3 min)"),
              ],
              title_color=B_GREEN_BORDER, accent_color=(TOP_GREEN if args.variant == "a" else B_GREEN_BORDER)),

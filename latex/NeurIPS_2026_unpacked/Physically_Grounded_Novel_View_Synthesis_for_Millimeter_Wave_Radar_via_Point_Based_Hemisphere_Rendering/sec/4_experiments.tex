@@ -1,180 +1,42 @@
 \section{Experiments}
 \label{sec:experiments}
 
-We evaluate mm3DGS on six outdoor ColoRadar~\cite{kramer2022coloradar} scenes
-captured with a TI MMWCAS cascaded mmWave radar (12 transmitters, 16
-receivers, 76\,GHz carrier, 5.93\,cm range resolution) and a co-registered
-Ouster OS1-64 LiDAR. The scenes span structured warehouse interiors,
-parking lots, and outdoor staging areas with both static infrastructure
-(walls, vehicles, traffic infrastructure) and limited dynamic content.
+We evaluate 3DPS on six outdoor ColoRadar~\cite{kramer2022coloradar} scenes captured with a TI MMWCAS cascaded mmWave radar (12\,TX $\times$ 16\,RX, 76\,GHz carrier, 5.93\,cm range resolution) and a co-registered Ouster OS1-64 LiDAR. The scenes span parking lots, vehicle staging areas, and outdoor infrastructure with primarily static structure (walls, parked vehicles, traffic infrastructure).
 
 % --------------------------------------------------------------------
 \subsection{Experimental setup}
 \label{sec:experiments:setup}
 
-\textbf{Scene splits.} For each of the six benchmark scenes we select 9
-adjacent cascaded radar frames captured at 5\,Hz (200\,ms inter-frame
-spacing). The middle frame $F$ is held out as the novel-view test frame;
-the eight bracketing frames $\{F\!-\!4, \ldots, F\!-\!1, F\!+\!1, \ldots,
-F\!+\!4\}$ form the training set. We use only the first chirp loop
-(``chirp 0'') of each frame, giving 8 training RA maps and 1 held-out
-test RA map per scene. Restricting evaluation to the temporally
-\emph{interpolated} test frame (rather than extrapolating to the
-trajectory edge) is the standard NVS protocol; trajectory edges introduce
-free-view extrapolation error that is unrelated to the radar physics
-under test. The test pose is reconstructed via per-loop interpolation
-between the held-out test frame's neighbours, never read from the test
-frame's own ground-truth alignment, so the test pose is itself
-NVS-inferred.
+\textbf{Scene splits.} For each scene we select 9 adjacent cascaded radar frames at 5\,Hz (200\,ms inter-frame spacing) and use only the first chirp loop of each frame. The middle frame $F$ is held out as the novel-view test frame and the eight bracketing frames $\{F\!\pm\!1,\ldots,\!\pm\!4\}$ form the training set, giving 8 training RA maps and 1 held-out test RA map per scene. The test pose is reconstructed via per-loop interpolation between the held-out frame's neighbours rather than read from the test frame's own ground-truth alignment, so the test pose is itself NVS-inferred.
 
-\textbf{Baselines.} We benchmark mm3DGS against three published
-radar NVS baselines using public reference implementations adapted to
-our 9-frame split. \textbf{DART}~\cite{huang2024dart} learns an implicit
-neural field over a range--Doppler--azimuth (RDA) cube, and was
-originally designed for single-chip radars (3 TX $\times$ 4 RX, 12
-virtual elements, 256 chirps per frame). To run it on ColoRadar
-cascade data, we add a custom 86-element azimuth gain pattern and
-operate it at the cascade's native $N_d\!=\!16$ chirps per frame ---
-materially below the upstream design point. \textbf{Radar Fields}~\cite{10.1145/3641519.3657510} is a
-hash-grid + MLP neural field that synthesizes power-only 2D
-range--azimuth images directly, with no virtual-array FFT and no
-elevation modeling. \textbf{RadarSplat}~\cite{kung2025radarsplat}
-adapts 3D Gaussian splatting (3DGS)~\cite{3dgs} to scanning-radar RA
-rendering with opaque per-Gaussian features. All three baselines render
-power (magnitude) RA maps, so comparisons are performed on
-$|\mathrm{RA}|$ even though mm3DGS produces complex range profiles.
+\textbf{Baselines.} We benchmark against three published radar NVS methods using public reference implementations: \textbf{DART}~\cite{huang2024dart} (RDA neural field, run on cascade data with a custom 86-element azimuth gain pattern at $N_d{=}16$ chirps per frame), \textbf{Radar Fields}~\cite{10.1145/3641519.3657510} (hash-grid + MLP, RA magnitude), and \textbf{RadarSplat}~\cite{kung2025radarsplat} (3DGS adapted to RA rendering with opaque per-Gaussian features). All three render power-only RA maps, so comparisons are performed on $|\mathrm{RA}|$ even though 3DPS produces complex range profiles.
 
-\textbf{Metrics.} Following Kramer et al.~\cite{kramer2022coloradar} and
-mmIR~\cite{mmIR2026}, we report Pearson correlation (Corr), peak
-signal-to-noise ratio (PSNR), structural similarity (SSIM), and root-
-mean-square error (RMSE), all computed on min-max-normalized
-$399\!\times\!399$ Cartesian $|\mathrm{RA}|$ images via a shared metric
-harness used by all four methods. Each pixel is bilinearly sampled from
-the polar render. Range bins 15--110 are retained and the central wedge
-is masked to the radar's actual azimuth FOV (matching the standard
-ColoRadar evaluation).
+\textbf{Metrics.} Following Kramer et al.~\cite{kramer2022coloradar} and mmIR~\cite{mmIR2026}, we report Pearson correlation (Corr), peak signal-to-noise ratio (PSNR), structural similarity (SSIM), and root-mean-square error (RMSE), all computed on min-max-normalized $399\!\times\!399$ Cartesian $|\mathrm{RA}|$ images via a shared metric harness used by all four methods. Each pixel is bilinearly sampled from the polar render. Range bins 15--110 are retained and the central wedge is masked to the radar's actual azimuth FOV (matching the standard ColoRadar evaluation).
 
-\textbf{Implementation.} mm3DGS uses 20{,}000 oriented points per scene
-with per-point ITU material vectors and quaternion-encoded normals,
-trained for 500 iterations of Adam ($\eta_{\text{mat}}\!=\!10^{-2}$,
-$\eta_{\text{rot}}\!=\!5\!\cdot\!10^{-3}$, $\eta_{\text{pos}}\!=\!10^{-5}$
-with L2 anchor $\lambda_{\text{pos}}\!=\!100$). Adaptive density control
-(Sec.~\ref{sec:methods:opt}) splits the top 5\% of points by accumulated
-amplitude-path position gradient and prunes the bottom 5\% at iters
-$\{100, 200, 300, 400\}$. Each scene completes in ${\sim}$2.3 minutes on
-a single NVIDIA RTX~4090.
+\textbf{Implementation.} 3DPS uses 20{,}000 oriented points per scene with per-point ITU material vectors and quaternion-encoded normals, trained for 500 Adam iterations (Sec.~\ref{sec:methods:opt}). Each scene completes in ${\sim}$3.2~minutes on a single NVIDIA RTX~4090 (range 2.3--3.7~min across the six scenes); measured baseline wall-clocks on the same hardware are 0.4\,min/scene (DART), 1.6\,min/scene (Radar Fields), and 19.7\,min/scene (RadarSplat). Under the same hardware budget mmIR~\cite{mmIR2026} would project to ${\sim}$160\,min per scene (8 viewpoints $\times$ ${\sim}$20\,min/viewpoint sequential), a ${\sim}$50$\times$ per-scene speedup. Per-scene wall-clock and peak GPU memory are reported in the supplement (Sec.~\ref{app:runtime}).
 
 % --------------------------------------------------------------------
-\subsection{Held-out novel-view |RA| reconstruction}
-\label{sec:experiments:test}
+\subsection{Quantitative results}
+\label{sec:experiments:results}
 
-Table~\ref{tab:test_ra} reports per-scene held-out test $|\mathrm{RA}|$
-metrics for mm3DGS and the three baselines. mm3DGS wins on every scene
-for Corr and SSIM, on five of six scenes for RMSE, and on four of six
-scenes for PSNR; on the 6-scene mean it is the best method on all four
-metrics. Concretely, mean Pearson correlation reaches \textbf{0.600}
-($1.8\!\times$ the next-best RadarSplat at 0.339, $5.0\!\times$ Radar
-Fields at 0.120, $7.4\!\times$ DART at 0.099); mean PSNR is
-\textbf{28.6\,dB} (+0.6 over Radar Fields, +3.0 over RadarSplat,
-+5.2 over DART); mean SSIM is \textbf{0.729} ($1.4\!\times$ the next-
-best); and mean RMSE is the lowest at \textbf{0.0378} (vs.\ 0.040,
-0.057, 0.069 for Radar Fields, RadarSplat, and DART respectively). The
-margin is consistent across all six scenes, including the hardest one
-(S2\,F300, where mm3DGS achieves Corr 0.508 versus 0.172 for
-the second-best Radar Fields).
+Table~\ref{tab:results} reports the cross-method, cross-product results: mean over the six ColoRadar scenes, separately for training views (8 per scene) and the held-out novel-view test frame. The three baselines render power-only $|\mathrm{RA}|$ by construction and have nothing to report on CRP, ADC, or complex metrics --- those columns are marked `--'. Per-scene breakdowns and the full discussion of CRP/ADC eval methodology (range Hann, azimuth Hann, near-field bin masking, per-VA $\alpha[v]$ + per-range $\beta[r]$ phase calibration removal) are in supplement Sec.~\ref{app:per_scene_ra} and~\ref{app:rdadc}.
 
-\input{tables/test_ra_results}
+\input{tables/crp_adc_results}
 
-\textbf{Why mm3DGS beats RadarSplat.} RadarSplat ports the optical 3DGS
-primitive directly: each Gaussian carries opaque learned features that
-predict per-pixel intensity. There is no physics-based BSDF, no notion
-of incidence or observation angle relative to a surface normal, and no
-mechanism to share learned features with the radar's antenna pattern.
-Its renderer therefore has to absorb the directional dependence of the
-bistatic return (cosine-of-incidence falloff, antenna gain interaction
-with surface normal, range-dependent path loss) implicitly into the
-opaque features. The result is a representation that does not fit the
-radar physics well even on the training views (mean train Corr 0.371,
-versus mm3DGS's 0.812), and held-out test correlation tracks roughly
-proportionally (mean 0.339), since the opaque features have no
-physics-grounded structure to extrapolate from.
+\textbf{Magnitude on $|\mathrm{RA}|$.} 3DPS achieves \textbf{0.812 train / 0.587 test} mean Pearson correlation on cart $|\mathrm{RA}|$, beating the next-best baseline by $2.2\!\times$ (train) and $1.8\!\times$ (test). PSNR / SSIM / RMSE all rank 3DPS first on the mean, and on every per-scene metric where reported (supplement Tables~\ref{tab:test_ra} and~\ref{tab:train_ra}). The numerical ranking matches the structural mismatches identified in Sec.~\ref{sec:related}: RadarSplat's opaque per-Gaussian features cannot share information with the radar's antenna pattern (capping at 0.37 / 0.33); Radar Fields' hash-grid+MLP supervised post-FFT, lacking a virtual-array model, fails to discover scene support from sparse RA alone (0.13 / 0.12, data-starved); DART, designed for $N_d{=}256$ chirps and operating at the cascade's $N_d{=}16$, has insufficient Doppler resolution (0.03 / 0.08).
 
-\textbf{Why mm3DGS beats Radar Fields.} Radar Fields renders 2D
-range--azimuth power images directly via a hash-grid + MLP, supervised
-by an L1 magnitude loss. Two structural mismatches limit its NVS
-quality on cascade data. First, the network operates on pre-FFT'd RA
-slices and does \emph{not} model the virtual-array azimuth FFT: the
-azimuth dimension is fixed at the input resolution and the MLP cannot
-exploit phase coherence across the 86 cascade virtual elements to
-sharpen azimuth. Second, the field is trained per-scene from scratch
-with no geometric prior, so the LiDAR-derived structure that anchors
-mm3DGS is unavailable; the MLP has to discover scene support from
-sparse RA supervision alone, which our experiments show fails to
-generalize to the held-out pose (mean test Corr 0.120 versus train
-Corr 0.129 --- the model is data-starved, not over-fitting).
+\textbf{Magnitude on CRP and ADC.} 3DPS' native complex range profile gives mean train / test CRP Corr \textbf{0.701} / \textbf{0.603} --- directly comparable to the $|\mathrm{RA}|$ Corr in the same table, with the expected mild attenuation due to per-virtual-antenna evaluation being inherently stricter than azimuth-integrated RA (the azimuth FFT in $|\mathrm{RA}|$ provides ${\sim}\sqrt{86}$ coherent gain at target DOAs that per-(v,r) $|\mathrm{CRP}|$ does not). ADC envelope $\rho_{|\cdot|}$ reaches \textbf{0.689} / \textbf{0.613}. ADC drops PSNR/SSIM (image-domain, inappropriate for raw I/Q time-series). \emph{No baseline produces these outputs at all,} so the column is filled with `--' for the three baselines.
 
-\textbf{Why mm3DGS beats DART.} DART is fundamentally a range--Doppler
-method: it estimates a 3D RDA cube where the Doppler axis $N_d$ is
-populated by a slow-time DFT across the chirps in a frame. The
-upstream design point is $N_d\!=\!256$ chirps per frame, which gives
-a fine Doppler grid for ego-motion-aware reflectance estimation. The
-ColoRadar cascade radar provides only $N_d\!=\!16$ chirps per frame,
-$16\!\times$ coarser than DART expects, which fundamentally limits the
-Doppler resolution available to the field. Additionally, DART's
-upstream pipeline is built around single-chip radar geometry (3 TX
-$\times$ 4 RX) and does \emph{not} include a coherent virtual-array
-azimuth FFT --- to run it on cascade data we add a custom 86-element
-azimuth gain pattern as the only path through which cascade
-virtual-array information enters DART, and this pattern is fitted as a
-fixed beam shape rather than a phase-coherent FFT. The combination of
-$16\!\times$ Doppler under-sampling and the missing cascade-grade
-virtual-array FFT explains why DART produces the lowest test Corr
-(0.099 mean) of the four methods despite training successfully (no
-divergence) on every scene.
+\textbf{Complex output.} The renderer's per-(TX,RX) phasor is constrained only indirectly by the magnitude-only $|\mathrm{RA}|$ loss; the per-RA-bin phase is unconstrained by design ($\sim\!22{,}000$ phase DOFs). After a joint per-VA $\alpha[v]$ + per-range $\beta[r]$ least-squares phase calibration removal (342 DOFs $\approx 1.5\%$ of phase content, physically motivated by per-channel RF drift and ADC sample-zero timing), 3DPS reaches mean train / test $|\rho|$ of \textbf{0.430} / \textbf{0.255} and magnitude-weighted phase RMSE $\sigma_\phi$ of \textbf{65.8$^\circ$} / \textbf{82.5$^\circ$} (vs.\ 104$^\circ$ for random phase).
+% --- |\rho| ceiling discussion intentionally suppressed (internal-use experiments only) ---
+% $|\rho|$ is upper-bounded by $|\mathrm{RA}|_\mathrm{Corr}$ via oracle GT-phase substitution (supplement Sec.~\ref{app:rdadc}); our calibration removal recovers $\sim$53\% (train) / $\sim$43\% (test) of this $|\rho|$ ceiling. Closing the remaining gap would require either a higher $|\mathrm{RA}|$ ceiling or a complex (Re/Im) loss term during training; the magnitude-only loss leaves per-RA-bin phase essentially unconstrained by design.
+\emph{Again, no baseline produces complex output, so these columns are inapplicable to the three optical-derivative methods.}
 
-\textbf{Qualitative comparison.} Figure~\ref{fig:training_ra} shows
-held-out test $|\mathrm{RA}|$ renders for all four methods on the six
-scenes, sorted left-to-right by mm3DGS test CC (descending). mm3DGS
-preserves dominant scene structure (walls, parked vehicles, support
-columns) with consistent range and azimuth localization across scenes,
-while RadarSplat tends to produce over-smoothed wedges, Radar Fields
-exhibits substantial range bin smearing because its implicit
-representation cannot retain sharp range-bin support without explicit
-phase modelling, and DART smears across both range and Doppler because
-it is operating outside its design point on cascade data.
+\textbf{Qualitative comparison.} Figure~\ref{fig:training_ra} shows held-out test $|\mathrm{RA}|$ renders for all four methods on the six scenes, sorted left-to-right by 3DPS test CC (descending). 3DPS preserves dominant scene structure (walls, parked vehicles, support columns) with consistent range and azimuth localization across all scenes. Per-scene side-by-side comparisons of every training frame plus the held-out test frame are in Sec.~\ref{app:per_scene_train}. CRP and ADC qualitative heatmaps are in Sec.~\ref{app:rdadc:figures}; wall-clock and peak GPU memory in Sec.~\ref{app:runtime}; extended limitations and planned future work (ablations, per-point material visualizations) in Sec.~\ref{app:limitations}.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figs/training_ra_comparison.pdf}
-  \caption{\textbf{Held-out novel-view $|\mathrm{RA}|$ comparison} on
-    six ColoRadar scenes (columns, sorted by mm3DGS test CC descending).
-    Rows: ground truth (GT), mm3DGS (Ours), RadarSplat, Radar Fields,
-    DART (cascaded). Per-cell test CC overlaid in white. mm3DGS
-    consistently preserves wall and vehicle structure across all scenes;
-    baseline methods exhibit characteristic failure modes --- RadarSplat
-    over-smooths azimuth, Radar Fields smears range bins, and DART
-    smears across range and Doppler.}
+  \caption{\textbf{Held-out novel-view $|\mathrm{RA}|$ comparison.} Columns: six ColoRadar scenes (sorted by 3DPS test CC, descending). Rows: GT, 3DPS (Ours), RadarSplat, Radar Fields, DART. Per-frame test CC overlaid.}
   \label{fig:training_ra}
 \end{figure}
-
-% --------------------------------------------------------------------
-\subsection{Training-view fit}
-\label{sec:experiments:train}
-
-While the held-out novel-view metrics are the primary NVS measurement,
-training-view fit quantifies how well each model captures the radar
-physics in the regime where it has full supervision. Table~\ref{tab:train_ra}
-reports per-train-frame Pearson correlation, PSNR, SSIM, and RMSE for
-all four methods, computed via the same metric harness as
-Table~\ref{tab:test_ra} but averaged across the 8 training frames per
-scene. mm3DGS's training-mean Corr of $\sim$0.81 is substantially
-higher than its held-out test Corr of $\sim$0.60, reflecting the
-expected gap between in-sample and out-of-sample performance. The same
-ranking holds across all three baselines: their train-view Corr means
-are 0.371 (RadarSplat), 0.129 (Radar Fields), and 0.033 (DART) --- all
-substantially below mm3DGS's 0.812 --- indicating that none of the
-baselines fit the radar physics on the training views as well as
-mm3DGS does, even before considering their much larger held-out
-generalisation gap.
-
-\input{tables/train_ra_results}

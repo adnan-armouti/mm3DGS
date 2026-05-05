@@ -16,6 +16,7 @@
 \usepackage{xcolor}
 \usepackage{graphicx}
 \usepackage{multirow}
+\usepackage{array}                  % \vrule width syntax in CRP/ADC supplement tables
 \usepackage{enumitem}
 
 % Colors for table
@@ -23,9 +24,14 @@
 \definecolor{lightyellow}{HTML}{FEF9E7}
 \definecolor{lightred}{HTML}{FADBD8}
 \definecolor{lightergray}{HTML}{F2F3F4}
+
+% CRP/ADC table — highlighter colors on the header-text labels only.
+\usepackage{colortbl}
+\definecolor{magbg}{HTML}{FFF1A8}     % yellow highlighter — Magnitude / Env.
+\definecolor{vrbg}{HTML}{B5DCEC}      % blue highlighter — Complex (VR)
 \definecolor{mediumgray}{HTML}{D5D8DC}
 
-\title{Physically-Grounded Novel View Synthesis for Millimeter-Wave Radar via Point-Based Hemisphere Rendering}
+\title{3DPS: Differentiable 3D Point Splatting for Physically Based mmWave Radar Rendering and Novel View Synthesis}
 
 \author{%
   Anonymous Author(s)
@@ -40,8 +46,7 @@
 \input{sec/2_relatedworks}
 \input{sec/3_methods}
 \input{sec/4_experiments}
-
-% Conclusion to be added later
+\input{sec/5_conclusion}
 
 % Flush all pending floats before References so figures and tables stay
 % with the body content (and don't bleed into the bibliography).

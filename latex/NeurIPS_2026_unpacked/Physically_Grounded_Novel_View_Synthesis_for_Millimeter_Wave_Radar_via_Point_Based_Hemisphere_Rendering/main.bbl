@@ -1,4 +1,4 @@
-\begin{thebibliography}{28}
+\begin{thebibliography}{24}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -76,18 +76,6 @@ Wenzel Jakob, S{\'e}bastien Speierer, Nicolas Roussel, Merlin Nimier-David,
 \newblock Dr.jit: A just-in-time compiler for differentiable rendering.
 \newblock \emph{SIGGRAPH}, 2022.
 
-\bibitem[Jiang et~al.(2025)Jiang, Sun, Li, Wang, Li, and
-  Ramamoorthi]{jiang2025surfels}
-Kaiwen Jiang, Jia-Mu Sun, Zilu Li, Dan Wang, Tzu-Mao Li, and Ravi Ramamoorthi.
-\newblock Differentiable light transport with gaussian surfels via adapted
-  radiosity for efficient relighting and geometry reconstruction.
-\newblock In \emph{SIGGRAPH}, 2025.
-
-\bibitem[Jin et~al.(2024)]{jin2024diffsound}
-Hao Jin et~al.
-\newblock Diffsound: Differentiable sound rendering.
-\newblock In \emph{NeurIPS}, 2024.
-
 \bibitem[Kerbl et~al.(2023)Kerbl, Kopanas, Leimk{\"u}hler, and Drettakis]{3dgs}
 Bernhard Kerbl, Georgios Kopanas, Thomas Leimk{\"u}hler, and George Drettakis.
 \newblock 3d gaussian splatting for real-time radiance field rendering.
@@ -106,16 +94,17 @@ Hao-En Kung, Sheng-Hsuan Chou, Andreas Geiger, Sanja Fidler, and Marc Law.
 \newblock Radarsplat: Radar novel view synthesis via 3d gaussian splatting.
 \newblock In \emph{CVPR}, 2025.
 
-\bibitem[Li et~al.(2018)Li, Aittala, Durand, and
-  Lehtinen]{li2018differentiable}
-Tzu-Mao Li, Miika Aittala, Fr{\'e}do Durand, and Jaakko Lehtinen.
-\newblock Differentiable monte carlo ray tracing through edge sampling.
-\newblock In \emph{SIGGRAPH Asia}, 2018.
-
 \bibitem[Lu et~al.(2024)]{lu2024newrf}
 Haifeng Lu et~al.
 \newblock Newrf: Neural weather radiance fields.
 \newblock In \emph{AAAI}, 2024.
+
+\bibitem[Lu et~al.(2013)Lu, Cabrol, Steinbach, and Pragada]{lu2013measurement}
+Joonsuk~Steve Lu, Philippe Cabrol, David Steinbach, and Ravikumar~V. Pragada.
+\newblock Measurement and characterization of various outdoor 60 {GHz}
+  diffracted and scattered paths.
+\newblock In \emph{IEEE Military Communications Conference (MILCOM)}, pages
+  1238--1243, 2013.
 
 \bibitem[Mildenhall et~al.(2020)Mildenhall, Srinivasan, Tancik, Barron,
   Ramamoorthi, and Ng]{mildenhall2021nerf}
@@ -124,6 +113,12 @@ Ben Mildenhall, Pratul~P Srinivasan, Matthew Tancik, Jonathan~T Barron, Ravi
 \newblock Nerf: Representing scenes as neural radiance fields for view
   synthesis.
 \newblock In \emph{ECCV}, 2020.
+
+\bibitem[Mostajabi et~al.(2020)Mostajabi, Wang, Ranjan, and
+  Hsyu]{mostajabi2020high}
+Mohammadreza Mostajabi, Chia-Ming Wang, Deva Ranjan, and Gilbert Hsyu.
+\newblock High-resolution radar point cloud generation via neural networks.
+\newblock In \emph{ITSC}, 2020.
 
 \bibitem[Rafidashti et~al.(2025)]{rafidashti2025neuradar}
 Erfan Rafidashti et~al.
@@ -144,36 +139,16 @@ Merrill~I. Skolnik.
 \newblock \emph{Introduction to Radar Systems}.
 \newblock McGraw-Hill, New York, 3rd edition, 2001.
 
-\bibitem[Sun et~al.(2020)Sun, Petropulu, and Poor]{sun2020mimo}
-Shunqiao Sun, Athina~P Petropulu, and H~Vincent Poor.
-\newblock Mimo radar for advanced driver-assistance systems and autonomous
-  driving: Advantages and challenges.
-\newblock 2020.
-
 \bibitem[Takawale et~al.(2025)Takawale, Tancik, and
   Ramamoorthi]{takawale2025spinr}
 Aniket Takawale, Matthew Tancik, and Ravi Ramamoorthi.
 \newblock Spinr: Spatial implicit neural representation for fmcw radar.
 \newblock In \emph{ICRA}, 2025.
 
-\bibitem[Watts et~al.(2016)Watts, Shrekenhamer, Montoya, Lipworth, Hunt,
-  Sleasman, Krishna, Smith, and Padilla]{watts20162d}
-Christopher~M Watts, David Shrekenhamer, John Montoya, Guy Lipworth, John Hunt,
-  Timothy Sleasman, Sanjay Krishna, David~R Smith, and Willie~J Padilla.
-\newblock 2-d and 3-d synthetic aperture radar images.
-\newblock \emph{Advanced Optical Materials}, 2016.
-
 \bibitem[Wei et~al.(2024)]{wei2024csvbsdf}
 Mengqi Wei et~al.
 \newblock Coherent spatially varying bsdf.
 \newblock In \emph{SIGGRAPH}, 2024.
-
-\bibitem[Zhang et~al.(2022)Zhang, Fujita, Jia, Liu, and
-  Ramamoorthi]{zhang2022iron}
-Kai Zhang, Sai~Bi Fujita, Zhengfei Jia, Xuejin Liu, and Ravi Ramamoorthi.
-\newblock Iron: Inverse rendering by optimizing neural sdfs and materials from
-  photometric images.
-\newblock In \emph{CVPR}, 2022.
 
 \bibitem[Zhang et~al.(2025)]{zhang2025rf4d}
 Yuchen Zhang et~al.

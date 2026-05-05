@@ -1,0 +1,22 @@
+\begin{table}[t]
+\centering
+\caption{Per-component comparison of 3DPS deterministic point splatting vs.\ mmIR's MC path tracer. $N$\,=\,scene point count, $K\,{=}\,256$ range bins, $L\,{=}\,15$ PSF taps per point, $N_{\text{TX}}\!\cdot\!N_{\text{RX}}\,{=}\,192$ TX--RX pairs. Wall-clock figures: 500 iterations on a single RTX~4090.}
+\label{tab:complexity}
+\small
+\setlength{\tabcolsep}{6pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{lll}
+\toprule
+\textbf{Component} & \textbf{mmIR~\cite{mmIR2026}} & \textbf{3DPS (Ours)} \\
+\midrule
+Path sampling      & MC over $24$k paths / iter            & deterministic, $N{=}20$k points / iter (no MC) \\
+Range processing   & ADC synth.\ + range FFT, $\mathcal{O}(N\!\cdot\!K)$ & PSF splat, $\mathcal{O}(N\!\cdot\!L)$ \\
+BSDF evaluation    & per-pair, factorized over $(N_{\text{TX}}{+}N_{\text{RX}})$ & per-pair, factorized over $(N_{\text{TX}}{+}N_{\text{RX}})$ \\
+Backward pass      & autograd through MC graph           & fused analytical CUDA kernel \\
+\midrule
+Forward / iter, 8 views, $N{=}20$k & ---  & ${\sim}10$~ms \\
+Wall-clock, 500 it., 1 view        & ${\sim}20$~min  & ---  \\
+Wall-clock, 500 it., 8 views       & not reported (multi-view intractable) & $\boldsymbol{\sim}\textbf{2.3 min}$ (${\sim}70\times$ faster per viewpoint) \\
+\bottomrule
+\end{tabular}
+\end{table}

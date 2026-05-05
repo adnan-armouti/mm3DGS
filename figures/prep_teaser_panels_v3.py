@@ -191,18 +191,20 @@ def render_implicit_style(mesh_path, model_path, scene, test_frame,
 def render_3dps_points(mesh_path, model_path, scene, test_frame,
                         alignment_dir, out_path,
                         width=1500, height=1000):
+    """3DPS points panel — matches the styling of the pipeline figure's
+    Section-1 image (pink points on a faint, near-transparent mesh).
+    """
     mesh = o3d.io.read_triangle_mesh(mesh_path)
     mesh.compute_vertex_normals()
-    mesh.paint_uniform_color([0.86, 0.86, 0.88])
+    mesh_rgb = [0.88, 0.88, 0.90]            # near-white scaffold
+    mesh.paint_uniform_color(mesh_rgb)
 
     state = torch.load(model_path, map_location="cpu", weights_only=False)
-    raw = state["raw_materials"].numpy()
-    pos = state["positions"].numpy()
-    eps_real = 1.0 + np.log1p(np.exp(np.clip(raw[:, 0], -50, 50)))
-    lo, hi = np.percentile(eps_real, [5, 95])
-    eps_norm = np.clip((eps_real - lo) / max(hi - lo, 1e-6), 0, 1)
-    cmap = mpl_cm.get_cmap("plasma")
-    cols = cmap(eps_norm)[:, :3]
+    pos = state["positions"].numpy()         # all 20 000 optimised points
+
+    # Single-colour pink — matches PINK_RGB in render_pipeline_panel_a.py.
+    pink = np.array([0.840, 0.235, 0.549], dtype=np.float32)
+    cols = np.tile(pink, (len(pos), 1))
 
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(pos)
@@ -211,7 +213,7 @@ def render_3dps_points(mesh_path, model_path, scene, test_frame,
     r = _setup_renderer(width, height, bg=(0.926, 0.922, 0.922, 1.0))
     mat_mesh = o3d.visualization.rendering.MaterialRecord()
     mat_mesh.shader = "defaultLitTransparency"
-    mat_mesh.base_color = [0.86, 0.86, 0.88, 0.65]
+    mat_mesh.base_color = [mesh_rgb[0], mesh_rgb[1], mesh_rgb[2], 0.30]
     mat_mesh.has_alpha = True
     r.scene.add_geometry("mesh", mesh, mat_mesh)
 

@@ -23,8 +23,13 @@ import numpy as np
 from PIL import Image
 from scipy.signal import butter, filtfilt
 
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-from .fig_common import BACKGROUND_COLOR, FIG_WIDTH_INCHES, add_rounded_bg
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+import sys as _sys
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if _REPO_ROOT not in _sys.path:
+    _sys.path.insert(0, _REPO_ROOT)
+from figures.fig_common import (BACKGROUND_COLOR, FIG_WIDTH_INCHES,
+                                  add_rounded_bg, apply_paper_font)
 
 # Apply NeurIPS paper typography (Times serif) to all figures.
 apply_paper_font()
@@ -35,21 +40,35 @@ apply_paper_font()
 # Layout constants (all in inches)
 # ══════════════════════════════════════════════════════════════════════════════
 
-FIG_W = FIG_WIDTH_INCHES  # 7.1
-FIG_H = 2.45             # compact — matches SVG reference aspect ratio
+FIG_W = 5.03             # snug — row tile has ~0.03 in. empty left + right of
+                          # the leftmost / rightmost column tile.
+FIG_H = 1.30             # snug — row tile has ~0.03 in. empty below the column
+                          # tiles.  Aspect ≈ 4.16 (was 4.29) — small drift to
+                          # remove all wasted space.
 
-# Section widths (Sec3/4 narrower for square-ish inner tiles)
-SEC1_W = 2.15
-SEC2_W = 2.10
-SEC3_W = 1.05
-SEC4_W = 1.05
+# Section widths.  All inter-section gaps are pinned to GAP_REF = 0.14
+# (the Sec1→Sec2 arrow width) so EVERY arrow in the figure has the same
+# horizontal extent.  SEC2_W is sized so the Section-2 tile ends just
+# past the Splat tile (= 2*col1_w + GAP_REF + outer insets ≈ 1.62 in).
+SEC1_W = 1.77          # snug around the points-scene image: image axes width
+                        # + 2 × top_pad inside the column tile.
+SEC2_W = 1.62          # tight: col1 + 0.14 gap + Splat + outer insets
+SEC3_W = 0.55
+SEC4_W = 0.55
 
-# Gaps between sections
-GAP_12 = 0.14
-GAP_23 = 0.25
-GAP_34 = 0.25    # wider for RA Loss label
+# Gaps between sections — all pinned to the same reference width.
+GAP_REF = 0.14
+GAP_12 = GAP_REF
+GAP_23 = GAP_REF
+GAP_34 = GAP_REF
 
-MARGIN = 0.04
+# Outer margin around the figure-bg rounded rect — matches the teaser's
+# row-tile margin (so the 3DPS row tile is visually flush with the teaser's).
+MARGIN_OUT = 0.06
+# Section content margin equal to MARGIN_OUT — sections start at the row-tile
+# edge so the only padding between row tile and column tile is the per-section
+# IPAD (0.03 in.).
+MARGIN = 0.06
 
 # Section x-positions
 SEC1_L = MARGIN
@@ -57,13 +76,15 @@ SEC2_L = SEC1_L + SEC1_W + GAP_12
 SEC3_L = SEC2_L + SEC2_W + GAP_23
 SEC4_L = SEC3_L + SEC3_W + GAP_34
 
-# Vertical layout
-SEC_PAD = 0.02
+# Vertical layout — SEC_PAD set to MARGIN_OUT so the section title sits just
+# below the row-tile top edge (no extra outer band).
+SEC_PAD = MARGIN_OUT
 SEC_TOP = FIG_H - SEC_PAD
 SEC_BOT = SEC_PAD
 SEC_H = SEC_TOP - SEC_BOT
 
-HEADER_H = 0.16
+HEADER_H = 0.10        # tightened (was 0.16) — fits 5.5pt section titles and
+                        # lets the figure shrink without losing content.
 LABEL_H = 0.10
 CONTENT_TOP = SEC_TOP - HEADER_H
 CONTENT_BOT = SEC_BOT + LABEL_H
@@ -94,11 +115,33 @@ THUMB_GAP = 0.01
 THUMB_W = (SUBPANEL_W - 2 * SP_PAD - THUMB_GAP) / 2
 THUMB_H = SUBPANEL_H - SP_TITLE_H - SP_CAPTION_H - 2 * SP_PAD
 
-# ── Sections 3/4: ADC + FFT + RA proportions (RA smaller) ───────────────────
+# ── Column-tile geometry ──────────────────────────────────────────────────
+# All 4 column tiles (Section 1 / 2 / 3 / 4) share the same height, set so
+# Section 2 has 0.03 in. of empty space above Antenna Gain and 0.03 in. of
+# empty space below Phase (i.e. SPLAT_H + 2 * 0.03 = TILE_H).  SPLAT_H is
+# now an independent constant (not derived from CONTENT_H), so the figure
+# height can shrink without shrinking the Splat.
+SPLAT_H  = 0.99
+TILE_H   = SPLAT_H + 0.06            # 1.05 — column tile height
+TILE_TOP = CONTENT_TOP                # = top of column tile (= section content top)
+TILE_BOT = TILE_TOP - TILE_H
+
+SPLAT_TOP = TILE_TOP - 0.03           # 0.03 padding above Antenna Gain
+SPLAT_BOT = TILE_BOT + 0.03           # 0.03 padding below Phase
+
+# Backwards-compatibility shims for code that still references the old
+# Section-2 inner-area names:
+SEC2_INNER_TOP = SPLAT_TOP
+SEC2_INNER_BOT = SPLAT_BOT
+SEC2_INNER_H   = SPLAT_H
+
+# ── Sections 3/4: CRP + Azimuth FFT + RA proportions ────────────────────────
 SEC34_IPAD = 0.03
-ADC_FRAC = 0.40
-RA_FRAC = 0.42
-FFT_FRAC = 1.0 - ADC_FRAC - RA_FRAC  # 0.18
+# Bumped vs mmIR (was 0.40/0.42) so the two tiles sit closer together inside
+# the shorter 3DPS figure; remaining ~6% of CONTENT_H is the FFT arrow band.
+ADC_FRAC = 0.47
+RA_FRAC  = 0.47
+FFT_FRAC = 1.0 - ADC_FRAC - RA_FRAC  # 0.06
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -123,6 +166,22 @@ RX_PATTERN_PATH = os.path.join(PROJECT_ROOT, "assets", "antenna_pattern", "MMWCA
 MESH_VIEW_PATH = os.path.join(
     POSTPROC_DIR, "mesh_only_renders", SCENE, "mesh_view_oblique_1.png"
 )
+
+# ── 3DPS-specific image sources (override mmIR ADC paths) ───────────────────
+# Section 1 image: the points + normals scene render produced by
+# figures/render_pipeline_panel_a.py (Open3D, teaser pattern).
+_3DPS_SCENE = "seq_1_frame_185"
+PANEL_A_PATH = os.path.join(PROJECT_ROOT, "output", "pipeline_panels",
+                              _3DPS_SCENE, "panel_a_scene.png")
+# Sections 3/4: pre-rendered CRP heatmaps from the teaser-prep pipeline.
+_TEASER_PANELS = os.path.join(PROJECT_ROOT, "output", "teaser_panels",
+                                _3DPS_SCENE, "v4")
+RENDERED_CRP_PATH = os.path.join(_TEASER_PANELS, "panel_crp_ours.png")
+GT_CRP_PATH       = os.path.join(_TEASER_PANELS, "panel_crp_gt.png")
+# Override the RA paths with the same teaser-prep PNGs so all four section
+# image sources are PNGs (no mixed PNG/npy code paths).
+RENDERED_RA_PATH = os.path.join(_TEASER_PANELS, "panel_ra_ours_train.png")
+GT_RA_PATH       = os.path.join(_TEASER_PANELS, "panel_ra_gt_train.png")
 
 
 def _update_data_paths(train_dir=None, postproc_dir=None):
@@ -254,31 +313,37 @@ def _ra_cart_to_linear(ra):
 
 # ── Bidirectional dashed arrows (thinner, more academic) ─────────────────────
 
-def _draw_bidir_arrows(fig, x1, y1, x2, y2):
+def _draw_bidir_arrows(fig, x1, y1, x2, y2, bidir=True, swap_lr=False):
     """Draw paired green→ and red← dashed arrows.
 
-    Convention (equal physical gap on both axes):
-      Vertical:   green LEFT  (x − _ARROW_XOFF), red RIGHT (x + _ARROW_XOFF)
-      Horizontal: green TOP   (y + _ARROW_YOFF), red BOTTOM (y − _ARROW_YOFF)
+    bidir   : if False, only the green forward arrow is drawn (no red).
+    swap_lr : for *vertical* arrows only — flips the green/red sides so
+              the green arrow ends up on the right (used by the Azimuth
+              FFT inset where the symbol sits to the right of the arrows).
     """
     overlay = _get_overlay_ax(fig)
     is_vertical = abs(y2 - y1) > abs(x2 - x1)
     style = dict(lw=0.6, linestyle=(0, (4, 3)), mutation_scale=5)
 
     if is_vertical:
+        green_off = +_ARROW_XOFF if swap_lr else -_ARROW_XOFF
+        red_off   = -_ARROW_XOFF if swap_lr else +_ARROW_XOFF
         overlay.annotate(
-            "", xy=(x2 - _ARROW_XOFF, y2), xytext=(x1 - _ARROW_XOFF, y1),
+            "", xy=(x2 + green_off, y2), xytext=(x1 + green_off, y1),
             xycoords="figure fraction", textcoords="figure fraction",
             arrowprops=dict(arrowstyle="-|>", color="#2ca25f", **style))
-        overlay.annotate(
-            "", xy=(x1 + _ARROW_XOFF, y1), xytext=(x2 + _ARROW_XOFF, y2),
-            xycoords="figure fraction", textcoords="figure fraction",
-            arrowprops=dict(arrowstyle="-|>", color="#d73027", **style))
+        if bidir:
+            overlay.annotate(
+                "", xy=(x1 + red_off, y1), xytext=(x2 + red_off, y2),
+                xycoords="figure fraction", textcoords="figure fraction",
+                arrowprops=dict(arrowstyle="-|>", color="#d73027", **style))
     else:
         overlay.annotate(
             "", xy=(x2, y2 + _ARROW_YOFF), xytext=(x1, y1 + _ARROW_YOFF),
             xycoords="figure fraction", textcoords="figure fraction",
             arrowprops=dict(arrowstyle="-|>", color="#2ca25f", **style))
+        if not bidir:
+            return
         overlay.annotate(
             "", xy=(x1, y1 - _ARROW_YOFF), xytext=(x2, y2 - _ARROW_YOFF),
             xycoords="figure fraction", textcoords="figure fraction",
@@ -297,12 +362,11 @@ def _draw_single_arrow(fig, x1, y1, x2, y2, color="#555", lw=0.5, dashed=False):
     )
 
 
-def _draw_bidir_s_arrows(fig, x1, y1, x2, y2):
+def _draw_bidir_s_arrows(fig, x1, y1, x2, y2, bidir=True):
     """Draw paired green/red S-shaped orthogonal arrows (H→V→H segments).
 
-    Convention (equal physical gap, matches _draw_bidir_arrows):
-      Horizontal segments: green TOP (+_ARROW_YOFF), red BOTTOM (−_ARROW_YOFF)
-      Vertical segment:    green LEFT (−_ARROW_XOFF), red RIGHT (+_ARROW_XOFF)
+    If ``bidir`` is False, only the green forward arrow is drawn — used for
+    paths that don't carry gradients (e.g. through antenna pattern, phase).
     """
     overlay = _get_overlay_ax(fig)
     xmid = (x1 + x2) / 2
@@ -321,6 +385,9 @@ def _draw_bidir_s_arrows(fig, x1, y1, x2, y2):
         arrowprops=dict(arrowstyle="-|>", color="#2ca25f", lw=lw,
                         mutation_scale=ms),
     )
+
+    if not bidir:
+        return
 
     # Red backward: H-bottom → V-right → H-bottom
     rx = [x2, xmid + _ARROW_XOFF, xmid + _ARROW_XOFF, x1 + head_len]
@@ -492,92 +559,103 @@ def _draw_beam_pattern_thumbnail(fig, ax):
 
 
 def _draw_section1(fig):
-    """Section 1: Differentiable Parameters — two inner tiles, no column panel."""
+    """Section 1: 3DPS Scene Representation — single tile holding the
+    points + normals scene render (replaces mmIR's 4-thumbnail layout)."""
     # Section title at top
     fig.text(_fx(SEC1_L + SEC1_W / 2), _fy(SEC_TOP - HEADER_H / 2),
-             "Differentiable Parameters", ha="center", va="center",
+             "3DPS Scene Representation", ha="center", va="center",
              fontsize=5.5, fontweight="bold", color="#222")
 
     sp_left = SEC1_L + SEC1_IPAD
+    sp_bot  = TILE_BOT                 # column tile shrinks to TILE_H
+    sp_h    = TILE_H
+    sp_w    = SUBPANEL_W
 
-    # Consistent column widths for BOTH tiles (so left/right columns align)
-    col1_left = sp_left + SP_PAD
-    col2_left = col1_left + THUMB_W + THUMB_GAP
-
-    # Title inset from tile top — matches Sec3/4 tiles (0.055")
-    _TITLE_INSET = 0.055
-    # Caption inset from tile bottom — matches Sec3/4 (plot_pad=0.025 + caption_h*0.45=0.036)
-    _CAPTION_INSET = 0.061
-
-    # Vertical content zone within each subpanel (between title and caption)
-    _IMG_SCALE = 0.90  # 90% of THUMB size
-    def _content_zone(sp_bot):
-        zone_top = sp_bot + SUBPANEL_H - _TITLE_INSET - 0.03  # below title text
-        zone_bot = sp_bot + _CAPTION_INSET + 0.09             # above caption text (+0.05 raise)
-        return zone_bot, zone_top
-
-    # ── Inner tile A: Radar Parameters (top half) ─────────────────────────
-    sp_a_bot = CONTENT_TOP - SUBPANEL_H
-    _add_rounded_rect(fig, sp_left, sp_a_bot, SUBPANEL_W, SUBPANEL_H,
+    _add_rounded_rect(fig, sp_left, sp_bot, sp_w, sp_h,
                       color=TILE_COLOR, zorder=-0.5)
-    fig.text(_fx(sp_left + SUBPANEL_W / 2),
-             _fy(sp_a_bot + SUBPANEL_H - _TITLE_INSET),
-             "Radar Parameters", ha="center", va="center",
-             fontsize=5, fontweight="bold", color="#444")
 
-    z_bot, z_top = _content_zone(sp_a_bot)
-    zone_h = z_top - z_bot
-    # Center scaled image in the zone
-    img_w = THUMB_W * _IMG_SCALE
-    img_h = THUMB_H * _IMG_SCALE
-    img_bot = z_bot + (zone_h - img_h) / 2
+    # Image goes at the TOP of the tile.  Its height is chosen so the
+    # caption text sits *equidistantly* between the bottom of the image
+    # and the bottom of the column tile.  Image height < SPLAT_H slightly
+    # to make room for caption + symmetric gaps.
+    caption_text = "Optimised 3DPS points (positions, normals, materials)"
+    caption_h    = 0.05
+    caption_gap  = 0.04                # gap above / below caption (equal)
+    top_pad      = 0.03                # gap above image (matches splat above-AG pad)
+    img_pad_x    = top_pad             # empty bands left/right of image = top_pad
 
-    ax_pose = _ax_at(fig, col1_left + (THUMB_W - img_w) / 2, img_bot, img_w, img_h)
-    _draw_thumbnail(fig, ax_pose, _render_sensor_pose_image, "Sensor Pose")
-    fig.text(_fx(col1_left + THUMB_W / 2), _fy(sp_a_bot + _CAPTION_INSET),
-             "Sensor Pose", ha="center", va="center", fontsize=4, color="#555")
+    img_left = sp_left + img_pad_x
+    img_top  = sp_bot + sp_h - top_pad
+    img_h    = sp_h - top_pad - 2 * caption_gap - caption_h
+    img_bot  = img_top - img_h
 
-    # Beam pattern: 75% of scaled THUMB size, centered in the same zone
-    beam_scale = 0.75
-    beam_w = img_w * beam_scale
-    beam_h = img_h * beam_scale
-    beam_left = col2_left + (THUMB_W - beam_w) / 2
-    beam_bot = z_bot + (zone_h - beam_h) / 2
-    ax_beam = _ax_at(fig, beam_left, beam_bot, beam_w, beam_h)
-    _draw_beam_pattern_thumbnail(fig, ax_beam)
-    fig.text(_fx(col2_left + THUMB_W / 2), _fy(sp_a_bot + _CAPTION_INSET),
-             "Beam Patterns", ha="center", va="center", fontsize=4, color="#555")
+    # Centre the caption between img_bot and sp_bot (equidistant).
+    caption_y = sp_bot + (img_bot - sp_bot) / 2
+    fig.text(_fx(sp_left + sp_w / 2), _fy(caption_y),
+             caption_text,
+             ha="center", va="center", fontsize=4, color="#555")
 
-    # ── Inner tile B: Scene Parameters (bottom half) ──────────────────────
-    sp_b_bot = CONTENT_BOT
-    _add_rounded_rect(fig, sp_left, sp_b_bot, SUBPANEL_W, SUBPANEL_H,
-                      color=TILE_COLOR, zorder=-0.5)
-    fig.text(_fx(sp_left + SUBPANEL_W / 2),
-             _fy(sp_b_bot + SUBPANEL_H - _TITLE_INSET),
-             "Scene Parameters", ha="center", va="center",
-             fontsize=5, fontweight="bold", color="#444")
+    panel_path = PANEL_A_PATH
+    # Square axes width chosen to maintain image aspect ratio (no stretch).
+    img_axes_w = sp_w - 2 * img_pad_x  # default fill; corrected below if needed.
+    if os.path.exists(panel_path):
+        try:
+            arr = np.asarray(Image.open(panel_path))
+            # Crop only the bottom 1/3 (right side now uncropped so the image
+            # has a more landscape aspect that fills the axes more evenly).
+            h, _w = arr.shape[:2]
+            arr = arr[: int(h * 2 / 3), :, :]
+            img_aspect = arr.shape[1] / arr.shape[0]
+            # Fit image inside (img_axes_w_max × img_h) while preserving
+            # aspect — pick the side that limits.
+            img_axes_w = min(sp_w - 2 * img_pad_x, img_h * img_aspect)
+            img_left = sp_left + (sp_w - img_axes_w) / 2
+            ax = _ax_at(fig, img_left, img_bot, img_axes_w, img_h)
+            ax.set_xticks([]); ax.set_yticks([])
+            for sp in ax.spines.values():
+                sp.set_visible(False)
+            ax.imshow(arr, aspect="auto", interpolation="bilinear")
+        except Exception as e:
+            print(f"  panel_a load failed ({e})")
+            ax = _ax_at(fig, img_left, img_bot, img_axes_w, img_h)
+            ax.set_xticks([]); ax.set_yticks([])
+            for sp in ax.spines.values():
+                sp.set_visible(False)
+            ax.text(0.5, 0.5, "panel_a missing", ha="center", va="center",
+                    transform=ax.transAxes, fontsize=5, color="#999")
+    else:
+        ax = _ax_at(fig, img_left, img_bot, img_axes_w, img_h)
+        ax.set_xticks([]); ax.set_yticks([])
+        for sp in ax.spines.values():
+            sp.set_visible(False)
+        ax.text(0.5, 0.5, f"panel_a missing\n{panel_path}",
+                ha="center", va="center",
+                transform=ax.transAxes, fontsize=4, color="#999")
 
-    z_bot_b, z_top_b = _content_zone(sp_b_bot)
-    zone_h_b = z_top_b - z_bot_b
-    img_bot_b = z_bot_b + (zone_h_b - img_h) / 2
-
-    ax_norm = _ax_at(fig, col1_left + (THUMB_W - img_w) / 2, img_bot_b, img_w, img_h)
-    _draw_thumbnail(fig, ax_norm, _render_normals_image, "Pos. & Normals")
-    fig.text(_fx(col1_left + THUMB_W / 2), _fy(sp_b_bot + _CAPTION_INSET),
-             "Positions & Normals", ha="center", va="center",
-             fontsize=4, color="#555")
-
-    ax_mat = _ax_at(fig, col2_left + (THUMB_W - img_w) / 2, img_bot_b, img_w, img_h)
-    _draw_thumbnail(fig, ax_mat, _render_materials_image, "Materials")
-    fig.text(_fx(col2_left + THUMB_W / 2), _fy(sp_b_bot + _CAPTION_INSET),
-             "Materials", ha="center", va="center", fontsize=4, color="#555")
-
-    return sp_a_bot + SUBPANEL_H / 2, sp_b_bot + SUBPANEL_H / 2
+    # Three y-coords used as connector source points for the 3 Section-2
+    # tiles (BSDF / Antenna Gain / Phase) — top quarter, middle, bottom
+    # quarter of the single Section-1 tile.
+    cy_top = sp_bot + sp_h * 0.75
+    cy_mid = sp_bot + sp_h * 0.50
+    cy_bot = sp_bot + sp_h * 0.25
+    return cy_top, cy_mid, cy_bot
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Sections 3 & 4: Rendered Prediction / Ground Truth
 # ══════════════════════════════════════════════════════════════════════════════
+
+def _crp_ra_img_side(sec_inner_w, plot_pad):
+    """Square CRP/RA image side that lets:
+      * CRP top hit SPLAT_TOP exactly,
+      * RA bottom hit SPLAT_BOT exactly,
+      * a visible Azimuth-FFT arrow gap remain between the two images.
+    Used by both Sections 3/4 and the Section 2 → Section 3 connector so
+    the image positions and the arrow source match.
+    """
+    arrow_gap = 0.18
+    return min(sec_inner_w - 2 * plot_pad, (SPLAT_H - arrow_gap) / 2)
+
 
 def _plot_adc_signal(ax, adc_complex):
     """Plot ADC I/Q components (matches visualize_iq_data.py style)."""
@@ -601,100 +679,69 @@ def _draw_prediction_section(fig, sec_left, sec_w, adc_path, ra_path,
                               section_title, adc_title, ra_title, is_gt=False,
                               adc_signal=None):
     """Draw Rendered Prediction or Ground Truth section."""
-    # No column panel — inner tiles sit directly on background
 
     # Section title at top
     fig.text(_fx(sec_left + sec_w / 2), _fy(SEC_TOP - HEADER_H / 2),
              section_title, ha="center", va="center",
              fontsize=5.5, fontweight="bold", color="#222")
 
+    # Section column tile bg (same height TILE_H as Section 1 & 2 tiles).
     inner_w = sec_w - 2 * SEC34_IPAD
     inner_left = sec_left + SEC34_IPAD
+    _add_rounded_rect(fig, inner_left, TILE_BOT, inner_w, TILE_H,
+                      color=TILE_COLOR, zorder=-0.5)
+
     plot_pad = 0.025
 
-    # ── ADC sub-panel ────────────────────────────────────────────────────
-    adc_h = CONTENT_H * ADC_FRAC
-    adc_bot = CONTENT_TOP - adc_h
-    _add_rounded_rect(fig, inner_left, adc_bot, inner_w, adc_h,
-                      color=TILE_COLOR, zorder=-0.5)
+    # CRP and RA image side (square) — same value for all 4 image
+    # subplots; lets the images snap CRP-top→SPLAT_TOP and
+    # RA-bottom→SPLAT_BOT identically across Sections 3 and 4.
+    img_side = _crp_ra_img_side(inner_w, plot_pad)
 
-    fig.text(_fx(inner_left + inner_w / 2), _fy(adc_bot + adc_h - 0.055),
-             adc_title, ha="center", va="center",
-             fontsize=4, fontweight="bold", color="#555")
-
-    caption_h = 0.08
-    adc_ax_bot = adc_bot + plot_pad + caption_h
-    adc_ax_h = adc_h - 2 * plot_pad - 0.08 - caption_h
-    ax_adc = _ax_at(fig, inner_left + plot_pad, adc_ax_bot,
-                    inner_w - 2 * plot_pad, adc_ax_h)
+    # ── CRP image (top edge = SPLAT_TOP) ────────────────────────────────
+    adc_ax_top = SPLAT_TOP
+    adc_ax_bot = adc_ax_top - img_side
+    adc_ax_x   = inner_left + (inner_w - img_side) / 2
+    ax_adc = _ax_at(fig, adc_ax_x, adc_ax_bot, img_side, img_side)
     try:
-        if adc_signal is not None:
-            sig = adc_signal
-        else:
-            adc_raw = np.load(adc_path)
-            if is_gt:
-                sig = adc_raw[0, 0, 0, :]
-            else:
-                sig = adc_raw[0, 0, :, 0] + 1j * adc_raw[0, 0, :, 1]
-        _plot_adc_signal(ax_adc, sig)
+        arr = np.asarray(Image.open(adc_path))
+        ax_adc.imshow(arr, aspect="equal", interpolation="bilinear")
     except Exception as e:
-        print(f"  ADC load failed ({e})")
-        ax_adc.text(0.5, 0.5, "ADC", ha="center", va="center",
+        print(f"  CRP load failed ({e})")
+        ax_adc.text(0.5, 0.5, "CRP", ha="center", va="center",
                     transform=ax_adc.transAxes, fontsize=5, color="#999")
-        ax_adc.set_xticks([])
-        ax_adc.set_yticks([])
+    ax_adc.set_xticks([]); ax_adc.set_yticks([])
+    for sp in ax_adc.spines.values():
+        sp.set_visible(False)
 
-    fig.text(_fx(inner_left + inner_w / 2),
-             _fy(adc_bot + plot_pad + caption_h * 0.45),
-             "Complex-valued ADC", ha="center", va="center",
-             fontsize=3.5, color="#666")
-
-    # ── 2D FFT label + bidir arrows ─────────────────────────────────────
-    ra_h = CONTENT_H * RA_FRAC
-    ra_top_y = CONTENT_BOT + ra_h
-    fft_cy = (adc_bot + ra_top_y) / 2
-    cx = _fx(inner_left + inner_w / 2)
-
-    # Bidir green/red arrows: ADC bottom → RA top (vertical)
-    _draw_bidir_arrows(fig, cx, _fy(adc_bot - 0.005),
-                       cx, _fy(ra_top_y + 0.005))
-    # Text to the RIGHT of vertical arrows (tight to red arrow)
-    fig.text(cx + _ARROW_XOFF + 0.003, _fy(fft_cy), "2D FFT", ha="left", va="center",
-             fontsize=4, fontweight="bold", color="#666")
-
-    # ── RA sub-panel ─────────────────────────────────────────────────────
-    ra_bot = CONTENT_BOT
-    _add_rounded_rect(fig, inner_left, ra_bot, inner_w, ra_h,
-                      color=TILE_COLOR, zorder=-0.5)
-
-    fig.text(_fx(inner_left + inner_w / 2), _fy(ra_bot + ra_h - 0.055),
-             ra_title, ha="center", va="center",
-             fontsize=4, fontweight="bold", color="#555")
-
-    ra_ax_bot = ra_bot + plot_pad + caption_h
-    ra_ax_h = ra_h - 2 * plot_pad - 0.10 - caption_h
-    ax_ra = _ax_at(fig, inner_left + plot_pad, ra_ax_bot,
-                   inner_w - 2 * plot_pad, ra_ax_h)
+    # ── RA image (bottom edge = SPLAT_BOT) ───────────────────────────────
+    ra_ax_bot = SPLAT_BOT
+    ra_ax_top = ra_ax_bot + img_side
+    ra_ax_x   = inner_left + (inner_w - img_side) / 2
+    ax_ra = _ax_at(fig, ra_ax_x, ra_ax_bot, img_side, img_side)
     try:
-        ra = np.load(ra_path)
-        # Linear min-max normalization (matches training_single_v2)
-        ra_lin = _ra_cart_to_linear(ra)
-        ax_ra.imshow(ra_lin, cmap="hot", aspect="equal", origin="lower",
-                     vmin=0.0, vmax=1.0, interpolation="bilinear")
+        ra_img = np.asarray(Image.open(ra_path))
+        ax_ra.imshow(ra_img, aspect="equal", interpolation="bilinear")
         ax_ra.patch.set_alpha(1)
     except Exception as e:
         print(f"  RA load failed ({e})")
         ax_ra.text(0.5, 0.5, "RA", ha="center", va="center",
                    transform=ax_ra.transAxes, fontsize=5, color="#999")
-    ax_ra.set_xticks([])
-    ax_ra.set_yticks([])
+    ax_ra.set_xticks([]); ax_ra.set_yticks([])
     for sp in ax_ra.spines.values():
         sp.set_visible(False)
 
-    fig.text(_fx(inner_left + inner_w / 2),
-             _fy(ra_bot + plot_pad + caption_h * 0.45),
-             "Magnitude-only RA", ha="center", va="center",
-             fontsize=3.5, color="#666")
+    # ── Azimuth FFT bidir vertical arrows + symbol ──────────────────────
+    # Arrows span the gap between CRP-image-bottom and RA-image-top.
+    # swap_lr=True puts the GREEN arrow on the right side (next to the
+    # F_theta symbol) so the symbol annotates the forward path.
+    cx = _fx(inner_left + inner_w / 2)
+    _draw_bidir_arrows(fig, cx, _fy(adc_ax_bot - 0.003),
+                       cx, _fy(ra_ax_top + 0.003), swap_lr=True)
+    fft_cy = (adc_ax_bot + ra_ax_top) / 2
+    fig.text(cx + _ARROW_XOFF + 0.003, _fy(fft_cy),
+             r"$\mathcal{F}_{\theta}$",
+             ha="left", va="center", fontsize=5.6, color="#666")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -705,11 +752,9 @@ SEC2_TILE_IPAD = 0.06  # inset for inner tile
 
 def _draw_section2_panel(fig):
     """Draw Forward Model with inner tile; title above it."""
-    # Inner tile (same TILE_COLOR as all other inner tiles)
     tile_left = SEC2_L + SEC2_TILE_IPAD
     tile_w = SEC2_W - 2 * SEC2_TILE_IPAD
-    _add_rounded_rect(fig, tile_left, CONTENT_BOT, tile_w,
-                      CONTENT_TOP - CONTENT_BOT,
+    _add_rounded_rect(fig, tile_left, TILE_BOT, tile_w, TILE_H,
                       color=TILE_COLOR, radius_in=TILE_RADIUS,
                       zorder=-0.5)
     # Title at top (aligned with other section titles)
@@ -719,73 +764,108 @@ def _draw_section2_panel(fig):
 
 
 def _draw_center_system_overview(fig):
-    """Block diagram: MIMO Ray Tracing → mmWave BSDF → Ray Generation → MIMO ADC."""
+    """3DPS forward model — 2-column layout:
+        col 1: BSDF / Antenna Gain / Phase  (3 squarish tiles, stacked)
+        col 2: Splat                         (1 almost-square tile)
+    """
     _draw_section2_panel(fig)
 
-    # 4 compact blocks — equal spacing (top pad = gap = bottom pad)
-    block_w = SEC2_W * 0.75
-    block_x = SEC2_L + (SEC2_W - block_w) / 2
+    # Section 2 inner area
+    inner_left  = SEC2_L + SEC2_TILE_IPAD + 0.03
+    inner_right = SEC2_L + SEC2_W - SEC2_TILE_IPAD - 0.03
+    inner_bot   = CONTENT_BOT + 0.03
+    inner_top   = CONTENT_TOP - 0.03
+    inner_w     = inner_right - inner_left
+    inner_h     = inner_top - inner_bot
 
-    # Each block: (title, equation/subtitle, section_ref, color)
-    blocks = [
-        ("MIMO Ray Tracing",
-         r"$\hat{P}_r^{(D)} = \frac{P_t \lambda^2}{(4\pi)^2 N} \sum_{k=1}^{N} \frac{G_{r,k}}{\rho_{rx,k}} \prod_{\ell=1}^{D-1} \frac{f_\ell \mathcal{G}_\ell}{\rho_\ell} \cdot \frac{G_{t,k} \, c_{D \rightarrow tx} \, f_D}{d_{D,tx}^2} V_k$",
-         "\u00a73.1", BLOCK_COLOR),
-        ("mmWave BSDF",
-         r"$f = A\,[\,\eta\, f_{\rm coh} + (1-\eta)\, f_{\rm inc}\,]$",
-         "\u00a73.2", BLOCK_COLOR),
-        ("Ray Generation",
-         "Reservoir \u00b7 Specular Manifold \u00b7 Diffraction",
-         "\u00a73.3", BLOCK_COLOR),
-        ("MIMO Coherent ADC",
-         r"$s[k] = \sum_p a_p \, e^{\,j2\pi(f_c + Sk)\tau_p}$",
-         "\u00a73.1", BLOCK_COLOR),
+    # Splat is the SAME width as the col1 tiles (BSDF/AG/Phase). col_gap
+    # = GAP_REF so the col1↔Splat arrows have the same horizontal extent
+    # as the Sec1→Sec2 arrows. col1_w is fixed (not a fraction of inner_w)
+    # so the layout is independent of SEC2_W changes.
+    col1_w  = 0.65
+    col2_w  = col1_w
+    col_gap = GAP_REF                     # 0.14 in., matches all other arrow gaps
+    col1_x  = inner_left
+    col2_x  = inner_left + col1_w + col_gap
+
+    left_blocks = [
+        ("Antenna Gain",
+         r"$G_{TX}(\theta_i)\,G_{RX}(\theta_o)$",
+         "\u00a73.1"),
+        ("BSDF",
+         r"$f_r(\theta_i,\theta_o,\mathbf{n}_i,\varepsilon_r',\sigma,t)$",
+         "\u00a73.2"),
+        ("Phase",
+         r"$\varphi_i = -2\pi\,(R_i^{TX}+R_i^{RX})/\lambda$",
+         "\u00a73.1"),
     ]
+    # ── Splat dimensions taken from module-level constants so Sections 1,
+    # 3, 4 align to the same Splat top/bottom.
+    splat_h   = SPLAT_H
+    splat_top = SPLAT_TOP
+    splat_bot = SPLAT_BOT
 
-    n_blocks = len(blocks)
-    block_h = CONTENT_H * 0.20
-    pad = 0.03  # minimal top/bottom padding from tile edge
-    # Inter-block gaps fill remaining space after blocks + top/bottom pads
-    spacing = (CONTENT_H - n_blocks * block_h - 2 * pad) / (n_blocks - 1)
+    n_left  = len(left_blocks)
+    row_gap = 0.02                        # minimal vertical gap
+    stack_top = splat_top                 # AG top   = Splat top
+    stack_h   = splat_h                   # Phase bot = Splat bot
+    block_h   = (stack_h - (n_left - 1) * row_gap) / n_left
 
     block_info = []
-    for i, (title, equation, section, color) in enumerate(blocks):
-        bot = CONTENT_TOP - pad - (i + 1) * block_h - i * spacing
+
+    # Left column: 3 stacked tiles (no § section refs)
+    for i, (title, equation, _section) in enumerate(left_blocks):
+        bot = stack_top - (i + 1) * block_h - i * row_gap
         block_info.append({
             "cy": bot + block_h / 2,
-            "left": block_x,
-            "right": block_x + block_w,
-            "bot": bot,
-            "top": bot + block_h,
+            "left": col1_x, "right": col1_x + col1_w,
+            "bot": bot, "top": bot + block_h,
         })
-
-        # Rounded rect background (no border, circular corners matching tiles)
-        _add_rounded_rect(fig, block_x, bot, block_w, block_h,
-                          color=color, radius_in=TILE_RADIUS,
+        _add_rounded_rect(fig, col1_x, bot, col1_w, block_h,
+                          color=BLOCK_COLOR, radius_in=TILE_RADIUS,
                           edgecolor="none", linewidth=0, zorder=-0.3)
-
-        # Title
-        fig.text(_fx(block_x + block_w / 2), _fy(bot + block_h * 0.75),
+        fig.text(_fx(col1_x + col1_w / 2), _fy(bot + block_h * 0.70),
                  title, ha="center", va="center",
-                 fontsize=5, fontweight="bold", color="#333")
-        # Equation or subtitle line — uniform font size
+                 fontsize=4.6, fontweight="bold", color="#333")
         eq_is_math = equation.startswith("$")
-        fig.text(_fx(block_x + block_w / 2), _fy(bot + block_h * 0.40),
+        fig.text(_fx(col1_x + col1_w / 2), _fy(bot + block_h * 0.30),
                  equation, ha="center", va="center",
-                 fontsize=4.5 if eq_is_math else 3.5,
+                 fontsize=4.0 if eq_is_math else 3.3,
                  fontweight="normal" if eq_is_math else "bold",
                  color="#444" if eq_is_math else "#555")
-        # Section ref
-        fig.text(_fx(block_x + block_w / 2), _fy(bot + block_h * 0.12),
-                 f"({section})", ha="center", va="center",
-                 fontsize=3.5, color="#666", style="italic")
 
-        # Vertical bidirectional arrows between blocks
-        if i < len(blocks) - 1:
-            cx = _fx(block_x + block_w / 2)
-            y_top = _fy(bot - 0.005)
-            y_bot = _fy(bot - spacing + 0.005)
-            _draw_bidir_arrows(fig, cx, y_top, cx, y_bot)
+    # Right column: Splat (dimensions set above; left UNCHANGED)
+    _add_rounded_rect(fig, col2_x, splat_bot, col2_w, splat_h,
+                      color=BLOCK_COLOR, radius_in=TILE_RADIUS,
+                      edgecolor="none", linewidth=0, zorder=-0.3)
+    fig.text(_fx(col2_x + col2_w / 2), _fy(splat_bot + splat_h * 0.84),
+             "Splat", ha="center", va="center",
+             fontsize=5.0, fontweight="bold", color="#333")
+    fig.text(_fx(col2_x + col2_w / 2), _fy(splat_bot + splat_h * 0.55),
+             r"$z_i = \sqrt{G_{TX}G_{RX}}\,f_r\,e^{\,j\varphi_i}/R_i^{2}$",
+             ha="center", va="center",
+             fontsize=4.0, color="#444")
+    fig.text(_fx(col2_x + col2_w / 2), _fy(splat_bot + splat_h * 0.36),
+             r"$\to$ bin $k_i = \mathrm{round}(R_i/\Delta r)$",
+             ha="center", va="center",
+             fontsize=4.0, color="#444")
+    # Section ref "(§3.3)" removed.
+    block_info.append({
+        "cy": splat_bot + splat_h / 2,
+        "left": col2_x, "right": col2_x + col2_w,
+        "bot": splat_bot, "top": splat_bot + splat_h,
+    })
+
+    # Three perfectly horizontal arrows from col 1 tiles → Splat.  Each
+    # exits its source tile at the tile's vertical centre and enters the
+    # Splat tile at the SAME y so the arrow is straight (no S-shape).
+    cx_right_frac = _fx(col2_x - 0.005)
+    bidir_flags = [False, True, False]    # AG, BSDF, Phase
+    for blk, bidir in zip(block_info[:3], bidir_flags):
+        cx_left_frac = _fx(blk["right"] + 0.005)
+        cy = _fy(blk["cy"])
+        _draw_bidir_arrows(fig, cx_left_frac, cy,
+                            cx_right_frac, cy, bidir=bidir)
 
     return block_info
 
@@ -885,71 +965,75 @@ def _draw_center_mesh_rays(fig, color_by_type=False):
 # Inter-section connector arrows
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _draw_connectors(fig, sp_a_cy, sp_b_cy, block_info=None):
-    """Draw all inter-section connector arrows using S-shaped orthogonal paths.
+def _draw_connectors(fig, sp_top_cy, sp_mid_cy, sp_bot_cy, block_info=None):
+    """Draw all inter-section connector arrows.  All arrows are PERFECTLY
+    HORIZONTAL — source y = target y — except for the Azimuth-FFT arrows
+    drawn inside each prediction section (which are vertical by design).
 
-    block_info: list of dicts with keys cy, left, right, bot, top (inches)
+    sp_top_cy / sp_mid_cy / sp_bot_cy : kept for backward-compat; ignored
+        in this layout (block-cy values are used as both source and target
+        y so the arrows are guaranteed horizontal).
+    block_info : list of dicts (cy, left, right, bot, top) — order
+        [Antenna Gain, BSDF, Phase, Splat].
     """
 
-    # ── Section 1 → Section 2 (S-shaped orthogonal) ──────────────────────
-    # Right edge of Sec1 inner tiles → left edge of forward model blocks
+    # ── Section 1 → Section 2 (3 horizontal bidir/forward-only pairs) ────
     sec1_tile_right = SEC1_L + SEC1_IPAD + SUBPANEL_W
     x_from = _fx(sec1_tile_right) + 0.005
 
-    if block_info is not None and len(block_info) >= 2:
-        x_to = _fx(block_info[0]["left"]) - 0.005
-        # Radar Params → Ray Generation (S-shaped)
-        _draw_bidir_s_arrows(fig, x_from, _fy(sp_a_cy),
-                             x_to, _fy(block_info[0]["cy"]))
-        # Scene Params → mmWave BSDF (S-shaped)
-        x_to1 = _fx(block_info[1]["left"]) - 0.005
-        _draw_bidir_s_arrows(fig, x_from, _fy(sp_b_cy),
-                             x_to1, _fy(block_info[1]["cy"]))
-    else:
-        x_to = _fx(SEC2_L) - 0.005
-        _draw_bidir_s_arrows(fig, x_from, _fy(sp_a_cy),
-                             x_to, _fy(sp_a_cy))
-        _draw_bidir_s_arrows(fig, x_from, _fy(sp_b_cy),
-                             x_to, _fy(sp_b_cy))
+    if block_info is not None and len(block_info) >= 3:
+        bidir_flags = [False, True, False]   # AG, BSDF, Phase
+        for blk, bidir in zip(block_info[:3], bidir_flags):
+            x_to = _fx(blk["left"]) - 0.005
+            cy   = _fy(blk["cy"])
+            _draw_bidir_arrows(fig, x_from, cy, x_to, cy, bidir=bidir)
 
-    # ── Section 2 → Section 3 (S-shaped orthogonal) ──────────────────────
+    # ── Section 2 (Splat) → Section 3 (CRP image): horizontal ───────────
+    # Compute the same image side used in _draw_prediction_section so the
+    # arrow target y matches the CRP image's vertical centre exactly.
+    sec3_inner_w  = SEC3_W - 2 * SEC34_IPAD
+    plot_pad      = 0.025
+    img_side      = _crp_ra_img_side(sec3_inner_w, plot_pad)
+    crp_cy_in     = SPLAT_TOP - img_side / 2
+
+    # Splat right edge → CRP image left edge (CRP image is centred in
+    # Section 3's inner area).
     sec3_inner_left = SEC3_L + SEC34_IPAD
-    adc_h = CONTENT_H * ADC_FRAC
-    adc_cy_in = CONTENT_TOP - adc_h / 2
-
-    # Connect last block (MIMO Coherent ADC) → Rendered ADC
-    last_block_idx = len(block_info) - 1 if block_info else 2
+    crp_x_left_in   = sec3_inner_left + (sec3_inner_w - img_side) / 2
     if block_info is not None and len(block_info) >= 1:
-        x_from2 = _fx(block_info[last_block_idx]["right"]) + 0.005
+        x_from2 = _fx(block_info[-1]["right"]) + 0.005
     else:
         x_from2 = _fx(SEC2_L + SEC2_W) + 0.005
-    x_to2 = _fx(sec3_inner_left) - 0.005
+    x_to2 = _fx(crp_x_left_in) - 0.005
+    cy_crp = _fy(crp_cy_in)
+    _draw_bidir_arrows(fig, x_from2, cy_crp, x_to2, cy_crp, bidir=True)
 
-    target_y = _fy(adc_cy_in)
-    if block_info is not None and len(block_info) >= 1:
-        _draw_bidir_s_arrows(fig, x_from2, _fy(block_info[last_block_idx]["cy"]),
-                             x_to2, target_y)
-    else:
-        _draw_bidir_s_arrows(fig, x_from2, target_y, x_to2, target_y)
+    # ── RA Loss: Section 3 RA image right ↔ Section 4 RA image left ─────
+    ra_cy_in = SPLAT_BOT + img_side / 2
 
-    # ── RA Loss: Section 3 ↔ Section 4 ───────────────────────────────────
-    ra_h = CONTENT_H * RA_FRAC
-    sec3_inner_right = SEC3_L + SEC3_W - SEC34_IPAD
-    sec4_inner_left = SEC4_L + SEC34_IPAD
-    ra_cy = _fy(CONTENT_BOT + ra_h / 2)
-    x_left = _fx(sec3_inner_right) + 0.005
-    x_right = _fx(sec4_inner_left) - 0.005
-    x_mid = (x_left + x_right) / 2
+    def _ra_image_x_edges(sec_left, sec_w):
+        inner_w_local = sec_w - 2 * SEC34_IPAD
+        inner_left_local = sec_left + SEC34_IPAD
+        x_left_in  = inner_left_local + (inner_w_local - img_side) / 2
+        x_right_in = x_left_in + img_side
+        return x_left_in, x_right_in
+
+    _, sec3_ra_right_in = _ra_image_x_edges(SEC3_L, SEC3_W)
+    sec4_ra_left_in, _  = _ra_image_x_edges(SEC4_L, SEC4_W)
+
+    ra_cy   = _fy(ra_cy_in)
+    x_left  = _fx(sec3_ra_right_in)
+    x_right = _fx(sec4_ra_left_in)
+    x_mid   = (x_left + x_right) / 2
 
     PURPLE = "#7b2d8e"
     overlay = _get_overlay_ax(fig)
     overlay.annotate(
         "", xy=(x_right, ra_cy), xytext=(x_left, ra_cy),
         xycoords="figure fraction", textcoords="figure fraction",
-        arrowprops=dict(arrowstyle="<->", color=PURPLE, lw=0.7,
-                        linestyle=(0, (3, 2)), mutation_scale=6),
+        arrowprops=dict(arrowstyle="<|-|>", color=PURPLE, lw=0.6,
+                        linestyle=(0, (4, 3)), mutation_scale=5),
     )
-    # Text ABOVE horizontal arrow (matches "2D FFT" style)
     fig.text(x_mid, ra_cy + 0.025, "RA Loss", ha="center", va="bottom",
              fontsize=4, fontweight="bold", color="#666")
 
@@ -964,9 +1048,14 @@ def generate_figure(output_dir, center_variant="system_overview",
         _update_data_paths(train_dir=train_dir, postproc_dir=postproc_dir)
     os.makedirs(output_dir, exist_ok=True)
     fig = plt.figure(figsize=(FIG_W, FIG_H))
-    add_rounded_bg(fig, color=BG_COLOR)
+    fig.patch.set_facecolor("none")
+    # Background row tile inset by MARGIN_OUT so its width = FIG_W - 2*MARGIN_OUT
+    # matches the teaser row-tile width (= 6.98").
+    _add_rounded_rect(fig, MARGIN_OUT, MARGIN_OUT,
+                       FIG_W - 2 * MARGIN_OUT, FIG_H - 2 * MARGIN_OUT,
+                       color=BG_COLOR, radius_in=SECTION_RADIUS, zorder=-2)
 
-    sp_a_cy, sp_b_cy = _draw_section1(fig)
+    sp_top_cy, sp_mid_cy, sp_bot_cy = _draw_section1(fig)
 
     # Pre-process ADC: match rendered high-freq scale to GT + add GT low-freq
     rendered_adc_sig = None
@@ -990,12 +1079,12 @@ def generate_figure(output_dir, center_variant="system_overview",
         print(f"  ADC LPF pre-processing failed ({e}), using raw signals")
 
     _draw_prediction_section(
-        fig, SEC3_L, SEC3_W, RENDERED_ADC_PATH, RENDERED_RA_PATH,
-        "Rendered Prediction", "Rendered ADC", "Rendered RA", is_gt=False,
-        adc_signal=rendered_adc_sig)
+        fig, SEC3_L, SEC3_W, RENDERED_CRP_PATH, RENDERED_RA_PATH,
+        "Rendered", "Rendered CRP", "Rendered RA", is_gt=False,
+        adc_signal=None)
     _draw_prediction_section(
-        fig, SEC4_L, SEC4_W, GT_ADC_PATH, GT_RA_PATH,
-        "Ground Truth", "GT ADC", "GT RA", is_gt=True)
+        fig, SEC4_L, SEC4_W, GT_CRP_PATH, GT_RA_PATH,
+        "Ground Truth", "GT CRP", "GT RA", is_gt=True)
 
     block_info = None
     if center_variant == "system_overview":
@@ -1009,9 +1098,9 @@ def generate_figure(output_dir, center_variant="system_overview",
     else:
         raise ValueError(f"Unknown center_variant: {center_variant}")
 
-    _draw_connectors(fig, sp_a_cy, sp_b_cy, block_info)
+    _draw_connectors(fig, sp_top_cy, sp_mid_cy, sp_bot_cy, block_info)
 
-    base = f"pipeline_{center_variant}"
+    base = f"pipeline_3dps_{center_variant}"
     for ext in ("pdf", "png"):
         path = os.path.join(output_dir, f"{base}.{ext}")
         fig.savefig(path, dpi=300,

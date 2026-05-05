@@ -20,23 +20,13 @@
 \citation{gao2019experiments}
 \@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
 \newlabel{sec:intro}{{1}{1}{Introduction}{section.1}{}}
-\citation{sun2020mimo}
-\citation{watts20162d}
-\citation{huang2024dart}
-\citation{mildenhall2021nerf}
-\citation{10.1145/3641519.3657510}
-\citation{takawale2025spinr}
-\citation{kung2025radarsplat}
-\citation{3dgs}
-\citation{li2018differentiable,zhang2022iron}
-\citation{jin2024diffsound}
-\citation{sionna}
-\citation{hofmann2025inverse}
-\citation{chen2025invertwin}
+\citation{sionna,hofmann2025inverse,chen2025invertwin,mmIR2026}
 \citation{mmIR2026}
-\citation{gao2019experiments}
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces \textbf  {mmWave radar novel view synthesis.} Given a LiDAR-derived point cloud and a sparse set of real radar captures (8 training frames bracketing one held-out test frame), mm3DGS optimizes per-point physics materials via differentiable hemisphere rendering and synthesizes complex range profiles from held-out sensor poses. Left: training views with ground-truth range--azimuth (RA) maps. Center: optimized scene with per-point material parameters visualized. Right: novel-view predictions compared against held-out ground-truth RA maps, demonstrating high-fidelity data synthesis from unseen viewpoints.}}{2}{figure.1}\protected@file@percent }
-\newlabel{fig:teaser}{{1}{2}{\textbf {mmWave radar novel view synthesis.} Given a LiDAR-derived point cloud and a sparse set of real radar captures (8 training frames bracketing one held-out test frame), mm3DGS optimizes per-point physics materials via differentiable hemisphere rendering and synthesizes complex range profiles from held-out sensor poses. Left: training views with ground-truth range--azimuth (RA) maps. Center: optimized scene with per-point material parameters visualized. Right: novel-view predictions compared against held-out ground-truth RA maps, demonstrating high-fidelity data synthesis from unseen viewpoints}{figure.1}{}}
+\citation{huang2024dart,10.1145/3641519.3657510,takawale2025spinr,kung2025radarsplat}
+\citation{mildenhall2021nerf,3dgs}
+\citation{skolnik2001introduction,mmIR2026}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces \textbf  {The right primitive for radar NVS.} Top: three method families on the three properties radar NVS demands (multi-viewpoint-tractable, physics-faithful, complex-valued). MC ray-tracing renderers (mmIR, Sionna RT) are physically faithful but too slow for multi-viewpoint optimization; optical-NVS adaptations (RadarSplat, Radar Fields, DART) are fast but discard phase. 3DPS is the first to satisfy all three. Bottom: 3DPS outputs on the held-out test frame of S1\,F185 --- $|\mathrm  {RA}|$ render, raw ADC magnitude (inverse range FFT), and the optimized point cloud colored by learned $\varepsilon _r'$.}}{2}{figure.1}\protected@file@percent }
+\newlabel{fig:teaser}{{1}{2}{\textbf {The right primitive for radar NVS.} Top: three method families on the three properties radar NVS demands (multi-viewpoint-tractable, physics-faithful, complex-valued). MC ray-tracing renderers (mmIR, Sionna RT) are physically faithful but too slow for multi-viewpoint optimization; optical-NVS adaptations (RadarSplat, Radar Fields, DART) are fast but discard phase. 3DPS is the first to satisfy all three. Bottom: 3DPS outputs on the held-out test frame of S1\,F185 --- $|\mathrm {RA}|$ render, raw ADC magnitude (inverse range FFT), and the optimized point cloud colored by learned $\varepsilon _r'$}{figure.1}{}}
 \citation{kramer2022coloradar}
 \citation{sionna}
 \citation{hofmann2025inverse}
@@ -46,16 +36,10 @@
 \citation{10.1145/3641519.3657510}
 \citation{takawale2025spinr}
 \citation{kung2025radarsplat}
-\citation{dudek2010millimeter}
 \citation{sionna}
 \citation{hofmann2025inverse}
 \citation{chen2025invertwin}
 \citation{mmIR2026}
-\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Comparison of radar rendering methods. Signal: ADC\,=\,raw FMCW, CIR\,=\,channel impulse response, IF\,=\,intermediate-frequency phasors, RA\,=\,range--azimuth image, RDA\,=\,range--Doppler--azimuth cube. Complex\,=\,outputs complex-valued signals (not power-only). Repr.\,=\,scene representation; Mat.\,=\,physics material model; Per-pt\,=\,per-point/per-vertex materials; NVS\,=\,novel view synthesis demonstrated; Real\,=\,validated on real data. Time\,=\,per-scene wall-clock training time on a single RTX\nobreakspace  {}4090 over the 8 training viewpoints used in our novel-view experiments (Sec.\nobreakspace  {}\ref  {sec:experiments}); blank entries are forward-only or single-viewpoint methods.}}{3}{table.1}\protected@file@percent }
-\newlabel{tab:comparison}{{1}{3}{Comparison of radar rendering methods. Signal: ADC\,=\,raw FMCW, CIR\,=\,channel impulse response, IF\,=\,intermediate-frequency phasors, RA\,=\,range--azimuth image, RDA\,=\,range--Doppler--azimuth cube. Complex\,=\,outputs complex-valued signals (not power-only). Repr.\,=\,scene representation; Mat.\,=\,physics material model; Per-pt\,=\,per-point/per-vertex materials; NVS\,=\,novel view synthesis demonstrated; Real\,=\,validated on real data. Time\,=\,per-scene wall-clock training time on a single RTX~4090 over the 8 training viewpoints used in our novel-view experiments (Sec.~\ref {sec:experiments}); blank entries are forward-only or single-viewpoint methods}{table.1}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {2}Related Works}{3}{section.2}\protected@file@percent }
-\newlabel{sec:related}{{2}{3}{Related Works}{section.2}{}}
-\citation{mildenhall2021nerf}
 \citation{huang2024dart}
 \citation{10.1145/3641519.3657510}
 \citation{takawale2025spinr}
@@ -64,56 +48,64 @@
 \citation{lu2024newrf}
 \citation{3dgs}
 \citation{kung2025radarsplat}
-\citation{jiang2025surfels}
+\citation{3dgs}
 \citation{mmIR2026}
-\@writefile{toc}{\contentsline {section}{\numberline {3}Method}{4}{section.3}\protected@file@percent }
-\newlabel{sec:methods}{{3}{4}{Method}{section.3}{}}
+\citation{sionna}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Comparison of radar rendering methods. Signal types: ADC, CIR (channel impulse response), IF (intermediate-frequency phasors), RA, RDA (range--Doppler--azimuth cube). Repr.\,=\,scene representation. Mat.\,=\,explicit material model. Per-pt\,=\,per-point/per-vertex. Real\,=\,validated on real data. Time\,=\,per-scene wall-clock on RTX\nobreakspace  {}4090 over 8 training viewpoints (Sec.\nobreakspace  {}\ref  {sec:experiments}).}}{3}{table.1}\protected@file@percent }
+\newlabel{tab:comparison}{{1}{3}{Comparison of radar rendering methods. Signal types: ADC, CIR (channel impulse response), IF (intermediate-frequency phasors), RA, RDA (range--Doppler--azimuth cube). Repr.\,=\,scene representation. Mat.\,=\,explicit material model. Per-pt\,=\,per-point/per-vertex. Real\,=\,validated on real data. Time\,=\,per-scene wall-clock on RTX~4090 over 8 training viewpoints (Sec.~\ref {sec:experiments})}{table.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Related Works}{3}{section.2}\protected@file@percent }
+\newlabel{sec:related}{{2}{3}{Related Works}{section.2}{}}
 \citation{skolnik2001introduction}
 \citation{mmIR2026}
 \citation{mmIR2026}
 \citation{mmIR2026}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Radar forward model}{5}{subsection.3.1}\protected@file@percent }
-\newlabel{sec:methods:fwd}{{3.1}{5}{Radar forward model}{subsection.3.1}{}}
-\newlabel{eq:radar_bistatic}{{1}{5}{Radar forward model}{equation.3.1}{}}
-\newlabel{eq:radar_solid_angle}{{2}{5}{Radar forward model}{equation.3.2}{}}
-\newlabel{eq:single_bounce_mc}{{3}{5}{Radar forward model}{equation.3.3}{}}
-\newlabel{eq:adc_synth}{{4}{5}{Radar forward model}{equation.3.4}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Range-profile splatting}{5}{subsection.3.2}\protected@file@percent }
-\newlabel{sec:methods:splat}{{3.2}{5}{Range-profile splatting}{subsection.3.2}{}}
-\newlabel{eq:psf_splat}{{5}{5}{Range-profile splatting}{equation.3.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Method}{4}{section.3}\protected@file@percent }
+\newlabel{sec:methods}{{3}{4}{Method}{section.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Radar forward model}{4}{subsection.3.1}\protected@file@percent }
+\newlabel{sec:methods:fwd}{{3.1}{4}{Radar forward model}{subsection.3.1}{}}
+\newlabel{eq:radar_solid_angle}{{1}{4}{Radar forward model}{equation.3.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Deterministic point splatting}{4}{subsection.3.2}\protected@file@percent }
+\newlabel{sec:methods:splat}{{3.2}{4}{Deterministic point splatting}{subsection.3.2}{}}
+\newlabel{eq:psf_splat}{{2}{4}{Deterministic point splatting}{equation.3.2}{}}
 \citation{mmIR2026,9533181}
-\citation{mmIR2026}
-\citation{gao2019experiments}
+\citation{guan2020through,lu2013measurement}
+\citation{dudek2010millimeter,9533181,mostajabi2020high,kramer2022coloradar,mmIR2026,kung2025radarsplat,rafidashti2025neuradar,sionna}
 \citation{jakob2022dr}
 \citation{mmIR2026,itu_p2040,wei2024csvbsdf}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}LiDAR-derived geometric prior and point initialization}{6}{subsection.3.3}\protected@file@percent }
-\newlabel{sec:methods:init}{{3.3}{6}{LiDAR-derived geometric prior and point initialization}{subsection.3.3}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Per-point ITU BSDF}{6}{subsection.3.4}\protected@file@percent }
-\newlabel{sec:methods:bsdf}{{3.4}{6}{Per-point ITU BSDF}{subsection.3.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Per-point ITU BSDF}{5}{subsection.3.3}\protected@file@percent }
+\newlabel{sec:methods:bsdf}{{3.3}{5}{Per-point ITU BSDF}{subsection.3.3}{}}
+\citation{mmIR2026}
 \citation{3dgs}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces \textbf  {3DPS rendering pipeline.} A LiDAR point cloud is reduced to $N{=}20{,}000$ oriented points (Sec.\nobreakspace  {}\ref  {sec:methods:splat}, LiDAR-derived geometric prior). For each (TX,\nobreakspace  {}RX) pair, the per-point ITU BSDF (Sec.\nobreakspace  {}\ref  {sec:methods:bsdf}) is evaluated at the deterministic incidence and observation angles, producing a complex amplitude $A_i^{TR}$ and a carrier phase $\phi _{TRi}$. Each point's complex contribution is splatted via a Hann-windowed PSF into the $L{=}15$ nearest range bins (Eq.\nobreakspace  {}\ref  {eq:psf_splat}). Per-(TX,\nobreakspace  {}RX) range profiles are stacked and an azimuth FFT is applied to obtain the final RA map.}}{6}{figure.2}\protected@file@percent }
+\newlabel{fig:pipeline}{{2}{6}{\textbf {3DPS rendering pipeline.} A LiDAR point cloud is reduced to $N{=}20{,}000$ oriented points (Sec.~\ref {sec:methods:splat}, LiDAR-derived geometric prior). For each (TX,~RX) pair, the per-point ITU BSDF (Sec.~\ref {sec:methods:bsdf}) is evaluated at the deterministic incidence and observation angles, producing a complex amplitude $A_i^{TR}$ and a carrier phase $\phi _{TRi}$. Each point's complex contribution is splatted via a Hann-windowed PSF into the $L{=}15$ nearest range bins (Eq.~\ref {eq:psf_splat}). Per-(TX,~RX) range profiles are stacked and an azimuth FFT is applied to obtain the final RA map}{figure.2}{}}
+\newlabel{eq:bsdf_decomp}{{3}{6}{Per-point ITU BSDF}{equation.3.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Differentiable optimization}{6}{subsection.3.4}\protected@file@percent }
+\newlabel{sec:methods:opt}{{3.4}{6}{Differentiable optimization}{subsection.3.4}{}}
 \citation{kramer2022coloradar}
 \citation{huang2024dart}
 \citation{10.1145/3641519.3657510}
 \citation{kung2025radarsplat}
-\citation{3dgs}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}Differentiable optimization}{7}{subsection.3.5}\protected@file@percent }
-\newlabel{sec:methods:opt}{{3.5}{7}{Differentiable optimization}{subsection.3.5}{}}
+\citation{kramer2022coloradar}
+\citation{mmIR2026}
+\citation{mmIR2026}
+\citation{huang2024dart}
+\citation{10.1145/3641519.3657510}
+\citation{kung2025radarsplat}
+\citation{huang2024dart}
+\citation{10.1145/3641519.3657510}
+\citation{kung2025radarsplat}
 \@writefile{toc}{\contentsline {section}{\numberline {4}Experiments}{7}{section.4}\protected@file@percent }
 \newlabel{sec:experiments}{{4}{7}{Experiments}{section.4}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Experimental setup}{7}{subsection.4.1}\protected@file@percent }
 \newlabel{sec:experiments:setup}{{4.1}{7}{Experimental setup}{subsection.4.1}{}}
-\citation{kramer2022coloradar}
-\citation{mmIR2026}
-\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Held-out novel-view test |RA| metrics across six ColoRadar scenes. For each scene, mm3DGS trains on the 8 cascaded radar frames adjacent to the held-out test frame ($F\!\pm \!1\!\ldots  \!\pm \!4$, chirp 0 only) and is evaluated on the held-out test frame ($F$, chirp 0). Metrics: Pearson correlation (Corr), peak signal-to-noise ratio (PSNR, dB), structural similarity (SSIM), and root-mean-square error (RMSE) on min-max-normalized 399$\times $399 Cartesian $|\mathrm  {RA}|$ images. Best per-scene \textbf  {bold}.}}{8}{table.2}\protected@file@percent }
-\newlabel{tab:test_ra}{{2}{8}{Held-out novel-view test |RA| metrics across six ColoRadar scenes. For each scene, mm3DGS trains on the 8 cascaded radar frames adjacent to the held-out test frame ($F\!\pm \!1\!\ldots \!\pm \!4$, chirp 0 only) and is evaluated on the held-out test frame ($F$, chirp 0). Metrics: Pearson correlation (Corr), peak signal-to-noise ratio (PSNR, dB), structural similarity (SSIM), and root-mean-square error (RMSE) on min-max-normalized 399$\times $399 Cartesian $|\mathrm {RA}|$ images. Best per-scene \textbf {bold}}{table.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Held-out novel-view |RA| reconstruction}{8}{subsection.4.2}\protected@file@percent }
-\newlabel{sec:experiments:test}{{4.2}{8}{Held-out novel-view |RA| reconstruction}{subsection.4.2}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Training-view |RA| metrics on the same six ColoRadar scenes. Each cell is the mean across the 8 training frames per scene (chirp 0 only). Same metric harness as Table\nobreakspace  {}\ref  {tab:test_ra} (\texttt  {compute\_cart\_ra\_metrics}). Best per scene \textbf  {bold}.}}{9}{table.3}\protected@file@percent }
-\newlabel{tab:train_ra}{{3}{9}{Training-view |RA| metrics on the same six ColoRadar scenes. Each cell is the mean across the 8 training frames per scene (chirp 0 only). Same metric harness as Table~\ref {tab:test_ra} (\texttt {compute\_cart\_ra\_metrics}). Best per scene \textbf {bold}}{table.3}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Training-view fit}{9}{subsection.4.3}\protected@file@percent }
-\newlabel{sec:experiments:train}{{4.3}{9}{Training-view fit}{subsection.4.3}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces \textbf  {Held-out novel-view $|\mathrm  {RA}|$ comparison} on six ColoRadar scenes (columns, sorted by mm3DGS test CC descending). Rows: ground truth (GT), mm3DGS (Ours), RadarSplat, Radar Fields, DART (cascaded). Per-cell test CC overlaid in white. mm3DGS consistently preserves wall and vehicle structure across all scenes; baseline methods exhibit characteristic failure modes --- RadarSplat over-smooths azimuth, Radar Fields smears range bins, and DART smears across range and Doppler.}}{10}{figure.2}\protected@file@percent }
-\newlabel{fig:training_ra}{{2}{10}{\textbf {Held-out novel-view $|\mathrm {RA}|$ comparison} on six ColoRadar scenes (columns, sorted by mm3DGS test CC descending). Rows: ground truth (GT), mm3DGS (Ours), RadarSplat, Radar Fields, DART (cascaded). Per-cell test CC overlaid in white. mm3DGS consistently preserves wall and vehicle structure across all scenes; baseline methods exhibit characteristic failure modes --- RadarSplat over-smooths azimuth, Radar Fields smears range bins, and DART smears across range and Doppler}{figure.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Quantitative results}{7}{subsection.4.2}\protected@file@percent }
+\newlabel{sec:experiments:results}{{4.2}{7}{Quantitative results}{subsection.4.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces \textbf  {Cross-method, cross-product results on six ColoRadar scenes (mean across scenes).} \color@box {}{magbg}{Magnitude}: Pearson Corr / PSNR / SSIM / MSE on min-max-normalized $|\cdot |$. \color@box {}{vrbg}{Complex}: $|\rho |$, complex PSNR (CRP), and magnitude-weighted phase RMSE $\sigma _\phi $ (ADC; degrees; $104^\circ \!=$\,random) after absolute phase calibration. $|\rho |$ is reported once (CRP $\equiv $ ADC by Parseval). Baselines emit magnitude-only RA, so CRP/ADC/Complex columns are marked `--'. Per-scene breakdowns in supplement Tables\nobreakspace  {}\ref  {tab:test_ra}--\ref  {tab:crp_adc_test}.}}{8}{table.2}\protected@file@percent }
+\newlabel{tab:results}{{2}{8}{\textbf {Cross-method, cross-product results on six ColoRadar scenes (mean across scenes).} \colorbox {magbg}{Magnitude}: Pearson Corr / PSNR / SSIM / MSE on min-max-normalized $|\cdot |$. \colorbox {vrbg}{Complex}: $|\rho |$, complex PSNR (CRP), and magnitude-weighted phase RMSE $\sigma _\phi $ (ADC; degrees; $104^\circ \!=$\,random) after absolute phase calibration. $|\rho |$ is reported once (CRP $\equiv $ ADC by Parseval). Baselines emit magnitude-only RA, so CRP/ADC/Complex columns are marked `--'. Per-scene breakdowns in supplement Tables~\ref {tab:test_ra}--\ref {tab:crp_adc_test}}{table.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Conclusion}{8}{section.5}\protected@file@percent }
+\newlabel{sec:conclusion}{{5}{8}{Conclusion}{section.5}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces \textbf  {Held-out novel-view $|\mathrm  {RA}|$ comparison.} Columns: six ColoRadar scenes (sorted by 3DPS test CC, descending). Rows: GT, 3DPS (Ours), RadarSplat, Radar Fields, DART. Per-frame test CC overlaid.}}{9}{figure.3}\protected@file@percent }
+\newlabel{fig:training_ra}{{3}{9}{\textbf {Held-out novel-view $|\mathrm {RA}|$ comparison.} Columns: six ColoRadar scenes (sorted by 3DPS test CC, descending). Rows: GT, 3DPS (Ours), RadarSplat, Radar Fields, DART. Per-frame test CC overlaid}{figure.3}{}}
 \bibstyle{plainnat}
 \bibdata{main}
 \bibcite{mmIR2026}{{1}{2026}{{Anonymous}}{{}}}
@@ -127,35 +119,74 @@
 \bibcite{huang2024dart}{{9}{2024}{{Huang et~al.}}{{Huang, Gadre, Xu, Whelan, and Jatavallabhula}}}
 \bibcite{itu_p2040}{{10}{2023}{{ITU-R}}{{}}}
 \bibcite{jakob2022dr}{{11}{2022}{{Jakob et~al.}}{{Jakob, Speierer, Roussel, Nimier-David, Vicini, Zeltner, Nicolet, Crespo, L{\'e}opold, and Fascione}}}
-\bibcite{jiang2025surfels}{{12}{2025}{{Jiang et~al.}}{{Jiang, Sun, Li, Wang, Li, and Ramamoorthi}}}
-\bibcite{jin2024diffsound}{{13}{2024}{{Jin et~al.}}{{}}}
-\bibcite{3dgs}{{14}{2023}{{Kerbl et~al.}}{{Kerbl, Kopanas, Leimk{\"u}hler, and Drettakis}}}
-\bibcite{kramer2022coloradar}{{15}{2022}{{Kramer et~al.}}{{Kramer, Harber, Rivkin, Elmes, Arledge, and Heckman}}}
-\bibcite{kung2025radarsplat}{{16}{2025}{{Kung et~al.}}{{Kung, Chou, Geiger, Fidler, and Law}}}
-\bibcite{li2018differentiable}{{17}{2018}{{Li et~al.}}{{Li, Aittala, Durand, and Lehtinen}}}
-\bibcite{lu2024newrf}{{18}{2024}{{Lu et~al.}}{{}}}
-\bibcite{mildenhall2021nerf}{{19}{2020}{{Mildenhall et~al.}}{{Mildenhall, Srinivasan, Tancik, Barron, Ramamoorthi, and Ng}}}
-\bibcite{rafidashti2025neuradar}{{20}{2025}{{Rafidashti et~al.}}{{}}}
-\bibcite{9533181}{{21}{2021}{{Sch{\"u}{\ss }ler et~al.}}{{Sch{\"u}{\ss }ler, Hoffmann, Br{\"a}unig, Ullmann, Ebelt, and Vossiek}}}
-\bibcite{skolnik2001introduction}{{22}{2001}{{Skolnik}}{{}}}
-\bibcite{sun2020mimo}{{23}{2020}{{Sun et~al.}}{{Sun, Petropulu, and Poor}}}
-\bibcite{takawale2025spinr}{{24}{2025}{{Takawale et~al.}}{{Takawale, Tancik, and Ramamoorthi}}}
-\bibcite{watts20162d}{{25}{2016}{{Watts et~al.}}{{Watts, Shrekenhamer, Montoya, Lipworth, Hunt, Sleasman, Krishna, Smith, and Padilla}}}
-\bibcite{wei2024csvbsdf}{{26}{2024}{{Wei et~al.}}{{}}}
-\bibcite{zhang2022iron}{{27}{2022}{{Zhang et~al.}}{{Zhang, Fujita, Jia, Liu, and Ramamoorthi}}}
-\bibcite{zhang2025rf4d}{{28}{2025}{{Zhang et~al.}}{{}}}
-\@writefile{toc}{\contentsline {section}{\numberline {A}Per-scene training-view qualitative comparison}{13}{appendix.A}\protected@file@percent }
-\newlabel{app:per_scene_train}{{A}{13}{Per-scene training-view qualitative comparison}{appendix.A}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces \textbf  {Per-frame $|\mathrm  {RA}|$ comparison, scene S0\,F135.} Columns: 8 training frames ($F\!\pm \!1\!\ldots  \!\pm \!4$, black headers) and 1 held-out test frame ($F$, red header). Rows: GT, mm3DGS (Ours), RadarSplat, Radar Fields, DART. Per-cell CC overlaid.}}{13}{figure.3}\protected@file@percent }
-\newlabel{fig:supp_s0_f135}{{3}{13}{\textbf {Per-frame $|\mathrm {RA}|$ comparison, scene S0\,F135.} Columns: 8 training frames ($F\!\pm \!1\!\ldots \!\pm \!4$, black headers) and 1 held-out test frame ($F$, red header). Rows: GT, mm3DGS (Ours), RadarSplat, Radar Fields, DART. Per-cell CC overlaid}{figure.3}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces \textbf  {Per-frame $|\mathrm  {RA}|$ comparison, scene S1\,F185.}}}{13}{figure.4}\protected@file@percent }
-\newlabel{fig:supp_s1_f185}{{4}{13}{\textbf {Per-frame $|\mathrm {RA}|$ comparison, scene S1\,F185.}}{figure.4}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces \textbf  {Per-frame $|\mathrm  {RA}|$ comparison, scene S1\,F438.}}}{14}{figure.5}\protected@file@percent }
-\newlabel{fig:supp_s1_f438}{{5}{14}{\textbf {Per-frame $|\mathrm {RA}|$ comparison, scene S1\,F438.}}{figure.5}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces \textbf  {Per-frame $|\mathrm  {RA}|$ comparison, scene S2\,F105.}}}{14}{figure.6}\protected@file@percent }
-\newlabel{fig:supp_s2_f105}{{6}{14}{\textbf {Per-frame $|\mathrm {RA}|$ comparison, scene S2\,F105.}}{figure.6}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces \textbf  {Per-frame $|\mathrm  {RA}|$ comparison, scene S2\,F160.}}}{15}{figure.7}\protected@file@percent }
-\newlabel{fig:supp_s2_f160}{{7}{15}{\textbf {Per-frame $|\mathrm {RA}|$ comparison, scene S2\,F160.}}{figure.7}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces \textbf  {Per-frame $|\mathrm  {RA}|$ comparison, scene S2\,F300.}}}{15}{figure.8}\protected@file@percent }
-\newlabel{fig:supp_s2_f300}{{8}{15}{\textbf {Per-frame $|\mathrm {RA}|$ comparison, scene S2\,F300.}}{figure.8}{}}
-\gdef \@abspage@last{15}
+\bibcite{3dgs}{{12}{2023}{{Kerbl et~al.}}{{Kerbl, Kopanas, Leimk{\"u}hler, and Drettakis}}}
+\bibcite{kramer2022coloradar}{{13}{2022}{{Kramer et~al.}}{{Kramer, Harber, Rivkin, Elmes, Arledge, and Heckman}}}
+\bibcite{kung2025radarsplat}{{14}{2025}{{Kung et~al.}}{{Kung, Chou, Geiger, Fidler, and Law}}}
+\bibcite{lu2024newrf}{{15}{2024}{{Lu et~al.}}{{}}}
+\bibcite{lu2013measurement}{{16}{2013}{{Lu et~al.}}{{Lu, Cabrol, Steinbach, and Pragada}}}
+\bibcite{mildenhall2021nerf}{{17}{2020}{{Mildenhall et~al.}}{{Mildenhall, Srinivasan, Tancik, Barron, Ramamoorthi, and Ng}}}
+\bibcite{mostajabi2020high}{{18}{2020}{{Mostajabi et~al.}}{{Mostajabi, Wang, Ranjan, and Hsyu}}}
+\bibcite{rafidashti2025neuradar}{{19}{2025}{{Rafidashti et~al.}}{{}}}
+\bibcite{9533181}{{20}{2021}{{Sch{\"u}{\ss }ler et~al.}}{{Sch{\"u}{\ss }ler, Hoffmann, Br{\"a}unig, Ullmann, Ebelt, and Vossiek}}}
+\bibcite{skolnik2001introduction}{{21}{2001}{{Skolnik}}{{}}}
+\bibcite{takawale2025spinr}{{22}{2025}{{Takawale et~al.}}{{Takawale, Tancik, and Ramamoorthi}}}
+\bibcite{wei2024csvbsdf}{{23}{2024}{{Wei et~al.}}{{}}}
+\bibcite{zhang2025rf4d}{{24}{2025}{{Zhang et~al.}}{{}}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces \textbf  {Per-scene held-out test $|\mathrm  {RA}|$ metrics on six ColoRadar scenes.} Best per scene in \textbf  {bold}. Mean row anchors the corresponding test row of main paper Table\nobreakspace  {}\ref  {tab:results}.}}{12}{table.3}\protected@file@percent }
+\newlabel{tab:test_ra}{{3}{12}{\textbf {Per-scene held-out test $|\mathrm {RA}|$ metrics on six ColoRadar scenes.} Best per scene in \textbf {bold}. Mean row anchors the corresponding test row of main paper Table~\ref {tab:results}}{table.3}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces \textbf  {Per-scene training-view $|\mathrm  {RA}|$ metrics on six ColoRadar scenes.} Each cell is the mean over the 8 training frames per scene. Same metric harness as Table\nobreakspace  {}\ref  {tab:test_ra}. Best per scene in \textbf  {bold}. Mean row anchors the corresponding train row of main paper Table\nobreakspace  {}\ref  {tab:results}.}}{12}{table.4}\protected@file@percent }
+\newlabel{tab:train_ra}{{4}{12}{\textbf {Per-scene training-view $|\mathrm {RA}|$ metrics on six ColoRadar scenes.} Each cell is the mean over the 8 training frames per scene. Same metric harness as Table~\ref {tab:test_ra}. Best per scene in \textbf {bold}. Mean row anchors the corresponding train row of main paper Table~\ref {tab:results}}{table.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A}Per-scene $|\mathrm  {RA}|$ breakdowns}{12}{appendix.A}\protected@file@percent }
+\newlabel{app:per_scene_ra}{{A}{12}{Per-scene $|\mathrm {RA}|$ breakdowns}{appendix.A}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {B}CRP and ADC evaluation}{12}{appendix.B}\protected@file@percent }
+\newlabel{app:rdadc}{{B}{12}{CRP and ADC evaluation}{appendix.B}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.1}Pipeline conventions}{12}{subsection.B.1}\protected@file@percent }
+\newlabel{app:rdadc:pipeline}{{B.1}{12}{Pipeline conventions}{subsection.B.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces \textbf  {Per-scene CRP and ADC fidelity (training-view).} Same metric set and column convention as main paper Table\nobreakspace  {}\ref  {tab:results}. Mean row anchors the 3DPS (Ours) train row of that table.}}{13}{table.5}\protected@file@percent }
+\newlabel{tab:crp_adc_train}{{5}{13}{\textbf {Per-scene CRP and ADC fidelity (training-view).} Same metric set and column convention as main paper Table~\ref {tab:results}. Mean row anchors the 3DPS (Ours) train row of that table}{table.5}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces \textbf  {Per-scene CRP and ADC fidelity (held-out test).} Same metric set and column convention as main paper Table\nobreakspace  {}\ref  {tab:results}. Mean row anchors the 3DPS (Ours) test row of that table.}}{13}{table.6}\protected@file@percent }
+\newlabel{tab:crp_adc_test}{{6}{13}{\textbf {Per-scene CRP and ADC fidelity (held-out test).} Same metric set and column convention as main paper Table~\ref {tab:results}. Mean row anchors the 3DPS (Ours) test row of that table}{table.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.2}Per-scene CRP and ADC fidelity}{13}{subsection.B.2}\protected@file@percent }
+\newlabel{app:rdadc:per_scene}{{B.2}{13}{Per-scene CRP and ADC fidelity}{subsection.B.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {C}Qualitative comparisons}{13}{appendix.C}\protected@file@percent }
+\newlabel{app:qualitative}{{C}{13}{Qualitative comparisons}{appendix.C}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.1}Per-scene $|\mathrm  {RA}|$ comparison across methods}{13}{subsection.C.1}\protected@file@percent }
+\newlabel{app:per_scene_train}{{C.1}{13}{Per-scene $|\mathrm {RA}|$ comparison across methods}{subsection.C.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.2}CRP and ADC heatmaps and I/Q traces}{13}{subsection.C.2}\protected@file@percent }
+\newlabel{app:rdadc:figures}{{C.2}{13}{CRP and ADC heatmaps and I/Q traces}{subsection.C.2}{}}
+\citation{huang2024dart}
+\citation{10.1145/3641519.3657510}
+\citation{kung2025radarsplat}
+\citation{mmIR2026}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces \textbf  {Per-frame $|\mathrm  {RA}|$ comparison, scene S0\,F135.} Cols: 8 train frames ($F\!\pm \!1\!\ldots  \!\pm \!4$) + held-out test frame $F$ (red header). Rows: GT, 3DPS, RadarSplat, Radar Fields, DART. Per-frame CC overlaid.}}{14}{figure.4}\protected@file@percent }
+\newlabel{fig:supp_s0_f135}{{4}{14}{\textbf {Per-frame $|\mathrm {RA}|$ comparison, scene S0\,F135.} Cols: 8 train frames ($F\!\pm \!1\!\ldots \!\pm \!4$) + held-out test frame $F$ (red header). Rows: GT, 3DPS, RadarSplat, Radar Fields, DART. Per-frame CC overlaid}{figure.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces \textbf  {Per-frame $|\mathrm  {RA}|$ comparison, scene S1\,F185.}}}{14}{figure.5}\protected@file@percent }
+\newlabel{fig:supp_s1_f185}{{5}{14}{\textbf {Per-frame $|\mathrm {RA}|$ comparison, scene S1\,F185.}}{figure.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {D}Wall-clock and peak GPU memory}{14}{appendix.D}\protected@file@percent }
+\newlabel{app:runtime}{{D}{14}{Wall-clock and peak GPU memory}{appendix.D}{}}
+\citation{mmIR2026}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces \textbf  {Per-frame $|\mathrm  {RA}|$ comparison, scene S1\,F438.}}}{15}{figure.6}\protected@file@percent }
+\newlabel{fig:supp_s1_f438}{{6}{15}{\textbf {Per-frame $|\mathrm {RA}|$ comparison, scene S1\,F438.}}{figure.6}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces \textbf  {Per-frame $|\mathrm  {RA}|$ comparison, scene S2\,F105.}}}{15}{figure.7}\protected@file@percent }
+\newlabel{fig:supp_s2_f105}{{7}{15}{\textbf {Per-frame $|\mathrm {RA}|$ comparison, scene S2\,F105.}}{figure.7}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {E}Limitations and future work}{15}{appendix.E}\protected@file@percent }
+\newlabel{app:limitations}{{E}{15}{Limitations and future work}{appendix.E}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces \textbf  {Per-frame $|\mathrm  {RA}|$ comparison, scene S2\,F160.}}}{16}{figure.8}\protected@file@percent }
+\newlabel{fig:supp_s2_f160}{{8}{16}{\textbf {Per-frame $|\mathrm {RA}|$ comparison, scene S2\,F160.}}{figure.8}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces \textbf  {Per-frame $|\mathrm  {RA}|$ comparison, scene S2\,F300.}}}{16}{figure.9}\protected@file@percent }
+\newlabel{fig:supp_s2_f300}{{9}{16}{\textbf {Per-frame $|\mathrm {RA}|$ comparison, scene S2\,F300.}}{figure.9}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces \textbf  {$|\mathrm  {CRP}|$ and $|\mathrm  {ADC}|$ heatmaps on held-out test frames (dB scale).} Rows: scenes. Cols: GT and predicted $|\mathrm  {CRP}|$ and $|\mathrm  {ADC}|$. CRP cropped to range bins $[15{:}256]$ (the metric domain); ADC is IFFT$_r$ of the calibration-corrected, near-field-masked CRP. Each panel peak-normalized to its own max with a $-40$\,dB floor.}}{17}{figure.10}\protected@file@percent }
+\newlabel{fig:crp_adc_heatmaps_db}{{10}{17}{\textbf {$|\mathrm {CRP}|$ and $|\mathrm {ADC}|$ heatmaps on held-out test frames (dB scale).} Rows: scenes. Cols: GT and predicted $|\mathrm {CRP}|$ and $|\mathrm {ADC}|$. CRP cropped to range bins $[15{:}256]$ (the metric domain); ADC is IFFT$_r$ of the calibration-corrected, near-field-masked CRP. Each panel peak-normalized to its own max with a $-40$\,dB floor}{figure.10}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11}{\ignorespaces \textbf  {Linear-scale equivalent of Fig.\nobreakspace  {}\ref  {fig:crp_adc_heatmaps_db}.} Panels min-max normalized to $[0,1]$ --- the metric domain.}}{17}{figure.11}\protected@file@percent }
+\newlabel{fig:crp_adc_heatmaps_linear}{{11}{17}{\textbf {Linear-scale equivalent of Fig.~\ref {fig:crp_adc_heatmaps_db}.} Panels min-max normalized to $[0,1]$ --- the metric domain}{figure.11}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {F}Ablations}{17}{appendix.F}\protected@file@percent }
+\newlabel{app:ablations}{{F}{17}{Ablations}{appendix.F}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {G}Per-point material visualizations}{17}{appendix.G}\protected@file@percent }
+\newlabel{app:materials}{{G}{17}{Per-point material visualizations}{appendix.G}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {12}{\ignorespaces \textbf  {Calibration-corrected I/Q traces} for the highest-energy VA per scene. Solid: GT real (blue) and imaginary (red); dashed: prediction. Left: CRP across range bins $[15{:}256]$. Right: ADC across 256 fast-time samples. Per-panel $|\rho |$ and $\sigma _\phi $ in title.}}{18}{figure.12}\protected@file@percent }
+\newlabel{fig:crp_adc_iq_traces}{{12}{18}{\textbf {Calibration-corrected I/Q traces} for the highest-energy VA per scene. Solid: GT real (blue) and imaginary (red); dashed: prediction. Left: CRP across range bins $[15{:}256]$. Right: ADC across 256 fast-time samples. Per-panel $|\rho |$ and $\sigma _\phi $ in title}{figure.12}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces \textbf  {Wall-clock and peak GPU memory per scene} on the 6-scene benchmark, single RTX\nobreakspace  {}4090. Wall-clock: mean (min) across scenes; range is per-scene min--max. mmIR is projected from its per-viewpoint cost.}}{18}{table.7}\protected@file@percent }
+\newlabel{tab:runtime}{{7}{18}{\textbf {Wall-clock and peak GPU memory per scene} on the 6-scene benchmark, single RTX~4090. Wall-clock: mean (min) across scenes; range is per-scene min--max. mmIR is projected from its per-viewpoint cost}{table.7}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces \textbf  {[Placeholder]} Ablation sweep on the 6-scene benchmark. Mean held-out test Corr, mean training Corr, and mean wall-clock per scene on a single RTX\nobreakspace  {}4090.}}{19}{table.8}\protected@file@percent }
+\newlabel{tab:ablations}{{8}{19}{\textbf {[Placeholder]} Ablation sweep on the 6-scene benchmark. Mean held-out test Corr, mean training Corr, and mean wall-clock per scene on a single RTX~4090}{table.8}{}}
+\gdef \@abspage@last{19}
