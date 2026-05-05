@@ -656,11 +656,13 @@ def evaluate_scene(
     train_frames: List[int],
     held_out_loop: int = 0,
     start_bin: int = NEAR_FIELD_BINS,
+    ours_dir: Optional[str] = None,
+    run_tag_template: Optional[str] = None,
 ) -> SceneResult:
     """Evaluate one scene: test view + 8 train views."""
     F = test_frame
     test_gt = _scene_gt_adc_path(name, F)
-    test_rp = _scene_rendered_rp_test(name, F)
+    test_rp = _scene_rendered_rp_test(name, F, ours_dir, run_tag_template)
     test_res = evaluate_frame(F, test_gt, test_rp,
                                 held_out_loop=held_out_loop,
                                 start_bin=start_bin, keep_arrays=True)
@@ -668,7 +670,7 @@ def evaluate_scene(
     train_results = []
     for f in train_frames:
         gt_p = _scene_gt_adc_path(name, f)
-        rp_p = _scene_rendered_rp_train(name, F, f)
+        rp_p = _scene_rendered_rp_train(name, F, f, ours_dir, run_tag_template)
         if not (os.path.isfile(gt_p) and os.path.isfile(rp_p)):
             print(f"    [skip train frame {f}] missing GT or pred")
             continue
@@ -798,11 +800,31 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                               "..", ".."))
 
 
-def _scene_run_dir(scene: str, test_frame: int) -> str:
-    run_tag = (f"{scene}_train8frames_1loops_test{test_frame}_loop0"
-                f"_pass2_N20000")
-    return os.path.join(PROJECT_ROOT, "mm25DGS_v5_v4", "output_frame_nvs",
-                         run_tag)
+_DEFAULT_OURS_DIR = os.path.join(PROJECT_ROOT, "mm25DGS_v5_v4",
+                                  "output_frame_nvs")
+_DEFAULT_RUN_TAG_TEMPLATE = (
+    "{scene}_train8frames_1loops_test{test_frame}_loop0_pass2_N20000"
+)
+
+
+def _scene_run_dir(scene: str, test_frame: int,
+                   ours_dir: Optional[str] = None,
+                   run_tag_template: Optional[str] = None) -> str:
+    """Resolve the per-scene 3DPS run directory.
+
+    The defaults reproduce the canonical paper-results layout under
+    ``mm25DGS_v5_v4/output_frame_nvs/<scene>_train8frames_..._N20000``.
+
+    For the ablation suite the runner script overrides both arguments so
+    each ablation config writes into its own
+    ``mm25DGS_v5_v4/output_ablations/<tier>/<axis>/<config>/<scene>...``
+    directory. The CRP/ADC eval CLI exposes the overrides as
+    ``--ours_dir`` and ``--run_tag``.
+    """
+    od = ours_dir if ours_dir is not None else _DEFAULT_OURS_DIR
+    tmpl = (run_tag_template if run_tag_template is not None
+            else _DEFAULT_RUN_TAG_TEMPLATE)
+    return os.path.join(od, tmpl.format(scene=scene, test_frame=test_frame))
 
 
 def _scene_gt_adc_path(scene: str, frame: int) -> str:
@@ -811,15 +833,21 @@ def _scene_gt_adc_path(scene: str, frame: int) -> str:
                          f"cascaded_frame_{frame}.npy")
 
 
-def _scene_rendered_rp_test(scene: str, test_frame: int) -> str:
-    return os.path.join(_scene_run_dir(scene, test_frame),
-                         "rendered_test_rp_complex.npy")
+def _scene_rendered_rp_test(scene: str, test_frame: int,
+                             ours_dir: Optional[str] = None,
+                             run_tag_template: Optional[str] = None) -> str:
+    return os.path.join(
+        _scene_run_dir(scene, test_frame, ours_dir, run_tag_template),
+        "rendered_test_rp_complex.npy")
 
 
 def _scene_rendered_rp_train(scene: str, test_frame: int,
-                               train_frame: int) -> str:
-    return os.path.join(_scene_run_dir(scene, test_frame), "train_frames",
-                         f"frame_{train_frame}", "rendered_rp_complex.npy")
+                               train_frame: int,
+                               ours_dir: Optional[str] = None,
+                               run_tag_template: Optional[str] = None) -> str:
+    return os.path.join(
+        _scene_run_dir(scene, test_frame, ours_dir, run_tag_template),
+        "train_frames", f"frame_{train_frame}", "rendered_rp_complex.npy")
 
 
 def test_frame_of(scene: str) -> int:
@@ -855,6 +883,16 @@ def main():
                     help=f"Near-field mask: zero CRP bins [0:start_bin] in both"
                           f" GT and pred (default {NEAR_FIELD_BINS}; pass 0 to"
                           f" disable masking).")
+    ap.add_argument("--ours_dir", default=None,
+                    help="Root directory holding the per-scene 3DPS run "
+                         "directories. Default reproduces the canonical paper "
+                         f"layout: {_DEFAULT_OURS_DIR}. Override for ablation "
+                         "evals (e.g. mm25DGS_v5_v4/output_ablations/tier1/"
+                         "point_count_N/N_2k/).")
+    ap.add_argument("--run_tag", default=None,
+                    help="Run-tag template inside --ours_dir; supports "
+                         "{scene} and {test_frame} placeholders. Default "
+                         f"matches paper-results runs: '{_DEFAULT_RUN_TAG_TEMPLATE}'.")
     args = ap.parse_args()
 
     if args.sanity_only:
@@ -885,12 +923,16 @@ def main():
             continue
         F, train_frames = PAPER_SCENES_INFO[scene]
         # quick sanity check that test rendered CRP exists
-        if not os.path.isfile(_scene_rendered_rp_test(scene, F)):
+        if not os.path.isfile(_scene_rendered_rp_test(scene, F,
+                                                       args.ours_dir,
+                                                       args.run_tag)):
             print(f"  [skip] {scene}: rendered test CRP not found")
             continue
         print(f"  evaluating {scene} (test={F}, train={train_frames})...")
         r = evaluate_scene(scene, F, train_frames,
-                            start_bin=args.start_bin)
+                            start_bin=args.start_bin,
+                            ours_dir=args.ours_dir,
+                            run_tag_template=args.run_tag)
         tcrp, tadc = r.test.crp, r.test.adc
         print(f"    test  CRP: corr={tcrp['mag_corr']:.3f}  "
               f"PSNR={tcrp['mag_psnr']:.2f}  SSIM={tcrp['mag_ssim']:.3f}  "

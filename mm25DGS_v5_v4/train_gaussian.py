@@ -514,7 +514,11 @@ def init_visible_weighted(scene, rast, target_n=90000,
                           cos_bore_min=0.1761,
                           n_intermediate=None,
                           device=DEVICE,
-                          return_pool=False):
+                          return_pool=False,
+                          enable_cull=True,
+                          enable_occlusion=True,
+                          enable_cosine_resample=True,
+                          enable_fps=True):
     # Default: make the intermediate pool large enough that the cosine
     # importance resample step doesn't bottleneck FPS selection. The
     # n_resample = min(n_intermediate, 3*target_n) line then picks 3*target_n.
@@ -553,6 +557,10 @@ def init_visible_weighted(scene, rast, target_n=90000,
     print(f"  [v4 init] Full pcl: {len(xyz_full)} points")
 
     # --- Step 1: FOV restrict ---
+    # Ablation hook (Tier-1 axis 4a): `enable_cull=False` drops the azimuth
+    # cone test and the range gate, keeping every point of the raw pcl that
+    # passes the dist > 1.5 m near-field guard (kept unconditionally to
+    # avoid d->0 singularities downstream).
     rx_center = rast.rx_positions.mean(dim=0).cpu().numpy()
     boresight = rast.tx_boresights.mean(dim=0).cpu().numpy()
     boresight = boresight / max(np.linalg.norm(boresight), 1e-8)
@@ -564,19 +572,28 @@ def init_visible_weighted(scene, rast, target_n=90000,
 
     max_range = rast.K * 299792458.0 / (2.0 * rast.slope * (rast.K / rast.sample_rate))
 
-    fov_mask = (cos_bore_full > cos_bore_min) & (dist > 1.5) & (dist < max_range)
+    if enable_cull:
+        fov_mask = (cos_bore_full > cos_bore_min) & (dist > 1.5) & (dist < max_range)
+    else:
+        fov_mask = dist > 1.5
     xyz_fov = xyz_full[fov_mask]
     nrm_fov = nrm_full[fov_mask]
     cos_bore_fov = cos_bore_full[fov_mask]
-    print(f"  [v4 init] After FOV: {len(xyz_fov)} points")
+    print(f"  [v4 init] After FOV: {len(xyz_fov)} points (enable_cull={enable_cull})")
 
     # --- Step 2: RX visibility ray tracing (the only mesh use) ---
-    rast.load_mi_scene()
-    visible = _ray_test_visibility_batched(xyz_fov, rx_center, rast._mi_scene)
+    # Ablation hook (Tier-1 axis 4b): skip the Mitsuba ray cast, keep all
+    # FOV-survivors. Saves ~2 s of init but lets back-of-wall / occluded
+    # points pollute the optimisation pool.
+    if enable_occlusion:
+        rast.load_mi_scene()
+        visible = _ray_test_visibility_batched(xyz_fov, rx_center, rast._mi_scene)
+    else:
+        visible = np.ones(len(xyz_fov), dtype=bool)
     xyz_vis = xyz_fov[visible]
     nrm_vis = nrm_fov[visible]
     cos_bore_vis = cos_bore_fov[visible]
-    print(f"  [v4 init] After RX visibility: {len(xyz_vis)} points")
+    print(f"  [v4 init] After RX visibility: {len(xyz_vis)} points (enable_occlusion={enable_occlusion})")
 
     if len(xyz_vis) < 100:
         raise RuntimeError(
@@ -584,7 +601,13 @@ def init_visible_weighted(scene, rast, target_n=90000,
             f"check the Mitsuba scene and FOV settings.")
 
     # --- Step 3: Cosine-hemisphere importance resample ---
-    weights = np.maximum(cos_bore_vis, 0.01)
+    # Ablation hook (Tier-1 axis 4c): swap the cos_bore-proportional
+    # importance weights for uniform weights (every visible point equally
+    # likely to be drawn into the FPS pool).
+    if enable_cosine_resample:
+        weights = np.maximum(cos_bore_vis, 0.01)
+    else:
+        weights = np.ones_like(cos_bore_vis)
     probs = weights / weights.sum()
     n_resample = min(n_intermediate, 3 * target_n)
     rng = np.random.default_rng(42)
@@ -592,18 +615,26 @@ def init_visible_weighted(scene, rast, target_n=90000,
     unique_idx = np.unique(sampled_idx)
     xyz_weighted = xyz_vis[unique_idx]
     nrm_weighted = nrm_vis[unique_idx]
-    print(f"  [v4 init] After cosine importance resample: {len(xyz_weighted)} points")
+    print(f"  [v4 init] After cosine importance resample: {len(xyz_weighted)} points "
+          f"(enable_cosine_resample={enable_cosine_resample})")
 
     # --- Step 4: FPS to target_n ---
+    # Ablation hook (Tier-1 axis 4d): replace farthest-point sampling with
+    # uniform random subsampling of the same `target_n` points (seed 42 for
+    # reproducibility). Removes the spatial-coverage prior FPS provides.
     if len(xyz_weighted) > target_n:
-        pts_t = torch.from_numpy(xyz_weighted).to(device)
-        sel = _farthest_point_sampling(pts_t, target_n).cpu().numpy()
+        if enable_fps:
+            pts_t = torch.from_numpy(xyz_weighted).to(device)
+            sel = _farthest_point_sampling(pts_t, target_n).cpu().numpy()
+        else:
+            sel = rng.choice(len(xyz_weighted), size=target_n, replace=False)
         xyz = xyz_weighted[sel]
         normals = nrm_weighted[sel]
     else:
         xyz = xyz_weighted
         normals = nrm_weighted
-    print(f"  [v4 init] After FPS: {len(xyz)} points")
+        sel = None
+    print(f"  [v4 init] After FPS: {len(xyz)} points (enable_fps={enable_fps})")
 
     N = len(xyz)
 
@@ -649,7 +680,8 @@ def init_visible_weighted(scene, rast, target_n=90000,
 
 def render_gaussians(model, rast, vertex_areas, active_mask=None,
                      shadow_mask=None, detach_phase=True, bsdf_mode='full',
-                     disabled_components=None, positions_override=None):
+                     disabled_components=None, positions_override=None,
+                     use_cuda_kernels=True, psf_spread=None):
     """Range-profile splatting renderer wrapper.
 
     `vertex_areas` carries the precomputed per-point hemisphere weight
@@ -691,7 +723,9 @@ def render_gaussians(model, rast, vertex_areas, active_mask=None,
         positions, normals, areas, raw_materials, rast,
         reparameterize_torch, detach_phase=detach_phase,
         shadow_mask=sm, bsdf_mode=bsdf_mode,
-        disabled_components=disabled_components)
+        disabled_components=disabled_components,
+        use_cuda_kernels=use_cuda_kernels,
+        psf_spread=psf_spread)
 
 
 # =========================================================================

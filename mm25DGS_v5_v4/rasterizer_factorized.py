@@ -37,6 +37,7 @@ def render_factorized(
     bsdf_mode='full',   # 'full' (default), or 'scalar' (B1 baseline)
     disabled_components=None,  # Phase 1.5: set of {'cbs','directive','broad','spm','ka','blend','jones','slab'}
     use_cuda_kernels=True,  # Phase B: route Step 4 through the fused CUDA kernel
+    psf_spread=None,    # Hann PSF kernel half-width (None -> default 15; ablation: {5,9,15,21,25})
 ):
     """Range-profile splatting renderer. Returns (rp_real, rp_imag).
 
@@ -491,8 +492,11 @@ def render_factorized(
         n_peak = n_peak.detach()
         phi_carrier = phi_carrier.detach()
 
-    # Splat to range bins with Hann PSF (precomputed lookup table)
-    SPREAD = 15
+    # Splat to range bins with Hann PSF (precomputed lookup table).
+    # `psf_spread` (Tier-2 ablation axis) overrides the default kernel
+    # half-width L. Even values produce L+1 bins due to the asymmetry of
+    # arange(-(L//2), L//2+1) below, so callers should keep L odd.
+    SPREAD = 15 if psf_spread is None else int(psf_spread)
 
     # Lazy-init PSF table (created once, reused across calls)
     if not hasattr(render_factorized, '_psf_table') or \

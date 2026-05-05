@@ -362,7 +362,17 @@ def train_frame_nvs(scene,
                                               # learnable positions, AMPLITUDE GRADIENT
                                               # ONLY (phase remains detached). Sub-mm
                                               # bounded; L2 anchor to LiDAR init.
-                    learn_positions_l2=100.0):  # L2 anchor coefficient on (pos − init)
+                    learn_positions_l2=100.0,  # L2 anchor coefficient on (pos − init)
+                    # Ablation knobs (md/ablations_plan.md, Tier 1+2). Defaults
+                    # match the canonical 3DPS recipe used in the main paper.
+                    detach_phase=True,             # Tier-2 axis 7
+                    use_mimo_factorization=True,   # Tier-1 axis 5 (False → exercise
+                                                    # PyTorch fallback in render_factorized)
+                    psf_spread=None,               # Tier-2 axis 6 (None → 15)
+                    enable_cull=True,              # Tier-1 axis 4a
+                    enable_occlusion=True,         # Tier-1 axis 4b
+                    enable_cosine_resample=True,   # Tier-1 axis 4c
+                    enable_fps=True):              # Tier-1 axis 4d
     assert v5cuda.is_available(), (
         'v5 CUDA extension not built. '
         'cd mm25DGS_v5_v4/cuda && python setup.py build_ext --inplace')
@@ -418,9 +428,26 @@ def train_frame_nvs(scene,
 
     # Init model at seed pose — FOV will be recomputed per-sample via
     # cull_gaussians during render_gaussians. We need a Mitsuba scene for
-    # the init-time visibility test.
-    model = init_visible_weighted(scene, rast, target_n=target_n)
+    # the init-time visibility test (skipped when enable_occlusion=False).
+    model = init_visible_weighted(
+        scene, rast, target_n=target_n,
+        enable_cull=enable_cull,
+        enable_occlusion=enable_occlusion,
+        enable_cosine_resample=enable_cosine_resample,
+        enable_fps=enable_fps)
     rast.free_mi_scene()
+
+    # Bundle the per-call render kwargs once. All four render_gaussians
+    # sites in this function (initial CC, training step, final test export,
+    # per-train-frame export) consume the same set; pinning them here
+    # guarantees consistency across train + eval + figure render.
+    _render_kw = dict(
+        bsdf_mode='full',
+        disabled_components=None,
+        detach_phase=detach_phase,
+        use_cuda_kernels=use_mimo_factorization,
+        psf_spread=psf_spread,
+    )
     import gc; gc.collect(); torch.cuda.empty_cache()
 
     # FOV mask for the seed pose — reused as a conservative initial mask.
@@ -462,7 +489,7 @@ def train_frame_nvs(scene,
             rp_real, rp_imag = render_gaussians(
                 model, rast, vertex_areas=vertex_areas,
                 active_mask=active_mask, shadow_mask=None,
-                bsdf_mode='full', disabled_components=None)
+                **_render_kw)
             ra_polar = range_profile_to_ra_mag(rp_real, rp_imag)
             ra_cart = polar_to_cart_torch(ra_polar, sample_grid)
             cc = cart_corr_torch(ra_cart, sample['gt_cart_norm']).item()
@@ -549,7 +576,7 @@ def train_frame_nvs(scene,
             rp_real, rp_imag = render_gaussians(
                 model, rast, vertex_areas=vertex_areas,
                 active_mask=active_mask, shadow_mask=None,
-                bsdf_mode='full', disabled_components=None)
+                **_render_kw)
             loss_k, _ = compute_ra_loss_rp(
                 rp_real, rp_imag, s['gt_loss'], loss_type=loss_type)
             (loss_k * loss_scale).backward()
@@ -694,7 +721,7 @@ def train_frame_nvs(scene,
         rp_real, rp_imag = render_gaussians(
             model, rast, vertex_areas=vertex_areas,
             active_mask=active_mask, shadow_mask=None,
-            bsdf_mode='full', disabled_components=None)
+            **_render_kw)
         test_ra_polar = range_profile_to_ra_mag(rp_real, rp_imag)
         test_ra_cart = polar_to_cart_torch(test_ra_polar, sample_grid)
         gt_ra_cart = polar_to_cart_torch(test_sample['gt_ra_polar'], sample_grid)
@@ -824,6 +851,7 @@ def train_frame_nvs(scene,
         active_mask=active_mask,
         sample_grid=sample_grid,
         range_res=range_res,
+        render_kwargs=_render_kw,
     )
 
     # Fisher-imbalance diagnostic dump (Phase A of the v5_v4 follow-on
@@ -873,6 +901,7 @@ def _save_ra_pngs_torch(ra_cart_np, out_dir, prefix, range_res, title_prefix):
 
 
 def _save_train_frames_export(*, output_dir, scene, train_samples, rast, model,
+                              render_kwargs=None,
                               vertex_areas, active_mask, sample_grid,
                               range_res):
     """For each train_sample, render at its pose and save the supplement-figure
@@ -896,10 +925,12 @@ def _save_train_frames_export(*, output_dir, scene, train_samples, rast, model,
 
         apply_pose(rast, s['pose'])
         with torch.no_grad():
+            _rk = render_kwargs if render_kwargs is not None else dict(
+                bsdf_mode='full', disabled_components=None)
             rp_real, rp_imag = render_gaussians(
                 model, rast, vertex_areas=vertex_areas,
                 active_mask=active_mask, shadow_mask=None,
-                bsdf_mode='full', disabled_components=None)
+                **_rk)
             ra_polar = range_profile_to_ra_mag(rp_real, rp_imag)
             ra_cart = polar_to_cart_torch(ra_polar, sample_grid)
             gt_polar = s['gt_ra_polar']
@@ -1051,11 +1082,54 @@ if __name__ == '__main__':
                     help='L2 anchor coefficient on (positions − init). '
                          'Default 100 (v5_v4 combo_jitter). Keeps positions '
                          'sub-mm from LiDAR seed.')
+    # ── Ablation knobs (md/ablations_plan.md, Tier 1+2) ──
+    # Defaults match the canonical 3DPS recipe; flipping any of these
+    # exercises a single ablation axis. The runner script encodes the
+    # chosen axis into --output_dir so each run lands in its own
+    # mm25DGS_v5_v4/output_ablations/<tier>/<axis>/<config>/<scene>...
+    ap.add_argument('--output_dir', default=None,
+                    help='Override the auto-constructed run directory. The '
+                         'ablation runner sets this to '
+                         'mm25DGS_v5_v4/output_ablations/<tier>/<axis>/<config>/<scene_run_tag>/.')
+    ap.add_argument('--no_phase_detach', action='store_true',
+                    help='Tier-2 axis 7: do NOT detach n_peak / phi_carrier '
+                         'before scatter — gradients flow through the '
+                         'carrier phase. Forces the PyTorch Step-5 fallback '
+                         'since the fused CUDA kernel assumes detached phase.')
+    ap.add_argument('--no_mimo_factorization', action='store_true',
+                    help='Tier-1 axis 5: disable the fused CUDA kernels for '
+                         'Step-4 (BSDF) and Step-5 (range splat). Falls '
+                         'through to the PyTorch path that materialises full '
+                         '(M, n_tx, n_rx) BSDF and (spread, M·n_tx·n_rx) '
+                         'splat tensors. ~3-10x slower per Adam step; '
+                         'memory may OOM at N=20k → may need to reduce N.')
+    ap.add_argument('--psf_spread', type=int, default=None,
+                    help='Tier-2 axis 6: Hann PSF kernel half-width L '
+                         '(default 15; ablation sweeps {5, 9, 21, 25}). Even '
+                         'values are blocked downstream since they produce '
+                         'L+1 bins via arange(-(L//2), L//2+1).')
+    ap.add_argument('--no_cull', action='store_true',
+                    help='Tier-1 axis 4a: disable the FOV / azimuth-cone cull '
+                         'in init_visible_weighted (keeps every pcl point '
+                         'past the 1.5 m near-field guard).')
+    ap.add_argument('--no_occlusion', action='store_true',
+                    help='Tier-1 axis 4b: skip the Mitsuba RX-side ray test in '
+                         'init_visible_weighted (no occlusion filtering).')
+    ap.add_argument('--no_cosine_resample', action='store_true',
+                    help='Tier-1 axis 4c: replace cos_bore importance weights '
+                         'with uniform weights at the resample stage.')
+    ap.add_argument('--no_fps', action='store_true',
+                    help='Tier-1 axis 4d: replace farthest-point sampling '
+                         'with uniform random subsampling (seed 42).')
     args = ap.parse_args()
 
     train_frames = [int(x) for x in args.train_frames.split(',') if x.strip()]
     train_loops = (None if args.train_loops is None else
                    [int(x) for x in args.train_loops.split(',') if x.strip()])
+    if args.psf_spread is not None and args.psf_spread % 2 == 0:
+        raise SystemExit(
+            f'--psf_spread must be odd (got {args.psf_spread}); '
+            'arange(-(L//2), L//2+1) yields L+1 bins for even L.')
     train_frame_nvs(
         scene=args.scene,
         train_frames=train_frames,
@@ -1077,4 +1151,13 @@ if __name__ == '__main__':
         reg_densify_mat_jitter=args.reg_densify_mat_jitter,
         seed_frame=args.seed_frame,
         learn_positions_lr=args.learn_positions_lr,
-        learn_positions_l2=args.learn_positions_l2)
+        learn_positions_l2=args.learn_positions_l2,
+        output_dir=args.output_dir,
+        # Ablation knobs (defaults preserve canonical recipe).
+        detach_phase=not args.no_phase_detach,
+        use_mimo_factorization=not args.no_mimo_factorization,
+        psf_spread=args.psf_spread,
+        enable_cull=not args.no_cull,
+        enable_occlusion=not args.no_occlusion,
+        enable_cosine_resample=not args.no_cosine_resample,
+        enable_fps=not args.no_fps)
