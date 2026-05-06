@@ -1,0 +1,59 @@
+\documentclass{article}
+
+% NeurIPS 2026 Main Track (double-blind)
+\usepackage{neurips_2026}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{array}                  % \vrule width syntax in CRP/ADC supplement tables
+\usepackage{enumitem}
+
+% Colors for table
+\definecolor{lightgreen}{HTML}{D5F5E3}
+\definecolor{lightyellow}{HTML}{FEF9E7}
+\definecolor{lightred}{HTML}{FADBD8}
+\definecolor{lightergray}{HTML}{F2F3F4}
+
+% CRP/ADC table — highlighter colors on the header-text labels only.
+\usepackage{colortbl}
+\definecolor{magbg}{HTML}{FFF1A8}     % yellow highlighter — Magnitude / Env.
+\definecolor{vrbg}{HTML}{B5DCEC}      % blue highlighter — Complex (VR)
+\definecolor{mediumgray}{HTML}{D5D8DC}
+
+\title{3DPS: Differentiable 3D Point Splatting for Physically Based mmWave Radar Rendering and Novel View Synthesis}
+
+\author{%
+  Anonymous Author(s)
+}
+
+\begin{document}
+
+\maketitle
+
+\input{sec_highres/0_abstract}
+\input{sec_highres/1_intro}
+\input{sec_highres/2_relatedworks}
+\input{sec_highres/3_methods}
+\input{sec_highres/4_experiments}
+\input{sec_highres/5_conclusion}
+
+% Flush all pending floats before References so figures and tables stay
+% with the body content (and don't bleed into the bibliography).
+\clearpage
+\bibliographystyle{plainnat}
+\bibliography{main}
+
+\input{sec_highres/A_supplement}
+
+\end{document}
