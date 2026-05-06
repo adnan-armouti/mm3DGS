@@ -530,18 +530,8 @@ def generate(args):
     panel_dir = os.path.join(args.panel_dir, args.scene, "v4")
     if not os.path.isdir(panel_dir):
         sys.exit(f"Panel dir not found: {panel_dir}")
-    # Resolve run_dir under both layouts: new canonical (bare scene-name
-    # leaf in no_occlusion ablation dir) and legacy template.
-    bare = os.path.join(args.ours_dir, args.scene)
-    legacy = os.path.join(
-        args.ours_dir,
+    run_dir = os.path.join(args.ours_dir,
         f"{args.scene}_train8frames_1loops_test{args.test_frame}_loop0_pass2_N20000")
-    if os.path.isfile(os.path.join(bare, "results.json")):
-        run_dir = bare
-    elif os.path.isfile(os.path.join(legacy, "results.json")):
-        run_dir = legacy
-    else:
-        sys.exit(f"No 3DPS run found at {bare} or {legacy}")
     test_cc = float(json.load(open(os.path.join(run_dir, "results.json")))
                        .get("final_test_cc", 0.0))
 
@@ -677,12 +667,7 @@ def main():
     p.add_argument("--panel_dir",
                    default=os.path.join(_REPO, "output/teaser_panels"))
     p.add_argument("--ours_dir",
-                   default=os.path.join(_REPO, "mm25DGS_v5_v4/output_ablations",
-                                         "tier1/lidar_init/no_occlusion"),
-                   help="Root of canonical 3DPS per-scene runs (bare-name "
-                        "leaves). Default points at the no-occlusion canonical "
-                        "(post 2026-05-06). Pass output_frame_nvs to use "
-                        "legacy template-named run dirs.")
+                   default=os.path.join(_REPO, "mm25DGS_v5_v4/output_frame_nvs"))
     p.add_argument("--output_dir",
                    default=os.path.join(_REPO, "output/postprocess_final_v5/figures"))
     args = p.parse_args()

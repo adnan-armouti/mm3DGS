@@ -285,22 +285,9 @@ def main():
     args = ap.parse_args()
 
     repo = args.repo
-    # Resolve run_dir for the new canonical (no_occlusion, bare scene-name)
-    # layout, falling back to the legacy output_frame_nvs/<scene>_..._N20000
-    # layout if no_occlusion is missing.
-    no_occ = os.path.join(
-        repo, "mm25DGS_v5_v4", "output_ablations",
-        "tier1", "lidar_init", "no_occlusion", args.scene)
-    legacy = os.path.join(
+    run_dir = os.path.join(
         repo, "mm25DGS_v5_v4", "output_frame_nvs",
         f"{args.scene}_train8frames_1loops_test{args.test_frame}_loop0_pass2_N20000")
-    if os.path.isfile(os.path.join(no_occ, "best_model.pt")):
-        run_dir = no_occ
-    elif os.path.isfile(os.path.join(legacy, "best_model.pt")):
-        run_dir = legacy
-    else:
-        raise SystemExit(f"No 3DPS run found at {no_occ} or {legacy}")
-    print(f"  using run_dir = {run_dir}")
     model_path = os.path.join(run_dir, "best_model.pt")
     mesh_path = os.path.join(repo, "data", args.scene, "scene", "mesh.ply")
     alignment_dir = os.path.join(repo, "data", "alignment_data")
