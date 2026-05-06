@@ -44,10 +44,10 @@ apply_paper_font()
 # ── Visual tokens (match Figs 1 / 2) ──────────────────────────────────────
 TILE_COLOR     = "#ebebeb"
 SECTION_RADIUS = 0.04
-SECTION_HEADER_PT = FIGURE_HEADER_PT
-SUBHEADER_PT      = FIGURE_BASE_PT
-ROW_LABEL_PT      = FIGURE_BASE_PT
-METRIC_PT         = FIGURE_BASE_PT  # 7pt — readable on heatmap overlays
+SECTION_HEADER_PT = FIGURE_HEADER_PT  # 10pt — |CRP|, |ADC| section titles
+SUBHEADER_PT      = FIGURE_HEADER_PT  # 10pt — GT, Ours column subheaders
+ROW_LABEL_PT      = FIGURE_HEADER_PT  # 10pt — scene labels, range bin/ADC sample axis labels
+METRIC_PT         = FIGURE_SMALL_PT   # 7pt  — per-cell metric overlays (must fit in CRP cell)
 
 SAVE_DPI = 300
 
@@ -357,7 +357,7 @@ def _draw_legend_strip(fig, cx_in, cy_in, fig_w, fig_h):
                         color=color, lw=1.0, linestyle=ls, alpha=0.95)
         legend_ax.text(x + seg_len + text_pad, cy_in, label,
                         ha="left", va="center",
-                        fontsize=FIGURE_BASE_PT, color="#222")
+                        fontsize=FIGURE_HEADER_PT, color="#222")
         x += item_w + item_gap
 
 
@@ -385,10 +385,14 @@ def fig_iq_traces(eval_dir: str, results_json: str, output_pdf: str,
     section_right_pad = 0.08
     row_gap    = 0.06
     section_header_h = 0.22
-    header_h         = section_header_h + 0.05
+    header_h         = section_header_h + 0.18  # extra room so CRP / ADC titles
+                                                  # have breathing space above the
+                                                  # rounded section tile
     xaxis_label_h    = 0.32   # increased to clear the xtick numbers
     legend_h         = 0.22
-    bot_margin       = xaxis_label_h + legend_h + 0.30
+    bot_margin       = xaxis_label_h + legend_h + 0.08  # tightened (was +0.30)
+                                                          # to remove wasted space
+                                                          # below the legend strip
 
     content_w = fig_w - 2 * margin - label_w
     section_w = (content_w - section_gap) / 2
@@ -401,7 +405,9 @@ def fig_iq_traces(eval_dir: str, results_json: str, output_pdf: str,
     section_tile_h = grid_h + 2 * 0.06
     section_tile_y = margin + bot_margin - 0.06
     grid_top       = section_tile_y + 0.06 + grid_h
-    section_header_y = grid_top + 0.10
+    section_header_y = grid_top + 0.20  # was 0.10 — bigger gap so the
+                                         # CRP / ADC titles aren't flush
+                                         # with the tile top
 
     crp_section_x = margin + label_w
     adc_section_x = crp_section_x + section_w + section_gap
