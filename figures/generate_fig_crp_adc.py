@@ -386,7 +386,7 @@ def fig_iq_traces(eval_dir: str, results_json: str, output_pdf: str,
     row_gap    = 0.06
     section_header_h = 0.22
     header_h         = section_header_h + 0.05
-    xaxis_label_h    = 0.18
+    xaxis_label_h    = 0.32   # increased to clear the xtick numbers
     legend_h         = 0.22
     bot_margin       = xaxis_label_h + legend_h + 0.30
 
@@ -409,8 +409,11 @@ def fig_iq_traces(eval_dir: str, results_json: str, output_pdf: str,
     adc_cell_x = adc_section_x + section_left_pad
 
     grid_bottom = grid_top - grid_h
-    xaxis_label_y = section_tile_y - 0.04
-    legend_y      = section_tile_y - 0.32
+    # Drop the "range bin" / "ADC sample" labels far enough below the
+    # section tile that they don't collide with the bottom-row xtick
+    # numbers (which sit just above section_tile_y).
+    xaxis_label_y = section_tile_y - 0.20
+    legend_y      = section_tile_y - 0.46
 
     # Regular ticks every 32: 8-9 ticks per axis with mixed digit counts.
     # Doesn't match phone-number formats (7/10/11 digits with specific group

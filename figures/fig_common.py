@@ -22,9 +22,9 @@ CORNER_RADIUS_INCHES = 0.08  # physical corner radius
 # ---------------------------------------------------------------------------
 
 PAPER_BODY_PT = 10.0          # NeurIPS 2026 body text size
-FIGURE_BASE_PT = 7.0          # default figure inline / label / tick size
-FIGURE_HEADER_PT = 8.0        # column headers / row labels / titles
-FIGURE_SMALL_PT = 6.0         # per-cell overlays (CC values etc.)
+FIGURE_BASE_PT = 9.0          # default figure inline / label / tick size
+FIGURE_HEADER_PT = 10.0       # column headers / row labels / titles
+FIGURE_SMALL_PT = 7.0         # per-cell overlays (CC values etc.)
 
 
 def apply_paper_font():
