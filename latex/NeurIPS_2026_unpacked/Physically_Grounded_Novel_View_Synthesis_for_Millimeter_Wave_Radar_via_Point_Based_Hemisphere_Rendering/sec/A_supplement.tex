@@ -99,19 +99,12 @@ Figures~\ref{fig:supp_s0_f135}--\ref{fig:supp_s2_f300} show per-scene side-by-si
 \subsection{CRP and ADC heatmaps and I/Q traces}
 \label{app:rdadc:figures}
 
-Figures~\ref{fig:crp_adc_heatmaps_db}--\ref{fig:crp_adc_iq_traces} show the qualitative side-by-side comparison of $|\mathrm{CRP}|$ and $|\mathrm{ADC}|$ between GT and the VR-corrected prediction across all six scenes (held-out test frames). Each panel is normalized identically to its $|\mathrm{RA}|$ counterpart in the main paper, so the visual structure is directly comparable.
-
-\begin{figure}[h]
-\centering
-\includegraphics[width=\linewidth]{figs/crp_adc/fig_crp_adc_heatmaps_dB.pdf}
-\caption{\textbf{$|\mathrm{CRP}|$ and $|\mathrm{ADC}|$ heatmaps on held-out test frames (dB scale).} Rows: scenes. Cols: GT and predicted $|\mathrm{CRP}|$ and $|\mathrm{ADC}|$. CRP cropped to range bins $[15{:}256]$ (the metric domain); ADC is IFFT$_r$ of the calibration-corrected, near-field-masked CRP. Each panel peak-normalized to its own max with a $-40$\,dB floor.}
-\label{fig:crp_adc_heatmaps_db}
-\end{figure}
+Figures~\ref{fig:crp_adc_heatmaps_linear}--\ref{fig:crp_adc_iq_traces} show the qualitative side-by-side comparison of $|\mathrm{CRP}|$ and $|\mathrm{ADC}|$ between GT and the VR-corrected prediction across all six scenes (held-out test frames). Each panel is normalized identically to its $|\mathrm{RA}|$ counterpart in the main paper, so the visual structure is directly comparable.
 
 \begin{figure}[h]
 \centering
 \includegraphics[width=\linewidth]{figs/crp_adc/fig_crp_adc_heatmaps_linear.pdf}
-\caption{\textbf{Linear-scale equivalent of Fig.~\ref{fig:crp_adc_heatmaps_db}.} Panels min-max normalized to $[0,1]$ --- the metric domain.}
+\caption{\textbf{$|\mathrm{CRP}|$ and $|\mathrm{ADC}|$ heatmaps on held-out test frames.} Rows: scenes. Cols: GT and predicted $|\mathrm{CRP}|$ and $|\mathrm{ADC}|$. CRP cropped to range bins $[15{:}256]$ (the metric domain); ADC is IFFT$_r$ of the calibration-corrected, near-field-masked CRP. Panels min-max normalized to $[0,1]$ --- the metric domain.}
 \label{fig:crp_adc_heatmaps_linear}
 \end{figure}
 

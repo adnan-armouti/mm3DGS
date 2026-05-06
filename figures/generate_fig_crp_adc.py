@@ -525,10 +525,10 @@ def main():
     args = ap.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
-    fig_heatmaps(args.eval_dir, args.results_json,
-                  os.path.join(args.output_dir,
-                                "fig_crp_adc_heatmaps_dB.pdf"),
-                  scale="dB")
+    # The dB-scale heatmaps figure was dropped from the supplement (see
+    # sec/A_supplement.tex: only the linear-scale heatmaps + I/Q traces
+    # are kept). The fig_heatmaps function still supports scale="dB" if
+    # ever needed; no caller emits it from the canonical pipeline.
     fig_heatmaps(args.eval_dir, args.results_json,
                   os.path.join(args.output_dir,
                                 "fig_crp_adc_heatmaps_linear.pdf"),
