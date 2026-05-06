@@ -41,12 +41,7 @@ from generate_tables import SCENES  # canonical 6-scene order
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
-DEFAULT_OURS_DIR = os.path.join(
-    PROJECT_ROOT, "mm25DGS_v5_v4", "output_ablations",
-    "tier1", "lidar_init", "no_occlusion")
-# Legacy path (pre-no-occlusion canonical), kept for reference. Pass
-# --ours_dir <legacy_path> to recover the older default's results.
-_LEGACY_OURS_DIR = os.path.join(PROJECT_ROOT, "mm25DGS_v5_v4", "output_frame_nvs")
+DEFAULT_OURS_DIR = os.path.join(PROJECT_ROOT, "mm25DGS_v5_v4", "output_frame_nvs")
 DEFAULT_ABLATIONS_DIR = os.path.join(PROJECT_ROOT, "mm25DGS_v5_v4", "output_ablations")
 DEFAULT_CRP_ADC_DEFAULT = os.path.join(PROJECT_ROOT, "output", "crp_adc_eval", "results.json")
 DEFAULT_CRP_ADC_ABLATIONS_ROOT = os.path.join(PROJECT_ROOT, "output", "crp_adc_eval_ablations")
@@ -174,26 +169,20 @@ def aggregate_config(config_dir: str, crp_adc_results_path: Optional[str]) -> di
 def aggregate_default(ours_dir: str, crp_adc_default_path: str) -> dict:
     """Aggregate the default 3DPS recipe row for the 'reference' line.
 
-    Default ``ours_dir`` points at the no-occlusion canonical layout
-    (bare scene-name leaf dirs). For backwards compatibility with the
-    legacy ``output_frame_nvs/<scene>_..._pass2_N20000/`` layout, the
-    glob fallback is preserved. Pulls CRP/ADC means from
-    ``output/crp_adc_eval/results.json``.
+    Walks ``mm25DGS_v5_v4/output_frame_nvs/<scene>_..._pass2_N20000`` runs
+    using the same loader logic as the ablation tree. Pulls CRP/ADC means
+    from the canonical CRP/ADC eval results.
     """
     test_corr_l, test_psnr_l, test_ssim_l, test_rmse_l = [], [], [], []
     train_corr_l, elapsed_l = [], []
     for scene in SCENES:
-        # New layout: <ours_dir>/<scene>/results.json (bare leaf).
-        bare = os.path.join(ours_dir, scene, "results.json")
-        if os.path.isfile(bare):
-            runs = [os.path.dirname(bare)]
-        else:
-            # Legacy: <ours_dir>/<scene>_*_pass2_N20000/results.json.
-            runs = sorted(
-                glob.glob(os.path.join(ours_dir, f"{scene}_*_pass2_N20000")),
-                key=os.path.getmtime, reverse=True)
-            runs = [r for r in runs if "_initC" not in r and "_initB" not in r
-                     and "_initA" not in r and "_p4d" not in r]
+        # Same patterns as figures/generate_tables.py: prefer the bare
+        # ..._pass2_N20000 dir; otherwise the longest-suffix variant.
+        runs = sorted(
+            glob.glob(os.path.join(ours_dir, f"{scene}_*_pass2_N20000")),
+            key=os.path.getmtime, reverse=True)
+        runs = [r for r in runs if "_initC" not in r and "_initB" not in r
+                 and "_initA" not in r and "_p4d" not in r]
         if not runs:
             continue
         rp = os.path.join(runs[0], "results.json")
@@ -267,13 +256,11 @@ ROWS = [
     ("no adaptive density",
      "tier1_density", "tier1/adaptive_density", "off", "tier1/adaptive_density/off"),
 
-    # Tier 1 axis 4 — LiDAR init stages.
-    # The "no occlusion ray-cast" config that lived here previously is
-    # now the canonical 3DPS default (its ablation showed a +0.013 test
-    # |RA| Corr improvement vs the legacy 4-stage init). The remaining 3
-    # stages are all genuine ablations against the new default.
+    # Tier 1 axis 4 — LiDAR init stages
     ("no azimuth-cone cull",
      "tier1_init", "tier1/lidar_init", "no_cull",          "tier1/lidar_init/no_cull"),
+    ("no occlusion ray-cast",
+     "tier1_init", "tier1/lidar_init", "no_occlusion",     "tier1/lidar_init/no_occlusion"),
     ("no cosine resample",
      "tier1_init", "tier1/lidar_init", "no_cosine_resample","tier1/lidar_init/no_cosine_resample"),
     ("no FPS (random sub-sample)",

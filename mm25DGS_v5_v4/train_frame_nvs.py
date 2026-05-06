@@ -370,10 +370,7 @@ def train_frame_nvs(scene,
                                                     # PyTorch fallback in render_factorized)
                     psf_spread=None,               # Tier-2 axis 6 (None → 15)
                     enable_cull=True,              # Tier-1 axis 4a
-                    enable_occlusion=False,        # axis 4b: net-hurts test
-                                                    # |RA| Corr; default OFF.
-                                                    # Pass True to restore the
-                                                    # legacy 4-stage init.
+                    enable_occlusion=True,         # Tier-1 axis 4b
                     enable_cosine_resample=True,   # Tier-1 axis 4c
                     enable_fps=True):              # Tier-1 axis 4d
     assert v5cuda.is_available(), (
@@ -1115,13 +1112,9 @@ if __name__ == '__main__':
                     help='Tier-1 axis 4a: disable the FOV / azimuth-cone cull '
                          'in init_visible_weighted (keeps every pcl point '
                          'past the 1.5 m near-field guard).')
-    ap.add_argument('--enable_occlusion', action='store_true',
-                    help='Re-enable the Mitsuba RX-side occlusion ray test in '
-                         'init_visible_weighted. Default OFF: ablation showed '
-                         'the explicit ray-cast hurts test |RA| Corr by ~0.013, '
-                         'so the canonical 3DPS recipe relies on adaptive '
-                         'density to prune occluded points instead. Pass this '
-                         'flag to reproduce the legacy 4-stage init.')
+    ap.add_argument('--no_occlusion', action='store_true',
+                    help='Tier-1 axis 4b: skip the Mitsuba RX-side ray test in '
+                         'init_visible_weighted (no occlusion filtering).')
     ap.add_argument('--no_cosine_resample', action='store_true',
                     help='Tier-1 axis 4c: replace cos_bore importance weights '
                          'with uniform weights at the resample stage.')
@@ -1165,6 +1158,6 @@ if __name__ == '__main__':
         use_mimo_factorization=not args.no_mimo_factorization,
         psf_spread=args.psf_spread,
         enable_cull=not args.no_cull,
-        enable_occlusion=args.enable_occlusion,
+        enable_occlusion=not args.no_occlusion,
         enable_cosine_resample=not args.no_cosine_resample,
         enable_fps=not args.no_fps)

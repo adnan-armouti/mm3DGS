@@ -31,11 +31,10 @@ pipeline documented below is the predecessor renderer and is unchanged.
 
 ### Train 3DPS on a single scene
 
-The trainer's defaults are the canonical recipe used in the paper
+The trainer's defaults are the locked-in M0 recipe used in the paper
 (20k oriented points, 500 Adam iters, ITU material vectors, adaptive
 density control at iters {100, 200, 300, 400}, cos-weighted FPS
-init from LiDAR — **3-stage init: cull → cosine resample → FPS**, see
-note below). No flag overrides are needed to reproduce the paper.
+init from LiDAR). No flag overrides are needed to reproduce the paper.
 
 ```bash
 PY=/home/adnan/.conda/envs/mmir/bin/python
@@ -46,24 +45,12 @@ $PY -m mm25DGS_v5_v4.train_frame_nvs \
     --train_frames 434,435,436,437,439,440,441,442
 ```
 
-The canonical 3DPS results in this README's "Output map" now live under
-[mm25DGS_v5_v4/output_ablations/tier1/lidar_init/no_occlusion/](mm25DGS_v5_v4/output_ablations/tier1/lidar_init/no_occlusion/)
-(bare scene-name leaves: `seq_1_frame_438/results.json`,
-`metrics_train.json`, `rendered_test_ra_{polar,cart}.npy`,
-`gt_test_ra_cart.npy`, `train_frames/frame_<F>/`). One scene takes
-~3.6 minutes on a single RTX 4090.
-
-> **Recipe change (2026-05-06).** An earlier 3DPS revision included a 4th
-> LiDAR-init stage — a Mitsuba-3 ray-cast from each surviving point
-> toward the array centroid that dropped occluded points. The Tier-1
-> ablation showed this stage net-hurts test |RA| Corr by ~0.013, so we
-> dropped it from the canonical recipe; the trainer's defaults
-> (`enable_occlusion=False`) now skip the ray-cast. The legacy 4-stage
-> runs from before this change still live under
-> [mm25DGS_v5_v4/output_frame_nvs/seq_*_train8frames_1loops_test*_loop0_pass2_N20000/](mm25DGS_v5_v4/output_frame_nvs/)
-> for reference but **are no longer the canonical results.** Pass
-> `--enable_occlusion` to `train_frame_nvs.py` to reproduce the legacy
-> 4-stage init.
+This writes to
+[mm25DGS_v5_v4/output_frame_nvs/seq_1_frame_438_train8frames_1loops_test438_loop0_pass2_N20000/](mm25DGS_v5_v4/output_frame_nvs/),
+producing `results.json` (test-frame metrics), `metrics_train.json`
+(per-train-frame metrics), `rendered_test_ra_{polar,cart}.npy`,
+`gt_test_ra_cart.npy`, and `train_frames/frame_<F>/` (per-train-frame
+RA dumps). One scene takes ~2.3 minutes on a single RTX 4090.
 
 ### Reproduce all 6 paper scenes (parallel across both 4090s)
 
@@ -113,8 +100,7 @@ Each driver supports `--scenes <list>`, `--gpus 0 1`, and
 | Fig — held-out test RA qualitative grid | [output/postprocess_final_v5/figures/training_ra_comparison.pdf](output/postprocess_final_v5/figures/) | [figures/generate_fig_training_ra.py](figures/generate_fig_training_ra.py) |
 | Per-scene supplement RA figures | [output/postprocess_final_v5/figures/supplement/supplement_seq_*.pdf](output/postprocess_final_v5/figures/supplement/) | [figures/generate_fig_training_ra_supplement.py](figures/generate_fig_training_ra_supplement.py) |
 | CRP/ADC qualitative figures | [latex/.../figs/crp_adc/](latex/NeurIPS_2026_unpacked/Physically_Grounded_Novel_View_Synthesis_for_Millimeter_Wave_Radar_via_Point_Based_Hemisphere_Rendering/figs/crp_adc/) | [figures/generate_fig_crp_adc.py](figures/generate_fig_crp_adc.py) |
-| 3DPS test/train RA metrics (canonical, post 2026-05-06) | [mm25DGS_v5_v4/output_ablations/tier1/lidar_init/no_occlusion/seq_*/{results,metrics_train}.json](mm25DGS_v5_v4/output_ablations/tier1/lidar_init/no_occlusion/) | [mm25DGS_v5_v4/train_frame_nvs.py](mm25DGS_v5_v4/train_frame_nvs.py) |
-| 3DPS test/train RA metrics (legacy 4-stage init, deprecated) | [mm25DGS_v5_v4/output_frame_nvs/seq_*_train8frames_1loops_test*_loop0_pass2_N20000/{results,metrics_train}.json](mm25DGS_v5_v4/output_frame_nvs/) | (kept for reference only — no longer the active canonical results) |
+| 3DPS test/train RA metrics | [mm25DGS_v5_v4/output_frame_nvs/seq_*_train8frames_1loops_test*_loop0_pass2_N20000/{results,metrics_train}.json](mm25DGS_v5_v4/output_frame_nvs/) | [mm25DGS_v5_v4/train_frame_nvs.py](mm25DGS_v5_v4/train_frame_nvs.py) |
 | 3DPS CRP/ADC metrics | [output/crp_adc_eval/results.json](output/crp_adc_eval/) | [mmir/evaluation/eval_crp_adc.py](mmir/evaluation/eval_crp_adc.py) |
 | DART metrics (cascaded) | [baselines/dart/results/seq_*__cascaded/{metrics,metrics_train}.json](baselines/dart/results/) | [baselines/dart/runner/run_phase4.py](baselines/dart/runner/run_phase4.py) |
 | Radar Fields metrics | [baselines/radarfields/results/seq_*/{metrics,metrics_train}.json](baselines/radarfields/results/) | [baselines/radarfields/runner/run_phase4.py](baselines/radarfields/runner/run_phase4.py) |
@@ -206,10 +192,9 @@ $PY -m mmir.evaluation.eval_crp_adc
 $PY figures/generate_crp_adc_paper_table.py
 
 # 3b. (Optional) Re-generate the per-scene RA tables that now live in the
-#     supplement (only needed if RA metrics changed). Default --ours_dir
-#     is now the no-occlusion canonical layout:
+#     supplement (only needed if RA metrics changed):
 $PY -m figures.generate_tables \
-    --ours_dir   mm25DGS_v5_v4/output_ablations/tier1/lidar_init/no_occlusion \
+    --ours_dir   mm25DGS_v5_v4/output_frame_nvs \
     --baselines_dir baselines \
     --output_dir latex/NeurIPS_2026_unpacked/Physically_Grounded_Novel_View_Synthesis_for_Millimeter_Wave_Radar_via_Point_Based_Hemisphere_Rendering/tables
 
@@ -250,9 +235,8 @@ test on GT only — should be exact to ~1e-16 relative error per scene.
 | Qualitative figure generator | [figures/generate_fig_crp_adc.py](figures/generate_fig_crp_adc.py) |
 | Diagnostic / oracle ceiling experiment | [figures/diag_phase_substitution_experiment.py](figures/diag_phase_substitution_experiment.py) |
 | Stage-2 phase refinement plan (`mm25DGS_v5_v5`) | [md/v5_v5_phase_refinement_plan.md](md/v5_v5_phase_refinement_plan.md) |
-| Per-scene rendered CRPs (test, canonical post 2026-05-06) | `mm25DGS_v5_v4/output_ablations/tier1/lidar_init/no_occlusion/seq_*/rendered_test_rp_complex.npy` |
-| Per-scene rendered CRPs (8 train frames each, canonical) | `mm25DGS_v5_v4/output_ablations/tier1/lidar_init/no_occlusion/seq_*/train_frames/frame_<F>/rendered_rp_complex.npy` |
-| Per-scene rendered CRPs (legacy 4-stage init, deprecated) | `mm25DGS_v5_v4/output_frame_nvs/seq_*_train8frames_1loops_test*_loop0_pass2_N20000/...` (no longer active) |
+| Per-scene rendered CRPs (test) | `mm25DGS_v5_v4/output_frame_nvs/seq_*_train8frames_1loops_test*_loop0_pass2_N20000/rendered_test_rp_complex.npy` |
+| Per-scene rendered CRPs (8 train frames each) | `mm25DGS_v5_v4/output_frame_nvs/.../train_frames/frame_<F>/rendered_rp_complex.npy` |
 | Per-scene GT ADC | `data/seq_*/radar/cascaded_frame_<F>.npy` |
 | Main paper section | `latex/.../sec/4_experiments.tex` (subsection `\subsection{Product-agnostic CRP and ADC fidelity}`, label `sec:experiments:crp_adc`) |
 | Supplement section | `latex/.../sec/A_supplement.tex` (`\section{Range--Doppler and ADC output validation}`, label `app:rdadc`) |
