@@ -182,7 +182,7 @@ def _draw_ra(ax, ra_cart, ra_corr=None):
             0.97, 0.03, f"{ra_corr:.2f}",
             transform=ax.transAxes,
             ha="right", va="bottom",
-            fontsize=4.5, color="white", fontweight="bold",
+            fontsize=7, color="white", fontweight="bold",
         )
 
 
@@ -193,7 +193,7 @@ def _draw_placeholder(ax, msg):
         0.5, 0.5, msg,
         transform=ax.transAxes,
         ha="center", va="center",
-        fontsize=4.5, color="#ffd166",
+        fontsize=7, color="#ffd166",
         wrap=True,
     )
 
@@ -305,7 +305,7 @@ def generate_figure(scenes, baselines_dir, ours_dir, output_dir):
             left + w / 2, layout.header_y(),
             SCENE_SHORT_NAMES.get(scene, scene),
             ha="center", va="top",
-            fontsize=5.5, fontweight="bold",
+            fontsize=9, fontweight="bold",
             transform=fig.transFigure,
         )
 
@@ -314,7 +314,7 @@ def generate_figure(scenes, baselines_dir, ours_dir, output_dir):
         fig.text(
             layout.row_label_x(), layout.row_label_y(row_idx), label,
             ha="center", va="center",
-            fontsize=5.5, fontweight="bold", rotation=90,
+            fontsize=9, fontweight="bold", rotation=90,
             transform=fig.transFigure,
         )
 
