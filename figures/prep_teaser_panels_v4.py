@@ -176,7 +176,13 @@ def main():
                    help="Which training frame to use for the Rendering panel "
                         "(GT vs 3DPS, ADC/CRP/RA).")
     p.add_argument("--ours_dir",
-                   default=os.path.join(_REPO, "mm25DGS_v5_v4/output_frame_nvs"))
+                   default=os.path.join(_REPO, "mm25DGS_v5_v4/output_ablations",
+                                         "tier1/lidar_init/no_occlusion"),
+                   help="Root of canonical 3DPS per-scene runs. Default "
+                        "points at the no-occlusion-ray-cast results that "
+                        "became the canonical recipe (post 2026-05-06). "
+                        "Pass the legacy mm25DGS_v5_v4/output_frame_nvs path "
+                        "to regenerate teaser panels from the older runs.")
     p.add_argument("--data_dir", default=os.path.join(_REPO, "data"))
     p.add_argument("--alignment_dir",
                    default=os.path.join(_REPO, "data/alignment_data"))
@@ -184,8 +190,20 @@ def main():
                    default=os.path.join(_REPO, "output/teaser_panels"))
     args = p.parse_args()
 
-    run_dir = os.path.join(args.ours_dir,
+    # Locate the per-scene run dir. The new canonical layout uses bare
+    # scene-name leaves (under output_ablations/tier1/lidar_init/no_occlusion);
+    # the legacy layout uses <scene>_train8frames_..._pass2_N20000.
+    bare = os.path.join(args.ours_dir, args.scene)
+    legacy = os.path.join(
+        args.ours_dir,
         f"{args.scene}_train8frames_1loops_test{args.test_frame}_loop0_pass2_N20000")
+    if os.path.isfile(os.path.join(bare, "results.json")):
+        run_dir = bare
+    elif os.path.isfile(os.path.join(legacy, "results.json")):
+        run_dir = legacy
+    else:
+        sys.exit(f"No 3DPS run found at {bare} or {legacy}")
+    print(f"  using run_dir = {run_dir}")
     panel_dir = os.path.join(args.output_dir, args.scene, "v4")
     os.makedirs(panel_dir, exist_ok=True)
     mesh_path = os.path.join(args.data_dir, args.scene, "scene", "mesh.ply")

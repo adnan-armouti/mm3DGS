@@ -62,6 +62,10 @@ DEFAULT_SCENES = [
 # default writes the SHORT name (no flag-suffix); pre-cleanup runs wrote
 # the LONG name. Search both, prefer the most-recently-modified.
 OURS_RUN_TEMPLATES = [
+    # New canonical (post 2026-05-06): bare scene-name leaves under
+    # output_ablations/tier1/lidar_init/no_occlusion/.
+    "{scene}",
+    # Legacy template-named layout under output_frame_nvs/.
     "{scene}_train8frames_1loops_test{frame}_loop0_pass2_N20000",
     ("{scene}_train8frames_1loops_test{frame}_loop0_pass2_N20000_"
      "dnsfyjt0.05i100u400p0.02_dsigpos_grad_amp_lpos1e-05L2100"),
@@ -334,7 +338,8 @@ def main():
         help="Root dir with radarsplat/, radarfields/, dart/ subtrees.",
     )
     parser.add_argument(
-        "--ours_dir", default="mm25DGS_v5_v4/output_frame_nvs",
+        "--ours_dir",
+        default="mm25DGS_v5_v4/output_ablations/tier1/lidar_init/no_occlusion",
         help="Root dir holding the v5_v4 per-scene run directories.",
     )
     parser.add_argument(
