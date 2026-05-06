@@ -75,6 +75,25 @@ METRICS = [
 # ---------------------------------------------------------------------------
 
 def find_ours_results(scene: str, ours_dir: str) -> Optional[str]:
+    """Locate the canonical 3DPS results.json for ``scene``.
+
+    The canonical 3DPS recipe has changed to **omit the Mitsuba occlusion
+    ray-cast init stage** (ablation showed it net-hurts test |RA| Corr by
+    ~0.013; see Supplement Sec.~app:ablations). The canonical run dirs now
+    live under
+    ``mm25DGS_v5_v4/output_ablations/tier1/lidar_init/no_occlusion/<scene>/``
+    when ``ours_dir`` points to that root, with bare scene-name leaf dirs.
+
+    For backwards compatibility with the older
+    ``output_frame_nvs/<scene>_..._pass2_N20000`` layout, the function
+    falls back to globbing that pattern when the new layout's bare-name
+    dir is not found.
+    """
+    # New canonical: ``<ours_dir>/<scene>/results.json`` (bare leaf).
+    bare = os.path.join(ours_dir, scene, 'results.json')
+    if os.path.isfile(bare):
+        return bare
+    # Legacy: ``<ours_dir>/<scene>_*_pass2_N20000/results.json``.
     pat1 = os.path.join(ours_dir, f'{scene}_*_pass2_N20000', 'results.json')
     pat2 = os.path.join(ours_dir,
         f'{scene}_*_pass2_N20000_dnsfyjt0.05i100u400p0.02_dsigpos_grad_amp_lpos1e-05L2100',
@@ -410,7 +429,11 @@ def write_train_table(train_rows: dict, path: str):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--ours_dir', default='mm25DGS_v5_v4/output_frame_nvs')
+    ap.add_argument('--ours_dir',
+        default='mm25DGS_v5_v4/output_ablations/tier1/lidar_init/no_occlusion',
+        help='Root directory of the canonical 3DPS per-scene runs. Default '
+             'points at the no-occlusion-ray-cast results that became the '
+             'canonical recipe after the Tier-1 ablation.')
     ap.add_argument('--baselines_dir', default='baselines')
     ap.add_argument('--output_dir', default=(
         'latex/NeurIPS_2026_unpacked/Physically_Grounded_Novel_View_Synthesis_'

@@ -13,7 +13,7 @@
 & Corr $\uparrow$ & PSNR $\uparrow$ & SSIM $\uparrow$ & RMSE $\downarrow$ & $|$CRP$|$ Corr $\uparrow$ & ADC env. $\uparrow$ & Corr $\uparrow$ & (min) \\
 \midrule
 \multicolumn{9}{l}{\textit{Reference}} \\
-\textbf{3DPS default} ($N{=}20$k, 8 views, adaptive on, full init, MIMO factored, $L{=}15$, detach on, $\lambda_{\mathrm{pos}}{=}100$) & \textbf{0.587} & \textbf{28.8} & \textbf{0.734} & \textbf{0.0369} & \textbf{0.603} & \textbf{0.613} & \textbf{0.812} & \textbf{3.0} \\
+\textbf{3DPS default} ($N{=}20$k, 8 views, adaptive on, full init, MIMO factored, $L{=}15$, detach on, $\lambda_{\mathrm{pos}}{=}100$) & \textbf{0.600} & \textbf{27.7} & \textbf{0.697} & \textbf{0.0411} & \textbf{0.612} & \textbf{0.587} & \textbf{0.825} & \textbf{3.6} \\
 \midrule
 \multicolumn{9}{l}{\textit{Tier 1 — point count $N$}} \\
 $N{=}\phantom{0}2{,}000$ & 0.578 & 28.4 & 0.696 & 0.0389 & 0.586 & 0.571 & 0.673 & 4.0 \\
@@ -31,7 +31,6 @@ no adaptive density & 0.553 & 27.0 & 0.638 & 0.0459 & 0.587 & 0.586 & 0.760 & 3.
 \midrule
 \multicolumn{9}{l}{\textit{Tier 1 — LiDAR init stages}} \\
 no azimuth-cone cull & 0.556 & 27.0 & 0.665 & 0.0458 & 0.581 & 0.586 & 0.812 & 2.5 \\
-no occlusion ray-cast & 0.600 & 27.7 & 0.697 & 0.0411 & 0.612 & 0.587 & 0.825 & 3.6 \\
 no cosine resample & 0.571 & 27.7 & 0.692 & 0.0417 & 0.585 & 0.590 & 0.812 & 3.5 \\
 no FPS (random sub-sample) & 0.542 & 28.1 & 0.717 & 0.0403 & 0.538 & 0.626 & 0.808 & 3.3 \\
 \midrule

@@ -516,7 +516,14 @@ def init_visible_weighted(scene, rast, target_n=90000,
                           device=DEVICE,
                           return_pool=False,
                           enable_cull=True,
-                          enable_occlusion=True,
+                          enable_occlusion=False,  # Mitsuba ray-cast NET-HURTS
+                                                    # |RA| Corr by ~0.013 in
+                                                    # the Tier-1 ablation; off
+                                                    # by default. Pass
+                                                    # enable_occlusion=True to
+                                                    # restore the legacy 4-stage
+                                                    # init (re-runs the Mitsuba
+                                                    # RX-side visibility test).
                           enable_cosine_resample=True,
                           enable_fps=True):
     # Default: make the intermediate pool large enough that the cosine

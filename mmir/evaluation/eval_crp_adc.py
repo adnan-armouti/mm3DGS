@@ -800,9 +800,17 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                               "..", ".."))
 
 
-_DEFAULT_OURS_DIR = os.path.join(PROJECT_ROOT, "mm25DGS_v5_v4",
+_DEFAULT_OURS_DIR = os.path.join(
+    PROJECT_ROOT, "mm25DGS_v5_v4", "output_ablations",
+    "tier1", "lidar_init", "no_occlusion")
+_DEFAULT_RUN_TAG_TEMPLATE = "{scene}"  # bare scene-name leaf
+
+# Legacy layout (pre-no-occlusion canonical). Kept here for reference only;
+# pass --ours_dir / --run_tag to recover the older runs at
+#   mm25DGS_v5_v4/output_frame_nvs/<scene>_..._pass2_N20000/
+_LEGACY_OURS_DIR = os.path.join(PROJECT_ROOT, "mm25DGS_v5_v4",
                                   "output_frame_nvs")
-_DEFAULT_RUN_TAG_TEMPLATE = (
+_LEGACY_RUN_TAG_TEMPLATE = (
     "{scene}_train8frames_1loops_test{test_frame}_loop0_pass2_N20000"
 )
 

@@ -69,3 +69,28 @@ python train.py --config output/training/seq_0_frame_135/config.json
 # Evaluate (from mmir/evaluation/)
 python -m mmir.evaluation.cli --scenes seq_0_frame_135 --evaluations training transfer
 ```
+
+## 3DPS canonical results location (post 2026-05-06)
+
+The NeurIPS submission's canonical 3DPS results live at
+`mm25DGS_v5_v4/output_ablations/tier1/lidar_init/no_occlusion/<scene>/`
+(bare scene-name leaves), NOT at the legacy
+`mm25DGS_v5_v4/output_frame_nvs/<scene>_..._pass2_N20000/` location.
+
+The recipe change: an earlier 3DPS revision included a 4th LiDAR-init
+stage (Mitsuba-3 ray-cast occlusion test). Tier-1 ablation showed it
+net-hurts test |RA| Corr by ~0.013, so we dropped it. Trainer default
+is now `enable_occlusion=False`. Pass `--enable_occlusion` to reproduce
+the legacy 4-stage init.
+
+Headline 6-scene mean numbers (canonical 3-stage init): test |RA| Corr
+**0.600**, train |RA| Corr **0.825**, test |CRP| Corr **0.612**, ADC
+envelope **0.587**, ~3.6 min/scene on RTX 4090.
+
+Loaders that auto-resolve to the canonical location:
+- `figures/generate_tables.py` `find_ours_results` (bare-name dir,
+  legacy glob fallback preserved)
+- `figures/generate_crp_adc_paper_table.py` `DEFAULT_OURS_DIR`
+- `figures/generate_ablation_table.py` `DEFAULT_OURS_DIR`
+- `mmir/evaluation/eval_crp_adc.py` `_DEFAULT_OURS_DIR` +
+  `_DEFAULT_RUN_TAG_TEMPLATE`

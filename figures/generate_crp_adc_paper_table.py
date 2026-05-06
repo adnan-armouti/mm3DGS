@@ -57,7 +57,7 @@ METHOD_ORDER = ("dart", "radarfields", "radarsplat", "ours")
 
 
 CRP_ADC_RESULTS = "output/crp_adc_eval/results.json"
-DEFAULT_OURS_DIR = "mm25DGS_v5_v4/output_frame_nvs"
+DEFAULT_OURS_DIR = "mm25DGS_v5_v4/output_ablations/tier1/lidar_init/no_occlusion"
 DEFAULT_BASELINES_DIR = "baselines"
 DEFAULT_OUT = (
     "latex/NeurIPS_2026_unpacked/"
