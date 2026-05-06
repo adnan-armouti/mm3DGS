@@ -55,10 +55,6 @@ SCENES = [
 ]
 
 OURS_RUN_TEMPLATES = [
-    # New canonical (post 2026-05-06): bare scene-name leaves under
-    # output_ablations/tier1/lidar_init/no_occlusion/.
-    "{scene}",
-    # Legacy template-named layout under output_frame_nvs/.
     "{scene}_train8frames_1loops_test{frame}_loop0_pass2_N20000",
     ("{scene}_train8frames_1loops_test{frame}_loop0_pass2_N20000_"
      "dnsfyjt0.05i100u400p0.02_dsigpos_grad_amp_lpos1e-05L2100"),
@@ -315,8 +311,7 @@ def generate_one_scene(scene: str, test_frame: int,
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--baselines_dir", default="baselines")
-    ap.add_argument("--ours_dir",
-                    default="mm25DGS_v5_v4/output_ablations/tier1/lidar_init/no_occlusion")
+    ap.add_argument("--ours_dir", default="mm25DGS_v5_v4/output_frame_nvs")
     ap.add_argument("--output_dir",
                     default="output/postprocess_final_v5/figures/supplement")
     args = ap.parse_args()
