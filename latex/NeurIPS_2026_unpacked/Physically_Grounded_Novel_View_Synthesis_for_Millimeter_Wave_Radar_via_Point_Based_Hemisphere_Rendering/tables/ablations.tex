@@ -16,41 +16,41 @@
 \textbf{3DPS default} ($N{=}20$k, 8 views, adaptive on, full init, MIMO factored, $L{=}15$, detach on, $\lambda_{\mathrm{pos}}{=}100$) & \textbf{0.587} & \textbf{28.8} & \textbf{0.734} & \textbf{0.0369} & \textbf{0.603} & \textbf{0.613} & \textbf{0.812} & \textbf{3.0} \\
 \midrule
 \multicolumn{9}{l}{\textit{Tier 1 — point count $N$}} \\
-$N{=}\phantom{0}2{,}000$ & 0.598 & 26.2 & 0.616 & 0.0489 & 0.598 & 0.551 & 0.658 & 5.5 \\
-$N{=}\phantom{0}5{,}000$ & -- & -- & -- & -- & -- & -- & -- & -- \\
-$N{=}10{,}000$ & -- & -- & -- & -- & -- & -- & -- & -- \\
-$N{=}50{,}000$ & -- & -- & -- & -- & -- & -- & -- & -- \\
+$N{=}\phantom{0}2{,}000$ & 0.578 & 28.4 & 0.696 & 0.0389 & 0.586 & 0.571 & 0.673 & 4.0 \\
+$N{=}\phantom{0}5{,}000$ & 0.571 & 28.0 & 0.691 & 0.0421 & 0.574 & 0.571 & 0.731 & 4.0 \\
+$N{=}10{,}000$ & 0.586 & 28.2 & 0.704 & 0.0394 & 0.591 & 0.615 & 0.777 & 2.7 \\
+$N{=}50{,}000$ & 0.538 & 27.3 & 0.696 & 0.0439 & 0.565 & 0.602 & 0.858 & 5.1 \\
 \midrule
 \multicolumn{9}{l}{\textit{Tier 1 — training views}} \\
-2 train views & -- & -- & -- & -- & -- & -- & -- & -- \\
-4 train views & -- & -- & -- & -- & -- & -- & -- & -- \\
-6 train views & -- & -- & -- & -- & -- & -- & -- & -- \\
+2 train views & 0.573 & 27.0 & 0.674 & 0.0448 & 0.591 & 0.591 & 0.888 & 0.9 \\
+4 train views & 0.575 & 28.4 & 0.717 & 0.0393 & 0.581 & 0.599 & 0.859 & 1.4 \\
+6 train views & 0.586 & 28.2 & 0.704 & 0.0393 & 0.584 & 0.605 & 0.838 & 2.6 \\
 \midrule
 \multicolumn{9}{l}{\textit{Tier 1 — adaptive density}} \\
-no adaptive density & -- & -- & -- & -- & -- & -- & -- & -- \\
+no adaptive density & 0.553 & 27.0 & 0.638 & 0.0459 & 0.587 & 0.586 & 0.760 & 3.3 \\
 \midrule
 \multicolumn{9}{l}{\textit{Tier 1 — LiDAR init stages}} \\
-no azimuth-cone cull & -- & -- & -- & -- & -- & -- & -- & -- \\
-no occlusion ray-cast & -- & -- & -- & -- & -- & -- & -- & -- \\
-no cosine resample & -- & -- & -- & -- & -- & -- & -- & -- \\
-no FPS (random sub-sample) & -- & -- & -- & -- & -- & -- & -- & -- \\
+no azimuth-cone cull & 0.556 & 27.0 & 0.665 & 0.0458 & 0.581 & 0.586 & 0.812 & 2.5 \\
+no occlusion ray-cast & 0.600 & 27.7 & 0.697 & 0.0411 & 0.612 & 0.587 & 0.825 & 3.6 \\
+no cosine resample & 0.571 & 27.7 & 0.692 & 0.0417 & 0.585 & 0.590 & 0.812 & 3.5 \\
+no FPS (random sub-sample) & 0.542 & 28.1 & 0.717 & 0.0403 & 0.538 & 0.626 & 0.808 & 3.3 \\
 \midrule
 \multicolumn{9}{l}{\textit{Tier 1 — MIMO factorization}} \\
-no MIMO factorization (PyTorch fallback) & -- & -- & -- & -- & -- & -- & -- & -- \\
+no MIMO factorization (PyTorch fallback) & 0.555 & 27.4 & 0.685 & 0.0432 & 0.576 & 0.587 & 0.813 & 5.3 \\
 \midrule
 \multicolumn{9}{l}{\textit{Tier 2 — PSF kernel $L$}} \\
-PSF $L{=}5$ & -- & -- & -- & -- & -- & -- & -- & -- \\
-PSF $L{=}9$ & -- & -- & -- & -- & -- & -- & -- & -- \\
-PSF $L{=}21$ & -- & -- & -- & -- & -- & -- & -- & -- \\
-PSF $L{=}25$ & -- & -- & -- & -- & -- & -- & -- & -- \\
+PSF $L{=}5$ & 0.569 & 28.0 & 0.716 & 0.0402 & 0.590 & 0.610 & 0.812 & 4.8 \\
+PSF $L{=}9$ & 0.572 & 28.2 & 0.708 & 0.0399 & 0.590 & 0.577 & 0.814 & 3.4 \\
+PSF $L{=}21$ & 0.578 & 27.8 & 0.691 & 0.0413 & 0.589 & 0.595 & 0.813 & 3.6 \\
+PSF $L{=}25$ & 0.569 & 27.4 & 0.682 & 0.0433 & 0.605 & 0.574 & 0.814 & 3.7 \\
 \midrule
 \multicolumn{9}{l}{\textit{Tier 2 — carrier-phase detach}} \\
-no carrier-phase detach & -- & -- & -- & -- & -- & -- & -- & -- \\
+no carrier-phase detach & 0.537 & 27.1 & 0.676 & 0.0450 & 0.562 & 0.585 & 0.894 & 4.5 \\
 \midrule
 \multicolumn{9}{l}{\textit{Tier 2 — position anchor $\lambda_{\mathrm{pos}}$}} \\
-$\lambda_{\mathrm{pos}}{=}0$ & -- & -- & -- & -- & -- & -- & -- & -- \\
-$\lambda_{\mathrm{pos}}{=}1$ & -- & -- & -- & -- & -- & -- & -- & -- \\
-$\lambda_{\mathrm{pos}}{=}1000$ & -- & -- & -- & -- & -- & -- & -- & -- \\
+$\lambda_{\mathrm{pos}}{=}0$ & 0.584 & 28.1 & 0.725 & 0.0398 & 0.606 & 0.594 & 0.821 & 2.3 \\
+$\lambda_{\mathrm{pos}}{=}1$ & 0.584 & 27.7 & 0.710 & 0.0419 & 0.608 & 0.616 & 0.819 & 3.7 \\
+$\lambda_{\mathrm{pos}}{=}1000$ & 0.566 & 28.2 & 0.707 & 0.0394 & 0.590 & 0.584 & 0.822 & 3.3 \\
 \bottomrule
 \end{tabular}
 }
